@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEC Match Recorder: Training</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='34%2045%20188%20186'%3E%3Cpath%20fill='%23FF3D2E'%20d='M159.2,98.1l9-50.9h-50.9l-9,50.9,20.9,25.4,29.9-25.4ZM96,113.4h-50.9l-9,50.9h50.9l29.9-25.4-20.9-25.4ZM168.2,113.4l-29.9,25.4,20.9,25.4h50.9l9-50.9h-50.9ZM96,177.7l-9,50.9h50.9l9-50.9-20.9-25.4-29.9,25.4Z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+<style>
+  .train-layout { padding: 16px; display: grid; gap: 16px; grid-template-columns: minmax(300px, 1fr) minmax(420px, 2fr); }
+  @media (max-width: 1000px) { .train-layout { grid-template-columns: 1fr; } }
+  .video-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .video-row .name { flex: 1; word-break: break-all; }
+  .progress { height: 8px; background: var(--panel2); border-radius: 999px; overflow: hidden; margin: 8px 0; }
+  .progress i { display: block; height: 100%; background: var(--brand); width: 0; transition: width .5s; }
+  .review-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px; background: var(--panel2); }
+  .review-card.current { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand) inset; }
+  .review-top { display: flex; gap: 12px; flex-wrap: wrap; }
+  .review-top img.frame { width: 320px; max-width: 100%; border-radius: 8px; border: 1px solid var(--border); }
+  .sides { flex: 1; min-width: 260px; display: grid; gap: 10px; }
+  .side { display: grid; grid-template-columns: 56px 1fr; gap: 8px; align-items: center; }
+  .side .who { font-family: var(--display); font-weight: 700; color: var(--brand); }
+  .side .who.p2 { color: #4f8cff; }
+  .side img.crop { max-width: 100%; max-height: 64px; background: #000; border-radius: 6px; display: block; margin-bottom: 6px; }
+  .side input { padding: 8px 10px; font-size: 15px; }
+  .guess { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .review-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  .meta { font-size: 12px; color: var(--muted); margin-left: auto; }
+  .learned { display: flex; gap: 6px; flex-wrap: wrap; }
+  .learned .tag { background: var(--brand-soft); border: 1px solid var(--brand-edge); color: #ffd9d5; border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+  .stat { font-family: var(--display); font-size: 28px; font-weight: 700; }
+  .stats { display: flex; gap: 24px; margin: 8px 0 12px; }
+  .stats .muted { display: block; }
+  .kbd { font-family: ui-monospace, Consolas, monospace; background: var(--panel2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="34 45 188 186" aria-hidden="true"><path fill="#FF3D2E" d="M159.2,98.1l9-50.9h-50.9l-9,50.9,20.9,25.4,29.9-25.4ZM96,113.4h-50.9l-9,50.9h50.9l29.9-25.4-20.9-25.4ZM168.2,113.4l-29.9,25.4,20.9,25.4h50.9l9-50.9h-50.9ZM96,177.7l-9,50.9h50.9l9-50.9-20.9-25.4-29.9,25.4Z"/></svg>
+    <div><span class="name">Detector training</span><span class="org">Texas Esports Collective</span></div>
+  </div>
+  <div class="chips">
+    <span id="chip-obs" class="chip">OBS</span>
+    <span id="chip-detect" class="chip">Detector</span>
+  </div>
+  <a class="small" href="/" style="text-decoration:none">← Dashboard</a>
+</header>
+<div id="banner" class="banner" hidden></div>
+
+<main class="train-layout">
+  <section>
+    <div class="panel">
+      <h2>Scan a recording</h2>
+      <p class="muted">OBS plays the file through a temporary scene and the detector looks for the VS splash every few seconds. Only when OBS is not recording or streaming.</p>
+      <div id="video-folder" class="muted"></div>
+      <div id="videos"></div>
+      <div class="row" style="align-items:center">
+        <label class="muted">Step (seconds) <input id="stride" type="number" value="2.5" min="0.5" step="0.5" style="width:90px;display:inline-block;margin-left:6px;padding:6px 8px"></label>
+        <label class="muted">Start at (min) <input id="start-min" type="number" value="0" min="0" style="width:90px;display:inline-block;margin-left:6px;padding:6px 8px"></label>
+        <label class="muted" title="Parallel slices of the video, each played at 2x. More lanes = faster, more CPU.">Lanes <input id="lanes" type="number" value="4" min="1" max="8" style="width:70px;display:inline-block;margin-left:6px;padding:6px 8px"></label>
+      </div>
+      <div class="progress"><i id="progress-bar"></i></div>
+      <div id="scan-status" class="muted">Idle.</div>
+      <div class="row"><button id="btn-cancel" class="small" hidden>Cancel scan</button></div>
+    </div>
+    <div class="panel" style="margin-top:16px">
+      <h2>Learned so far</h2>
+      <div class="stats">
+        <div><span id="stat-chars" class="stat">0</span><span class="muted">characters</span></div>
+        <div><span id="stat-templates" class="stat">0</span><span class="muted">templates</span></div>
+        <div><span id="stat-pending" class="stat">0</span><span class="muted">to review</span></div>
+      </div>
+      <div id="learned" class="learned"></div>
+      <p class="muted" style="margin-top:10px">Keys: <span class="kbd">Enter</span> confirm the highlighted card · <span class="kbd">Tab</span> next field · <span class="kbd">N</span> not a VS screen · <span class="kbd">S</span> skip</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Review queue</h2>
+      <div class="actions"><button id="btn-clear-reviewed" class="small">Clear reviewed history</button></div>
+    </div>
+    <p class="muted">Confirm or fix the names read from each VS screen. Every confirmation teaches the detector; blank a side to leave it out.</p>
+    <div id="queue"></div>
+  </section>
+</main>
+
+<datalist id="fighter-list"></datalist>
+<div id="toast" class="toast" hidden></div>
+<script src="/train.js"></script>
+</body>
+</html>

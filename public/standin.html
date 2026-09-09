@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TEC Match Recorder: video stand-in</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; width: 100%; height: 100%; overflow: hidden; }
+  iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .hint { position: absolute; left: 12px; top: 12px; color: #999; font: 14px/1.4 system-ui, sans-serif; background: rgba(0,0,0,.6); padding: 8px 12px; border-radius: 8px; }
+</style>
+</head>
+<body>
+<script>
+  // Hosts a YouTube video full-frame so OBS can show it through a Browser Source as a stand-in
+  // capture feed (a bare embed URL fails in OBS with "Error 153": no referring page).
+  // Open as /standin.html?v=<youtube id>&t=<start seconds>
+  const params = new URLSearchParams(location.search);
+  const v = params.get('v');
+  const t = Math.max(0, Number(params.get('t') || 0) | 0);
+  if (v) {
+    const src = `https://www.youtube.com/embed/${encodeURIComponent(v)}?autoplay=1&mute=1&controls=0&rel=0&iv_load_policy=3&playsinline=1&start=${t}`;
+    const f = document.createElement('iframe');
+    f.src = src;
+    f.allow = 'autoplay; encrypted-media';
+    document.body.appendChild(f);
+  } else {
+    document.body.innerHTML = '<div class="hint">Add ?v=&lt;YouTube video id&gt;&amp;t=&lt;seconds&gt; to the URL.</div>';
+  }
+</script>
+</body>
+</html>

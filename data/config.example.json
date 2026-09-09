@@ -1,0 +1,8 @@
+{
+  "port": 8420,
+  "obs": { "host": "127.0.0.1", "port": 4455, "password": "" },
+  "startgg": { "token": "", "eventUrls": [], "pollSeconds": 45 },
+  "event": { "name": "", "suffix": "" },
+  "game": "ssbu",
+  "network": { "lan": false, "pin": "" }
+}

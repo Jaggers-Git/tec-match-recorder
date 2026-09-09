@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEC Match Recorder</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='34%2045%20188%20186'%3E%3Cpath%20fill='%23FF3D2E'%20d='M159.2,98.1l9-50.9h-50.9l-9,50.9,20.9,25.4,29.9-25.4ZM96,113.4h-50.9l-9,50.9h50.9l29.9-25.4-20.9-25.4ZM168.2,113.4l-29.9,25.4,20.9,25.4h50.9l9-50.9h-50.9ZM96,177.7l-9,50.9h50.9l9-50.9-20.9-25.4-29.9,25.4Z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="34 45 188 186" aria-hidden="true"><path fill="#FF3D2E" d="M159.2,98.1l9-50.9h-50.9l-9,50.9,20.9,25.4,29.9-25.4ZM96,113.4h-50.9l-9,50.9h50.9l29.9-25.4-20.9-25.4ZM168.2,113.4l-29.9,25.4,20.9,25.4h50.9l9-50.9h-50.9ZM96,177.7l-9,50.9h50.9l9-50.9-20.9-25.4-29.9,25.4Z"/></svg>
+    <div><span class="name">Match Recorder</span><span class="org">Texas Esports Collective</span></div>
+  </div>
+  <div class="chips">
+    <span id="chip-obs" class="chip">OBS</span>
+    <span id="chip-sg" class="chip">start.gg</span>
+    <span id="chip-disk" class="chip">Disk</span>
+    <span id="chip-detect" class="chip">Detect</span>
+  </div>
+  <a class="small" href="/train" style="text-decoration:none">Train detector</a>
+  <button id="btn-settings" class="small">⚙ Settings</button>
+</header>
+<div id="banner" class="banner" hidden></div>
+
+<main class="layout">
+  <section class="panel bracket-panel">
+    <div class="panel-head">
+      <div class="tabs">
+        <button class="tab active" data-tab="bracket">Bracket</button>
+        <button class="tab" data-tab="manual">Manual</button>
+      </div>
+      <span id="bracket-title" class="muted"></span>
+    </div>
+
+    <div id="tab-bracket" class="tab-body">
+      <div class="bracket-tools">
+        <input id="bracket-search" type="search" placeholder="Filter players, round, letter…" autocomplete="off">
+        <label><input type="checkbox" id="opt-hide-done" checked> Hide completed</label>
+        <label><input type="checkbox" id="opt-show-tbd"> Show TBD sets</label>
+        <button id="btn-sync" class="small">Sync now</button>
+      </div>
+      <div id="bracket-events" class="event-tabs" hidden></div>
+      <div id="bracket-pools" class="event-tabs" hidden></div>
+      <div id="bracket-status" class="muted"></div>
+      <div id="bracket-list" class="bracket-list"></div>
+    </div>
+
+    <div id="tab-manual" class="tab-body" hidden>
+      <p class="muted">Type the players on the right. Recent players show up as suggestions while typing, or tap one below. Characters are optional but make the title complete.</p>
+      <div id="recent-players" class="recent"></div>
+    </div>
+  </section>
+
+  <section class="panel match-panel">
+    <div class="panel-head">
+      <h2>Current set</h2>
+      <select id="current-game" class="game-select" title="Which game this station is recording (brackets from start.gg set it automatically)"></select>
+      <select id="best-of" class="game-select" title="Set format. Bo3 and Bo5 show game-win pips here and under the name plates on the stream overlay.">
+        <option value="1">Best of 1</option>
+        <option value="3">Best of 3</option>
+        <option value="5">Best of 5</option>
+      </select>
+      <span id="current-source" class="muted"></span>
+      <button id="btn-unmark" class="small" type="button" hidden title="This set is marked as already recorded (it dims in the bracket list). Tap to clear the mark; the earlier file is kept.">Recorded ✓ (tap to unmark)</button>
+    </div>
+    <div class="players">
+      <div class="player">
+        <label for="p1">Player 1</label>
+        <input id="p1" list="recent-list" placeholder="Player 1" autocomplete="off">
+        <div class="chars">
+          <div id="chars1" class="chip-row"></div>
+          <button class="small" data-pick="1">Characters…</button>
+        </div>
+        <div class="score">
+          <span class="label">Wins</span>
+          <button class="small score-btn" type="button" data-score="1" data-delta="-1" title="Remove a win">−1</button>
+          <span id="score1" class="score-num">0</span>
+          <button class="small score-btn" type="button" data-score="1" data-delta="1" title="Add a win">+1</button>
+        </div>
+        <div class="games" id="games1" hidden>
+          <span class="label">Games</span>
+          <div class="pips" id="wins1" data-side="1"></div>
+        </div>
+      </div>
+      <div class="vs">
+        <button id="btn-swap" class="swap" type="button" title="Swap Player 1 and Player 2 (names and characters)">⇄</button>
+        <span>swap</span>
+      </div>
+      <div class="player">
+        <label for="p2">Player 2</label>
+        <input id="p2" list="recent-list" placeholder="Player 2" autocomplete="off">
+        <div class="chars">
+          <div id="chars2" class="chip-row"></div>
+          <button class="small" data-pick="2">Characters…</button>
+        </div>
+        <div class="score">
+          <span class="label">Wins</span>
+          <button class="small score-btn" type="button" data-score="2" data-delta="-1" title="Remove a win">−1</button>
+          <span id="score2" class="score-num">0</span>
+          <button class="small score-btn" type="button" data-score="2" data-delta="1" title="Add a win">+1</button>
+        </div>
+        <div class="games" id="games2" hidden>
+          <span class="label">Games</span>
+          <div class="pips" id="wins2" data-side="2"></div>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field grow">
+        <label for="round">Round</label>
+        <input id="round" list="round-list" placeholder="Winners Quarters" autocomplete="off">
+      </div>
+      <div class="field small-field">
+        <label for="setLetter">Set</label>
+        <input id="setLetter" placeholder="C" maxlength="8" autocomplete="off">
+      </div>
+      <button id="btn-clear" class="small">Clear</button>
+    </div>
+    <div class="preview">
+      <div class="label">Title</div><div id="preview-title" class="mono"></div>
+      <div class="label">File</div><div id="preview-file" class="mono"></div>
+    </div>
+    <div class="record-area">
+      <button id="btn-record" class="record-btn" disabled>CONNECTING…</button>
+      <div id="record-status" class="record-status"></div>
+      <button id="btn-howto" class="howto-btn" type="button"><span class="q">?</span> How to record a set</button>
+    </div>
+  </section>
+</main>
+
+<section class="panel log-panel">
+  <div class="panel-head">
+    <h2>Session log</h2>
+    <div class="actions">
+      <button id="btn-copy-all" class="small">Copy all Stream Bible rows</button>
+      <button id="btn-open-folder" class="small">Open recordings folder</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table id="log-table">
+      <thead><tr><th>Time</th><th>Set</th><th>Round</th><th>Player 1</th><th>Player 2</th><th>Length</th><th>File</th><th>Status</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div id="log-empty" class="muted">Nothing recorded yet this session.</div>
+</section>
+
+<datalist id="recent-list"></datalist>
+<datalist id="round-list"></datalist>
+
+<div id="picker" class="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="picker-title">Characters</h3>
+      <input id="picker-search" placeholder="Search fighters… (Enter picks the first match)" autocomplete="off">
+      <button id="picker-done" class="primary">Done</button>
+    </div>
+    <div id="picker-selected" class="chip-row"></div>
+    <div id="picker-grid" class="fighter-grid"></div>
+  </div>
+</div>
+
+<div id="settings" class="modal" hidden>
+  <div class="modal-box wide">
+    <div class="modal-head">
+      <h3>Settings</h3>
+      <span class="spacer"></span>
+      <button id="settings-close" class="small">Close</button>
+    </div>
+    <form id="settings-form">
+      <fieldset>
+        <legend>Event</legend>
+        <label>Event name used in titles <input name="event.name" placeholder="(taken from start.gg when blank)"></label>
+        <div class="grid2">
+          <label>Title suffix: Smash Ultimate <input name="games.ssbu.suffix"></label>
+          <label>Title suffix: Street Fighter 6 <input name="games.sf6.suffix"></label>
+          <label>Title suffix: Tekken 8 <input name="games.tekken8.suffix"></label>
+          <label>Title suffix: other games <input name="games.other.suffix"></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>start.gg live sync</legend>
+        <label>Event URLs, one per line (the Ultimate, SF6 and Tekken brackets of the same tournament) <textarea name="startgg.eventUrls" rows="3" placeholder="https://www.start.gg/tournament/…/event/…"></textarea></label>
+        <div class="grid2">
+          <label>API token <input name="startgg.token" type="password" autocomplete="off"></label>
+          <label>Check for updates every (seconds) <input name="startgg.pollSeconds" type="number" min="15" step="5"></label>
+        </div>
+        <div class="row" style="align-items:flex-end;margin-top:4px">
+          <label style="flex:1">Add a whole tournament (its Ultimate singles, Street Fighter 6 and Tekken 8 brackets) <input id="import-url" placeholder="https://www.start.gg/tournament/…" autocomplete="off"></label>
+          <button type="button" id="btn-import" class="small">Add events</button>
+        </div>
+        <div id="import-status" class="muted"></div>
+        <div id="settings-sg-status" class="muted"></div>
+      </fieldset>
+      <fieldset>
+        <legend>OBS WebSocket</legend>
+        <div class="grid3">
+          <label>Host <input name="obs.host"></label>
+          <label>Port <input name="obs.port" type="number"></label>
+          <label>Password <input name="obs.password" type="password" autocomplete="off"></label>
+        </div>
+        <div id="settings-obs-status" class="muted"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Naming</legend>
+        <label>Title template <input name="naming.titleTemplate"></label>
+        <div class="muted">Fields: {event} {round} {set} {p1} {p2} {chars1} {chars2} {suffix} {date} {time}</div>
+        <label class="check"><input type="checkbox" name="naming.filenamePrefix"> Start filenames with <input name="naming.filenamePrefixTemplate" class="inline"> (keeps files in bracket order)</label>
+        <label class="check"><input type="checkbox" name="naming.stripPrefixes"> Strip sponsor prefixes from start.gg names (TSM | Leffen → Leffen)</label>
+        <label class="check"><input type="checkbox" name="naming.eventSubfolder"> Save recordings into a per-event subfolder</label>
+      </fieldset>
+      <fieldset>
+        <legend>Stream overlay (names on top of the gameplay scene)</legend>
+        <div class="grid2">
+          <label>Centre plate shows
+            <select name="overlay.center">
+              <option value="round">Round (e.g. Pool A1 Winners Quarters)</option>
+              <option value="score">Score (e.g. 2 - 1)</option>
+              <option value="set">Set id (e.g. A1-C)</option>
+              <option value="game">Game (SSBU / SF6 / T8)</option>
+              <option value="event">Tournament name</option>
+              <option value="none">Nothing</option>
+            </select>
+          </label>
+          <label>OBS scene to add it to <select id="overlay-scene"></select></label>
+        </div>
+        <label class="check"><input type="checkbox" name="overlay.scores"> Show the wins as a badge on each name plate</label>
+        <div class="row" style="align-items:center;margin-top:8px">
+          <button type="button" id="btn-overlay-add" class="small">Add overlay to OBS</button>
+          <button type="button" id="btn-overlay-remove" class="small">Remove from OBS</button>
+          <span id="overlay-status" class="muted"></span>
+        </div>
+        <div class="muted" style="margin-top:6px">Artwork: save your overlay as <span class="mono">public\overlay\overlay.png</span> (1920x1080 or the same shape). Without it, plain plates are drawn. Preview: <a href="/overlay" target="_blank">/overlay</a> (transparent page, 1920x1080).</div>
+      </fieldset>
+      <fieldset>
+        <legend>Character detection</legend>
+        <label class="check"><input type="checkbox" name="detect.enabled"> Read fighter names from the VS screen and fill them in automatically</label>
+        <div class="grid2">
+          <label>Watch this OBS source <select name="detect.source"></select></label>
+          <label>Look every (ms) <input name="detect.intervalMs" type="number" min="300" step="100"></label>
+        </div>
+        <label>Recordings folder for training scans <input name="detect.videosFolder"></label>
+        <div class="muted">Teach it from old recordings on the <a href="/train">training page</a>.</div>
+      </fieldset>
+      <fieldset>
+        <legend>Network access</legend>
+        <label class="check"><input type="checkbox" name="network.lan"> Let other devices on this network (a phone, a second laptop) open the dashboard</label>
+        <div class="grid2">
+          <label>PIN those devices must enter (4 to 8 digits) <input name="network.pin" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="(made for you when left blank)"></label>
+        </div>
+        <div id="network-status" class="muted"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Character art (used by the character detector and the title cards)</legend>
+        <div class="muted">The portraits are Nintendo's artwork and are not included with the recorder. This fetches the community pack from the TournamentStreamHelper repository onto this PC only. Use it within Nintendo's community tournament guidelines.</div>
+        <div class="row" style="align-items:center;margin-top:8px">
+          <button type="button" id="btn-art-download" class="small">Download portrait pack (about 23 MB)</button>
+          <span id="art-status" class="muted"></span>
+        </div>
+      </fieldset>
+      <div id="settings-info" class="muted"></div>
+      <div class="modal-actions"><button type="submit" class="primary">Save settings</button></div>
+    </form>
+  </div>
+</div>
+
+<div id="pin" class="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head"><h3>Enter the PIN</h3></div>
+    <p class="muted">This dashboard is being opened from another device. Type the PIN shown under Settings, Network access, on the recording PC.</p>
+    <form id="pin-form">
+      <label>PIN <input id="pin-input" inputmode="numeric" maxlength="8" autocomplete="off"></label>
+      <div id="pin-error" class="muted"></div>
+      <div class="modal-actions"><button type="submit" class="primary">Unlock</button></div>
+    </form>
+  </div>
+</div>
+
+<div id="howto" class="modal" hidden>
+  <div class="modal-box wide howto">
+    <div class="modal-head">
+      <h3>How to</h3>
+      <div class="tabs">
+        <button class="tab active" data-howto="quick">Quick</button>
+        <button class="tab" data-howto="full">Full guide</button>
+      </div>
+      <span class="spacer"></span>
+      <button id="howto-close" class="small">Close</button>
+    </div>
+    <div id="howto-quick">
+      <ol class="quick-steps">
+        <li><b>Pick the set</b><span>Tap it in the bracket list on the left (in pools, tap the pool first: the same letter repeats in every pool), or type both player names on the right. Players on the wrong sides? Tap <b>⇄ swap</b>. Recording Street Fighter or Tekken by hand? Set the game in the dropdown above the names (sets picked from start.gg set it for you).</span></li>
+        <li><b>Start recording</b><span>Press <b>START RECORDING</b> when the players sit down. Characters fill in by themselves once the game starts (chips marked <i>auto</i>); fix them with <b>Characters…</b> if needed. Names can be edited any time before saving.</span></li>
+        <li><b>End &amp; save</b><span>When the set is over, press <b>END &amp; SAVE</b>, then press it again to confirm. The file is named and saved, and the form clears for the next set.</span></li>
+      </ol>
+      <p class="muted" style="margin:14px 0 0">Setting up the station, or something looks wrong? Open the <button class="linkish" data-howto="full">full guide</button>.</p>
+    </div>
+    <div id="howto-full" hidden>
+    <div class="howto-grid">
+      <section>
+        <h4>Before the first set</h4>
+        <ol>
+          <li>Start OBS. Check the capture card picture and game audio in the preview.</li>
+          <li>Run <b>Start Recorder.bat</b> and leave its black window open.</li>
+          <li>The header should show <b>OBS connected</b> and <b>start.gg LIVE</b> in green, or "manual mode" if there is no bracket loaded.</li>
+        </ol>
+        <h4>Rules of thumb</h4>
+        <ul>
+          <li>One recording per <b>set</b> (the whole Bo3/Bo5), not per game.</li>
+          <li>The file is named from whatever is in the form when you press End &amp; Save.</li>
+          <li>Don't press Stop inside OBS. If someone does, the app still labels the file.</li>
+          <li>Players play off the passthrough monitor, never the OBS preview.</li>
+        </ul>
+      </section>
+      <section>
+        <h4>Every set</h4>
+        <ol>
+          <li><b>Pick the set</b> in the bracket list (same letters as the bracket), or type both names. Recent names auto-suggest.</li>
+          <li>Players on the wrong sides? Tap <b>⇄ swap</b>. Nobody has to move.</li>
+          <li><b>Characters</b> fill in by themselves once the game starts (chips marked <i>auto</i>). Fix or add with <b>Characters…</b>.</li>
+          <li><b>START RECORDING</b> as soon as the players sit down. Names can still be fixed while recording.</li>
+          <li>Set over: <b>END &amp; SAVE</b>, then tap it again to confirm. The file is named and logged; the form clears.</li>
+          <li>Filling the Stream Bible sheet? <b>Copy row</b> on the log line and paste it into the worksheet.</li>
+        </ol>
+      </section>
+      <section class="howto-wide">
+        <h4>If something looks wrong</h4>
+        <table class="howto-table">
+          <tr><td>OBS not connected</td><td>Is OBS open? In OBS: Tools, WebSocket Server Settings, <i>Enable</i> must be ticked. It reconnects on its own.</td></tr>
+          <tr><td>OBS: wrong password</td><td>Settings, OBS, paste the password from OBS's <i>Show Connect Info</i>.</td></tr>
+          <tr><td>start.gg OFFLINE</td><td>Wi-Fi dropped. Keep going with the bracket you see; tap <b>Sync now</b> when it's back.</td></tr>
+          <tr><td>start.gg error</td><td>Token or URL problem. Recording still works; enter names by hand and tell the TO.</td></tr>
+          <tr><td>Detect: off or untrained</td><td>Characters won't fill in by themselves. Tap them in with <b>Characters…</b>.</td></tr>
+          <tr><td>Disk chip red</td><td>Under 25 GB left. Tell the TO before the next set.</td></tr>
+          <tr><td>Log row says error</td><td>Tap <b>Retry</b>. The video is safe in the OBS folder either way.</td></tr>
+          <tr><td>Black window closed</td><td>Run <b>Start Recorder.bat</b> again. A recording in progress keeps going in OBS.</td></tr>
+        </table>
+      </section>
+    </div>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast" hidden></div>
+<script src="/app.js"></script>
+</body>
+</html>

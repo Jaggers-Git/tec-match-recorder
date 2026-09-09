@@ -1,0 +1,731 @@
+/* TEC Match Recorder: dashboard */
+(() => {
+  'use strict';
+  const $ = (sel) => document.querySelector(sel);
+  const pad = (n) => String(n).padStart(2, '0');
+  const ROUND_SUGGESTIONS = [
+    'Pools', 'Winners Round 1', 'Winners Round 2', 'Winners Round 3', 'Winners Quarters', 'Winners Semis', 'Winners Finals',
+    'Losers Round 1', 'Losers Round 2', 'Losers Round 3', 'Losers Round 4', 'Losers Quarters', 'Losers Semis', 'Losers Finals',
+    'Grand Finals', 'Grand Finals Reset', 'Friendlies', 'Money Match',
+  ];
+
+  let S = null;              // latest state snapshot from the server
+  let B = { sets: [] };      // latest bracket payload
+  let fighters = [];
+  let appOnline = false;
+  let busy = false;
+  let confirmArmed = false;
+  let confirmTimer = null;
+  let picker = { slot: 0, selected: [] };
+  let lastBracketKey = '';
+  let bracketEvent = '';       // start.gg event slug the bracket list is filtered to ('' = all)
+  let bracketPool = '';        // pool identifier the bracket list is filtered to ('' = all)
+  let pendingPatch = {};
+  let patchTimer = null;
+  let toastTimer = null;
+  const seenStatus = new Map();
+
+  // ---------- helpers ----------
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  async function api(method, path, body) {
+    const res = await fetch(path, {
+      method,
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    let data = {};
+    try { data = await res.json(); } catch { /* no body */ }
+    if (res.status === 401 && data.pinRequired) showPin(data.error);
+    if (!res.ok) throw new Error(data.error || `${method} ${path} failed (${res.status})`);
+    return data;
+  }
+  // ---------- PIN (dashboard opened from another device) ----------
+  function showPin(message) {
+    const box = $('#pin');
+    if (!box || !box.hidden) return;
+    box.hidden = false;
+    $('#pin-error').textContent = message && /wrong/i.test(message) ? message : '';
+    setTimeout(() => $('#pin-input').focus(), 50);
+  }
+  $('#pin-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const pin = $('#pin-input').value.trim();
+    const res = await fetch('/api/pin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
+    if (res.ok) { location.reload(); return; }
+    $('#pin-error').textContent = 'Wrong PIN, try again.';
+    $('#pin-input').select();
+  });
+  function toast(message, { error = false, action = null, sticky = false } = {}) {
+    const el = $('#toast');
+    el.className = `toast${error ? ' error' : ''}`;
+    el.innerHTML = `<span>${esc(message)}</span>`;
+    if (action) {
+      const b = document.createElement('button');
+      b.className = 'small';
+      b.textContent = action.label;
+      b.addEventListener('click', action.onClick);
+      el.appendChild(b);
+    }
+    const x = document.createElement('button');
+    x.className = 'small';
+    x.textContent = '✕';
+    x.addEventListener('click', () => { el.hidden = true; });
+    el.appendChild(x);
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    if (!sticky) toastTimer = setTimeout(() => { el.hidden = true; }, action ? 15000 : 6000);
+  }
+  function fmtClock(iso) {
+    const d = new Date(iso);
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  function fmtDur(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+  }
+  function ago(iso) {
+    const s = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000));
+    if (s < 60) return `${s}s ago`;
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    return `${Math.floor(s / 3600)}h ago`;
+  }
+  const gb = (bytes) => `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch { ok = false; }
+      ta.remove();
+      return ok;
+    }
+  }
+  function bibleRow(e) {
+    return [e.p1, (e.chars1 || []).join(', '), e.p2, (e.chars2 || []).join(', '), e.round].join('\t');
+  }
+  async function copyRow(e) {
+    const ok = await copyText(bibleRow(e));
+    toast(ok ? 'Stream Bible row copied. Paste it into the worksheet (columns B to F).' : 'Could not copy to the clipboard', { error: !ok });
+  }
+
+  // ---------- live updates ----------
+  function connect() {
+    const es = new EventSource('/api/events');
+    es.addEventListener('state', (ev) => { S = JSON.parse(ev.data); appOnline = true; render(); });
+    es.addEventListener('bracket', (ev) => { B = JSON.parse(ev.data); renderBracket(true); });
+    es.onerror = () => {
+      appOnline = false;
+      renderBanner();
+      // From another device the stream fails with 401 before the first event; ask for the PIN then.
+      fetch('/api/state').then((r) => { if (r.status === 401) showPin(); }).catch(() => {});
+    };
+  }
+
+  // ---------- rendering ----------
+  function render() {
+    if (!S) return;
+    if (!$('#settings').hidden) { renderNetworkStatus(); renderArtStatus(); }
+    renderChips();
+    renderBanner();
+    renderCurrent();
+    renderRecord();
+    renderLog();
+    renderRecent();
+    renderBracket(false);
+    renderSettingsStatus();
+  }
+  function obsText() {
+    const o = S.obs;
+    if (o.status === 'connected') return `OBS ${o.version ? o.version + ' ' : ''}connected`;
+    if (o.status === 'connecting') return 'OBS connecting…';
+    if (o.status === 'auth-failed') return 'OBS: wrong password';
+    return 'OBS not connected';
+  }
+  function sgText() {
+    const g = S.startgg;
+    if (!g.configured) return 'start.gg: not set up (manual mode)';
+    if (g.syncing) return 'start.gg: syncing…';
+    if (g.status === 'live') return `start.gg LIVE · synced ${g.lastSync ? ago(g.lastSync) : 'now'}`;
+    if (g.status === 'offline') return `start.gg OFFLINE · using bracket from ${g.updatedAt ? fmtClock(g.updatedAt) : 'cache'}`;
+    if (g.status === 'error') return `start.gg error: ${g.lastError}`;
+    return 'start.gg: waiting for first sync';
+  }
+  function renderChips() {
+    const obsChip = $('#chip-obs');
+    obsChip.textContent = obsText();
+    obsChip.className = `chip ${S.obs.status === 'connected' ? 'ok' : S.obs.status === 'connecting' ? 'warn' : 'bad'}`;
+
+    const sgChip = $('#chip-sg');
+    sgChip.textContent = sgText();
+    const g = S.startgg;
+    sgChip.className = `chip ${!g.configured ? '' : g.status === 'live' ? 'ok' : g.status === 'offline' ? 'warn' : g.status === 'error' ? 'bad' : ''}`;
+
+    const diskChip = $('#chip-disk');
+    if (S.disk.freeBytes == null) { diskChip.textContent = 'Disk: unknown'; diskChip.className = 'chip'; }
+    else { diskChip.textContent = `${gb(S.disk.freeBytes)} free`; diskChip.className = `chip ${S.disk.low ? 'bad' : 'ok'}`; }
+
+    const det = $('#chip-detect');
+    if (det) {
+      const d = S.detect || {};
+      const gameNow = (S.config.gameList || []).find((g) => g.id === (S.current.game || 'ssbu'));
+      if (!S.config.detect || !S.config.detect.enabled) { det.textContent = 'Detect: off'; det.className = 'chip'; }
+      else if (gameNow && !gameNow.characters) { det.textContent = `Detect: not used for ${gameNow.name}`; det.className = 'chip'; }
+      else if (S.train && S.train.running) { det.textContent = 'Detect: paused (training scan running)'; det.className = 'chip warn'; }
+      else if (!d.running) { det.textContent = 'Detect: waiting for OBS'; det.className = 'chip'; }
+      else if (d.error) { det.textContent = `Detect: ${d.error}`; det.className = 'chip bad'; }
+      else if (d.lastResult) { det.textContent = `Detect: ${d.lastResult.p1} vs ${d.lastResult.p2} · ${ago(d.lastResult.at)}`; det.className = 'chip ok'; }
+      else { det.textContent = `Detect: watching${d.hasAnchor ? '' : ' (untrained)'}`; det.className = `chip ${d.hasAnchor ? 'ok' : 'warn'}`; }
+    }
+  }
+  function renderBanner() {
+    const el = $('#banner');
+    if (!appOnline) {
+      el.textContent = 'Lost contact with the recorder app (server.js). Restart it with "Start Recorder.bat". OBS keeps recording in the meantime.';
+      el.className = 'banner';
+      el.hidden = false;
+      return;
+    }
+    if (!S) return;
+    if (S.obs.status !== 'connected') {
+      el.textContent = `OBS not connected: ${S.obs.lastError || 'start OBS and enable Tools → WebSocket Server Settings.'}`;
+      el.className = 'banner';
+      el.hidden = false;
+    } else if (S.disk.low) {
+      el.textContent = `Low disk space: only ${gb(S.disk.freeBytes)} left on the recording drive.`;
+      el.className = 'banner warn';
+      el.hidden = false;
+    } else {
+      el.hidden = true;
+    }
+  }
+  function setInput(id, value) {
+    const el = $(`#${id}`);
+    if (document.activeElement === el) return;
+    if (el.value !== (value || '')) el.value = value || '';
+  }
+  function charChips(list, slot) {
+    const auto = new Set(S.current[`auto${slot}`] || []);
+    return (list || []).map((c) => `<span class="tag${auto.has(c) ? ' auto' : ''}"${auto.has(c) ? ' title="Detected automatically from the VS screen"' : ''}>${esc(c)}${auto.has(c) ? '<em>auto</em>' : ''}<button data-remove-char="${slot}" data-name="${esc(c)}" title="Remove">✕</button></span>`).join('');
+  }
+  function renderCurrent() {
+    const c = S.current;
+    setInput('p1', c.p1);
+    setInput('p2', c.p2);
+    setInput('round', c.round);
+    setInput('setLetter', c.setLetter);
+    $('#chars1').innerHTML = charChips(c.chars1, 1);
+    $('#chars2').innerHTML = charChips(c.chars2, 2);
+    $('#score1').textContent = c.score1 || 0;
+    $('#score2').textContent = c.score2 || 0;
+    // Game-win pips for Bo3/Bo5 (tap a pip to set the count; tap the last lit pip to undo).
+    const bestOf = Number(c.bestOf) || 1;
+    const need = bestOf === 5 ? 3 : bestOf === 3 ? 2 : 0;
+    const bo = $('#best-of');
+    if (document.activeElement !== bo && bo.value !== String(bestOf)) bo.value = String(bestOf);
+    for (const side of [1, 2]) {
+      $(`#games${side}`).hidden = !need;
+      const wins = Number(c[`wins${side}`]) || 0;
+      $(`#wins${side}`).innerHTML = Array.from({ length: need }, (_, i) =>
+        `<button type="button" class="pip${i < wins ? ' on' : ''}" data-win-side="${side}" data-win-n="${i + 1}" title="Game ${i + 1}"></button>`).join('');
+    }
+    // Game selector: options come from the server's game registry; the profile decides whether
+    // character chips make sense for this game at all.
+    const games = S.config.gameList || [];
+    const sel = $('#current-game');
+    const want = games.map((g) => `${g.id}|${g.name}`).join(',');
+    if (sel.dataset.options !== want) { sel.dataset.options = want; sel.innerHTML = games.map((g) => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join(''); }
+    if (document.activeElement !== sel && sel.value !== (c.game || 'ssbu')) sel.value = c.game || 'ssbu';
+    const profile = games.find((g) => g.id === (c.game || 'ssbu')) || { characters: true };
+    for (const el of document.querySelectorAll('.chars')) el.hidden = !profile.characters;
+    $('#current-source').textContent = c.source === 'startgg' && c.setId ? `from start.gg set ${c.setLetter || ''}${c.eventName ? ` · ${c.eventName}` : ''}` : 'manual entry';
+    $('#btn-unmark').hidden = !(c.setId && (S.recordedSetIds || []).includes(c.setId));
+    $('#preview-title').textContent = S.preview.title;
+    $('#preview-file').textContent = `${S.preview.filenameBase}.mkv`;
+  }
+  function renderRecord() {
+    if (!S) return;
+    const btn = $('#btn-record');
+    const st = $('#record-status');
+    const connected = S.obs.connected;
+    if (S.rec.active) {
+      btn.className = `record-btn recording${confirmArmed ? ' armed' : ''}`;
+      btn.textContent = confirmArmed ? 'TAP AGAIN TO END & SAVE' : 'END & SAVE';
+      btn.disabled = busy || !connected;
+      const secs = (Date.now() - S.rec.startedAt) / 1000;
+      const who = S.current.p1 || S.current.p2 ? ` · ${S.current.p1 || '?'} vs ${S.current.p2 || '?'}` : '';
+      st.innerHTML = `<span class="rec-dot"></span>RECORDING ${fmtDur(secs)}${who}${S.rec.startedByApp ? '' : ' (started from OBS)'}`;
+      if (!connected) st.innerHTML += '<br>OBS connection lost. Stop the recording in OBS if needed.';
+    } else {
+      btn.className = 'record-btn';
+      btn.textContent = connected ? 'START RECORDING' : 'OBS NOT CONNECTED';
+      btn.disabled = busy || !connected;
+      st.textContent = connected ? 'Pick a set or enter the players, then start. Names can still be fixed while recording.' : '';
+    }
+  }
+  function gameShort(id) {
+    const g = ((S && S.config.gameList) || []).find((x) => x.id === id);
+    return g ? g.short : '';
+  }
+  function stateLabel(s) {
+    return { completed: 'Done', in_progress: 'In progress', called: 'Called', pending: '' }[s.state] || '';
+  }
+  function renderBracket(force) {
+    const sets = B.sets || [];
+    const q = $('#bracket-search').value.trim().toLowerCase();
+    const hideDone = $('#opt-hide-done').checked;
+    const showTbd = $('#opt-show-tbd').checked;
+    const recorded = new Set((S && S.recordedSetIds) || []);
+    const selected = S && S.current.setId;
+    const events = B.events || [];
+    if (bracketEvent && !events.some((e) => e.slug === bracketEvent)) bracketEvent = '';
+    const key = [B.updatedAt, sets.length, q, hideDone, showTbd, selected, recorded.size, bracketEvent, events.length, bracketPool].join('|');
+    if (!force && key === lastBracketKey) return;
+    lastBracketKey = key;
+
+    $('#bracket-title').textContent = B.tournamentName ? `${B.tournamentName} · ${B.eventName}` : '';
+    const tabsEl = $('#bracket-events');
+    tabsEl.hidden = events.length < 2;
+    tabsEl.innerHTML = events.length < 2 ? '' : [`<button class="evtab${bracketEvent ? '' : ' active'}" data-event="">All (${sets.length})</button>`]
+      .concat(events.map((e) => `<button class="evtab${bracketEvent === e.slug ? ' active' : ''}" data-event="${esc(e.slug)}">${esc(e.eventName)}${gameShort(e.game) ? ` <em>${esc(gameShort(e.game))}</em>` : ''} (${e.setCount})</button>`)).join('');
+    // Pool filter: only for phases that run several pools, where set letters repeat per pool.
+    const poolEl = $('#bracket-pools');
+    const poolSets = bracketEvent ? sets.filter((s) => s.eventSlug === bracketEvent) : sets;
+    const pools = [...new Set(poolSets.filter((s) => s.multiPool && s.pool).map((s) => s.pool))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    if (bracketPool && !pools.includes(bracketPool)) bracketPool = '';
+    // With several brackets loaded, pool chips only make sense inside one event tab.
+    poolEl.hidden = pools.length < 2 || (events.length > 1 && !bracketEvent);
+    poolEl.innerHTML = pools.length < 2 ? '' : [`<button class="evtab${bracketPool ? '' : ' active'}" data-pool="">All pools</button>`]
+      .concat(pools.map((p) => `<button class="evtab${bracketPool === p ? ' active' : ''}" data-pool="${esc(p)}">Pool ${esc(p)}</button>`)).join('');
+    const status = $('#bracket-status');
+    if (S && !S.startgg.configured) {
+      status.innerHTML = 'No start.gg event yet. Open <b>Settings</b>, paste the event URL and an API token. Manual entry works without it.';
+    } else if (!sets.length) {
+      status.textContent = S && S.startgg.status === 'error' ? S.startgg.lastError : 'No sets yet. The bracket may not be generated yet; waiting for the next sync…';
+    } else {
+      status.textContent = '';
+    }
+
+    const visible = sets.filter((s) => {
+      if (bracketEvent && s.eventSlug !== bracketEvent) return false;
+      if (bracketPool && s.pool !== bracketPool) return false;
+      if (!showTbd && !s.p1 && !s.p2) return false;
+      if (hideDone && s.state === 'completed' && !recorded.has(s.id)) return false;
+      if (q) {
+        const hay = `${s.p1} ${s.p2} ${s.round} ${s.roundLabel} ${s.letter} ${s.phase} ${s.pool}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    visible.sort((a, b) => (a.phaseIdx - b.phaseIdx)
+      || String(a.multiPool ? a.pool || '' : '').localeCompare(String(b.multiPool ? b.pool || '' : ''), undefined, { numeric: true })
+      || ((a.roundNum > 0 ? 0 : 1) - (b.roundNum > 0 ? 0 : 1))
+      || (Math.abs(a.roundNum) - Math.abs(b.roundNum))
+      || String(a.letter).localeCompare(String(b.letter), undefined, { numeric: true }));
+
+    let html = '';
+    let lastGroup = null;
+    for (const s of visible) {
+      const group = `${s.phase ? `${s.phase} · ` : ''}${s.multiPool && s.pool ? `Pool ${s.pool} · ` : ''}${s.roundLabel}`;
+      if (group !== lastGroup) { html += `<div class="round-head">${esc(group)}</div>`; lastGroup = group; }
+      const isRec = recorded.has(s.id);
+      const meta = [events.length > 1 && !bracketEvent ? (gameShort(s.game) || s.eventName || '') : '', (s.isPools || s.multiPool) && s.pool ? `Pool ${s.pool}` : '', stateLabel(s), isRec ? '🎥 recorded' : ''].filter(Boolean).join(' · ');
+      html += `<button class="set-card state-${s.state}${selected === s.id ? ' selected' : ''}${isRec ? ' recorded' : ''}" data-id="${esc(s.id)}">
+        <span class="letter">${esc(s.letter) || '·'}</span>
+        <span class="names"><b>${esc(s.p1) || 'TBD'}</b><i>vs</i><b>${esc(s.p2) || 'TBD'}</b></span>
+        <span class="meta">${esc(meta) || '&nbsp;'}</span>
+      </button>`;
+    }
+    if (!html && sets.length) {
+      const hiddenDone = hideDone ? sets.filter((s) => s.state === 'completed' && !recorded.has(s.id)).length : 0;
+      html = hiddenDone === sets.length
+        ? `<div class="muted">All ${sets.length} sets in this bracket are completed. Untick "Hide completed" to browse them.</div>`
+        : `<div class="muted">No sets match the current filter${hiddenDone ? ` (${hiddenDone} completed sets hidden)` : ''}.</div>`;
+    }
+    $('#bracket-list').innerHTML = html;
+  }
+  function renderLog() {
+    const tbody = $('#log-table tbody');
+    const entries = S.log || [];
+    $('#log-empty').hidden = entries.length > 0;
+    for (const e of entries) {
+      const prev = seenStatus.get(e.id);
+      if (prev && prev !== e.status) {
+        if (e.status === 'saved') toast(`Saved: ${e.filename}`, { action: { label: 'Copy Stream Bible row', onClick: () => copyRow(e) } });
+        else if (e.status === 'error') toast(`Could not save "${e.title}": ${e.error}`, { error: true, sticky: true });
+      }
+      seenStatus.set(e.id, e.status);
+    }
+    tbody.innerHTML = entries.map((e) => {
+      const p1 = `${esc(e.p1)}${e.chars1 && e.chars1.length ? ` <span class="muted">(${esc(e.chars1.join(', '))})</span>` : ''}`;
+      const p2 = `${esc(e.p2)}${e.chars2 && e.chars2.length ? ` <span class="muted">(${esc(e.chars2.join(', '))})</span>` : ''}`;
+      const file = e.status === 'saved' ? esc(e.filename) : esc(`${e.filenameBase}…`);
+      const badge = e.status === 'saved' ? '<span class="badge saved">saved</span>'
+        : e.status === 'saving' ? '<span class="badge saving">saving…</span>'
+          : `<span class="badge error" title="${esc(e.error)}">error</span>`;
+      const actions = `<button class="small" data-copy="${esc(e.id)}">Copy row</button>${e.status === 'error' ? ` <button class="small" data-retry="${esc(e.id)}">Retry</button>` : ''}`;
+      return `<tr><td>${fmtClock(e.ts)}</td><td>${esc(e.set)}</td><td>${esc(e.round)}</td><td>${p1}</td><td>${p2}</td><td>${fmtDur(e.durationSec)}</td><td class="mono">${file}${e.status === 'error' ? `<div class="err">${esc(e.error)}</div>` : ''}</td><td>${badge}</td><td class="nowrap">${actions}</td></tr>`;
+    }).join('');
+  }
+  function renderRecent() {
+    const names = S.recentPlayers || [];
+    $('#recent-list').innerHTML = names.map((n) => `<option value="${esc(n)}">`).join('');
+    $('#recent-players').innerHTML = names.length
+      ? names.map((n) => `<button class="small" data-recent="${esc(n)}">${esc(n)}</button>`).join('')
+      : '<span class="muted">No players yet. They appear here after the first saved set.</span>';
+  }
+  function renderSettingsStatus() {
+    if ($('#settings').hidden || !S) return;
+    $('#settings-obs-status').textContent = `${obsText()}${S.obs.lastError && S.obs.status !== 'connected' ? `: ${S.obs.lastError}` : ''}`;
+    $('#settings-sg-status').textContent = S.startgg.configured ? `${sgText()}${S.startgg.tournamentName ? ` · ${S.startgg.tournamentName} / ${S.startgg.eventName} (${S.startgg.setCount} sets)` : ''}` : 'Not configured. Get a token at start.gg → your profile → Developer Settings → Create new token.';
+    $('#settings-info').innerHTML = `Recordings folder (from OBS): <span class="mono">${esc(S.obs.recordDirectory || '(connect OBS to read it)')}</span><br>`
+      + `Dashboard on this network: ${(S.lan || []).map((u) => `<span class="mono">${esc(u)}</span>`).join(' · ') || 'none'}`;
+  }
+
+  // ---------- current-set editing ----------
+  function queuePatch(patch) {
+    Object.assign(pendingPatch, patch);
+    clearTimeout(patchTimer);
+    patchTimer = setTimeout(flushPatch, 250);
+  }
+  async function flushPatch() {
+    clearTimeout(patchTimer);
+    const p = pendingPatch;
+    pendingPatch = {};
+    if (!Object.keys(p).length) return;
+    try { await api('PATCH', '/api/current', p); } catch (e) { toast(e.message, { error: true }); }
+  }
+  for (const f of ['p1', 'p2', 'round', 'setLetter']) {
+    const el = $(`#${f}`);
+    el.addEventListener('input', () => queuePatch({ [f]: el.value }));
+    el.addEventListener('change', () => { queuePatch({ [f]: el.value }); flushPatch(); });
+  }
+  $('#btn-clear').addEventListener('click', async () => {
+    pendingPatch = {};
+    try { await api('POST', '/api/current/clear'); } catch (e) { toast(e.message, { error: true }); }
+  });
+  $('#btn-swap').addEventListener('click', async () => {
+    await flushPatch();
+    try { await api('POST', '/api/current/swap'); } catch (e) { toast(e.message, { error: true }); }
+  });
+  document.addEventListener('click', async (ev) => {
+    const rm = ev.target.closest('[data-remove-char]');
+    if (rm) {
+      const slot = rm.dataset.removeChar;
+      const list = (S.current[`chars${slot}`] || []).filter((c) => c !== rm.dataset.name);
+      try { await api('PATCH', '/api/current', { [`chars${slot}`]: list }); } catch (e) { toast(e.message, { error: true }); }
+      return;
+    }
+    const pick = ev.target.closest('[data-pick]');
+    if (pick) { openPicker(Number(pick.dataset.pick)); return; }
+    const recent = ev.target.closest('[data-recent]');
+    if (recent) {
+      const name = recent.dataset.recent;
+      const field = !S.current.p1 ? 'p1' : 'p2';
+      try { await api('PATCH', '/api/current', { [field]: name, source: 'manual' }); } catch (e) { toast(e.message, { error: true }); }
+      return;
+    }
+    const card = ev.target.closest('.set-card');
+    if (card) {
+      try { await api('POST', '/api/select-set', { id: card.dataset.id }); } catch (e) { toast(e.message, { error: true }); }
+      return;
+    }
+    const copy = ev.target.closest('[data-copy]');
+    if (copy) { const e = S.log.find((x) => x.id === copy.dataset.copy); if (e) copyRow(e); return; }
+    const retry = ev.target.closest('[data-retry]');
+    if (retry) { try { await api('POST', '/api/log/retry', { id: retry.dataset.retry }); } catch (e) { toast(e.message, { error: true }); } }
+  });
+
+  // ---------- record button ----------
+  $('#btn-record').addEventListener('click', async () => {
+    if (!S || busy) return;
+    await flushPatch();
+    if (!S.rec.active) {
+      busy = true; renderRecord();
+      try { await api('POST', '/api/record/start'); } catch (e) { toast(e.message, { error: true }); }
+      busy = false; renderRecord();
+      return;
+    }
+    if (!confirmArmed) {
+      confirmArmed = true; renderRecord();
+      confirmTimer = setTimeout(() => { confirmArmed = false; renderRecord(); }, 4000);
+      return;
+    }
+    clearTimeout(confirmTimer);
+    confirmArmed = false;
+    busy = true; renderRecord();
+    try {
+      const r = await api('POST', '/api/record/stop');
+      toast(`Stopped. Saving "${r.entry.title}"…`);
+    } catch (e) { toast(e.message, { error: true }); }
+    busy = false; renderRecord();
+  });
+
+  // ---------- character picker ----------
+  function openPicker(slot) {
+    picker = { slot, selected: [...(S.current[`chars${slot}`] || [])] };
+    $('#picker-title').textContent = `Characters for ${S.current[`p${slot}`] || `Player ${slot}`}`;
+    $('#picker-search').value = '';
+    renderPicker();
+    $('#picker').hidden = false;
+    $('#picker-search').focus();
+  }
+  function filteredFighters() {
+    const q = $('#picker-search').value.trim().toLowerCase();
+    if (!q) return fighters;
+    return fighters.filter((f) => f.name.toLowerCase().includes(q) || (f.aliases || []).some((a) => a.toLowerCase().includes(q)));
+  }
+  function renderPicker() {
+    $('#picker-selected').innerHTML = picker.selected.length
+      ? picker.selected.map((c) => `<span class="tag">${esc(c)}<button data-unpick="${esc(c)}">✕</button></span>`).join('')
+      : '<span class="muted">Tap fighters in the order they were played. Leave empty if unknown.</span>';
+    $('#picker-grid').innerHTML = filteredFighters().map((f) => `<button type="button" class="fighter${picker.selected.includes(f.name) ? ' on' : ''}" data-fighter="${esc(f.name)}">${esc(f.name)}</button>`).join('');
+  }
+  function togglePick(name) {
+    if (picker.selected.includes(name)) picker.selected = picker.selected.filter((c) => c !== name);
+    else picker.selected.push(name);
+    renderPicker();
+  }
+  $('#picker-search').addEventListener('input', renderPicker);
+  $('#picker-search').addEventListener('keydown', (ev) => {
+    const isEnter = ev.key === 'Enter' || ev.key === 'Return' || ev.keyCode === 13;
+    const isEscape = ev.key === 'Escape' || ev.key === 'Esc' || ev.keyCode === 27;
+    if (isEnter) {
+      ev.preventDefault();
+      const first = filteredFighters()[0];
+      if (first) { togglePick(first.name); $('#picker-search').value = ''; renderPicker(); }
+    } else if (isEscape) {
+      closePicker();
+    }
+  });
+  $('#picker').addEventListener('click', (ev) => {
+    const f = ev.target.closest('[data-fighter]');
+    if (f) { togglePick(f.dataset.fighter); return; }
+    const u = ev.target.closest('[data-unpick]');
+    if (u) { togglePick(u.dataset.unpick); return; }
+    if (ev.target === $('#picker')) closePicker();
+  });
+  async function closePicker() {
+    $('#picker').hidden = true;
+    try { await api('PATCH', '/api/current', { [`chars${picker.slot}`]: picker.selected }); } catch (e) { toast(e.message, { error: true }); }
+  }
+  $('#picker-done').addEventListener('click', closePicker);
+
+  // ---------- settings ----------
+  function openSettings() {
+    const c = S.config;
+    const f = $('#settings-form');
+    const set = (name, v) => {
+      const el = f.elements[name];
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? '';
+    };
+    set('event.name', c.event.name);
+    for (const g of c.gameList || []) set(`games.${g.id}.suffix`, g.suffix);
+    set('startgg.eventUrls', (c.startgg.eventUrls || []).join('\n'));
+    set('startgg.token', '');
+    f.elements['startgg.token'].placeholder = c.startgg.hasToken ? '(saved, leave blank to keep)' : 'paste your start.gg API token';
+    set('startgg.pollSeconds', c.startgg.pollSeconds);
+    set('obs.host', c.obs.host);
+    set('obs.port', c.obs.port);
+    set('obs.password', '');
+    f.elements['obs.password'].placeholder = c.obs.hasPassword ? '(saved, leave blank to keep)' : 'OBS → Tools → WebSocket Server Settings';
+    set('naming.titleTemplate', c.naming.titleTemplate);
+    set('naming.filenamePrefix', c.naming.filenamePrefix);
+    set('naming.filenamePrefixTemplate', c.naming.filenamePrefixTemplate);
+    set('naming.stripPrefixes', c.naming.stripPrefixes);
+    set('naming.eventSubfolder', c.naming.eventSubfolder);
+    set('detect.enabled', c.detect && c.detect.enabled);
+    set('detect.intervalMs', c.detect ? c.detect.intervalMs : 1000);
+    set('detect.videosFolder', c.detect ? c.detect.videosFolder : '');
+    loadSources(c.detect ? c.detect.source : '');
+    set('overlay.center', c.overlay ? c.overlay.center : 'round');
+    set('overlay.scores', !c.overlay || c.overlay.scores !== false);
+    set('network.lan', c.network && c.network.lan);
+    set('network.pin', c.network ? c.network.pin : '');
+    renderNetworkStatus();
+    renderArtStatus();
+    refreshOverlayStatus();
+    $('#settings').hidden = false;
+    renderSettingsStatus();
+  }
+  function renderNetworkStatus() {
+    const el = $('#network-status');
+    if (!el || !S) return;
+    const n = S.network || {};
+    if (!n.lan) { el.textContent = 'Only this PC can open the dashboard right now. The overlay in OBS on this PC keeps working either way.'; return; }
+    const urls = (S.lan || []).join('   ');
+    el.textContent = `Other devices open: ${urls || '(no network address found)'}   PIN: ${n.pin || '(set on save)'}. OBS on another PC: add ?pin=${n.pin || 'PIN'} to the overlay URL.`;
+  }
+  function renderArtStatus() {
+    const el = $('#art-status');
+    if (!el || !S || !S.art) return;
+    const a = S.art;
+    const job = a.job;
+    const btn = $('#btn-art-download');
+    if (job && job.running) {
+      el.textContent = job.total ? `Downloading: ${job.done} of ${job.total} files${job.failed ? `, ${job.failed} failed` : ''}` : 'Downloading: listing files';
+      btn.disabled = true;
+      return;
+    }
+    btn.disabled = false;
+    el.textContent = a.portrait.files ? `Portraits on this PC: ${a.portrait.files} files.${job && job.error ? ` Last download failed: ${job.error}` : ''}` : `Not downloaded yet.${job && job.error ? ` Last download failed: ${job.error}` : ''}`;
+  }
+  $('#btn-art-download').addEventListener('click', async () => {
+    try {
+      await api('POST', '/api/art/download', { pack: 'portrait' });
+      toast('Downloading the portrait pack. The detector picks it up when the download finishes.');
+      renderArtStatus();
+    } catch (e) { toast(e.message, { error: true }); }
+  });
+  async function loadSources(selected) {
+    const sel = $('#settings-form').elements['detect.source'];
+    if (!sel) return;
+    let data = { inputs: [], scenes: [] };
+    try { data = await api('GET', '/api/detect/sources'); } catch { /* OBS offline */ }
+    const opts = [['', 'Program output (whatever OBS is showing)'], ...data.inputs.map((i) => [i.name, `${i.name} (${i.kind})`]), ...data.scenes.map((s) => [s, `Scene: ${s}`])];
+    if (selected && !opts.some((o) => o[0] === selected)) opts.push([selected, selected]);
+    sel.innerHTML = opts.map(([v, label]) => `<option value="${esc(v)}"${v === selected ? ' selected' : ''}>${esc(label)}</option>`).join('');
+  }
+  $('#btn-settings').addEventListener('click', () => { if (S) openSettings(); });
+  async function refreshOverlayStatus() {
+    const out = $('#overlay-status');
+    const sel = $('#overlay-scene');
+    try {
+      const st = await api('GET', '/api/overlay/status');
+      const preferred = (S && S.config.overlay && S.config.overlay.scene) || st.inScenes[0] || st.scenes.find((s) => /gameplay|game/i.test(s)) || st.scenes[0] || '';
+      sel.innerHTML = st.scenes.map((s) => `<option value="${esc(s)}"${s === preferred ? ' selected' : ''}>${esc(s)}</option>`).join('') || '<option value="">(connect OBS to list scenes)</option>';
+      out.textContent = st.installed ? `Installed in: ${st.inScenes.join(', ')}.${st.image ? '' : ' No overlay.png yet: plain plates are drawn.'}` : `Not in OBS yet.${st.image ? '' : ' No overlay.png yet: plain plates are drawn.'}`;
+    } catch (e) { out.textContent = e.message; }
+  }
+  $('#btn-overlay-add').addEventListener('click', async () => {
+    try {
+      const r = await api('POST', '/api/overlay/install', { scene: $('#overlay-scene').value });
+      toast(`Overlay added to OBS scene "${r.scene}" as a Browser Source on top.`);
+      refreshOverlayStatus();
+    } catch (e) { toast(e.message, { error: true }); }
+  });
+  $('#btn-overlay-remove').addEventListener('click', async () => {
+    try { await api('POST', '/api/overlay/remove'); toast('Overlay removed from OBS.'); refreshOverlayStatus(); } catch (e) { toast(e.message, { error: true }); }
+  });
+  document.addEventListener('click', async (ev) => {
+    const b = ev.target.closest('.score-btn');
+    if (!b) return;
+    try { await api('POST', '/api/current/score', { side: Number(b.dataset.score), delta: Number(b.dataset.delta) }); } catch (e) { toast(e.message, { error: true }); }
+  });
+  document.addEventListener('click', async (ev) => {
+    const p = ev.target.closest('.pip');
+    if (!p) return;
+    const side = Number(p.dataset.winSide);
+    const n = Number(p.dataset.winN);
+    const cur = Number(S && S.current[`wins${side}`]) || 0;
+    try { await api('PATCH', '/api/current', { [`wins${side}`]: cur === n ? n - 1 : n }); } catch (e) { toast(e.message, { error: true }); }
+  });
+  $('#best-of').addEventListener('change', async () => {
+    try { await api('PATCH', '/api/current', { bestOf: Number($('#best-of').value) }); } catch (e) { toast(e.message, { error: true }); }
+  });
+  $('#btn-unmark').addEventListener('click', async () => {
+    const setId = S && S.current.setId;
+    if (!setId) return;
+    try {
+      const r = await api('POST', '/api/recorded/toggle', { setId });
+      toast(r.recorded ? 'Set marked as recorded.' : 'Recorded mark cleared. The earlier file is still in the recordings folder.');
+    } catch (e) { toast(e.message, { error: true }); }
+  });
+  $('#btn-import').addEventListener('click', async () => {
+    const url = $('#import-url').value.trim();
+    const out = $('#import-status');
+    if (!url) { out.textContent = 'Paste the tournament URL first.'; return; }
+    out.textContent = 'Looking up the tournament…';
+    try {
+      const r = await api('POST', '/api/startgg/import', { url });
+      $('#settings-form').elements['startgg.eventUrls'].value = (r.eventUrls || []).join('\n');
+      out.innerHTML = `<b>${esc(r.tournament)}</b>: added ${r.added.length} event${r.added.length === 1 ? '' : 's'}${r.added.length ? ` (${esc(r.added.join('; '))})` : ''}.`
+        + (r.skipped.length ? `<br>Skipped: ${esc(r.skipped.join('; '))}` : '');
+    } catch (e) { out.textContent = e.message; }
+  });
+  function showHowto(which) {
+    $('#howto').hidden = false;
+    $('#howto-quick').hidden = which !== 'quick';
+    $('#howto-full').hidden = which !== 'full';
+    for (const t of document.querySelectorAll('#howto .tab[data-howto]')) t.classList.toggle('active', t.dataset.howto === which);
+  }
+  $('#btn-howto').addEventListener('click', () => showHowto('quick'));
+  $('#howto-close').addEventListener('click', () => { $('#howto').hidden = true; });
+  $('#howto').addEventListener('click', (ev) => {
+    const pick = ev.target.closest('[data-howto]');
+    if (pick) { showHowto(pick.dataset.howto); return; }
+    if (ev.target === $('#howto')) $('#howto').hidden = true;
+  });
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' || ev.key === 'Esc') { $('#howto').hidden = true; $('#settings').hidden = true; }
+  });
+  $('#settings-close').addEventListener('click', () => { $('#settings').hidden = true; });
+  $('#settings').addEventListener('click', (ev) => { if (ev.target === $('#settings')) $('#settings').hidden = true; });
+  $('#settings-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const body = {};
+    for (const el of $('#settings-form').elements) {
+      if (!el.name) continue;
+      const parts = el.name.split('.');
+      let o = body;
+      for (let i = 0; i < parts.length - 1; i += 1) o = o[parts[i]] = o[parts[i]] || {};
+      o[parts[parts.length - 1]] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
+    }
+    try {
+      await api('PUT', '/api/config', body);
+      toast('Settings saved');
+      $('#settings').hidden = true;
+    } catch (e) { toast(e.message, { error: true }); }
+  });
+
+  // ---------- misc controls ----------
+  document.addEventListener('click', (ev) => {
+    const t = ev.target.closest('.evtab');
+    if (!t) return;
+    if (t.dataset.pool !== undefined) bracketPool = t.dataset.pool || '';
+    else bracketEvent = t.dataset.event || '';
+    renderBracket(true);
+  });
+  $('#current-game').addEventListener('change', async () => {
+    await flushPatch();
+    try { await api('PATCH', '/api/current', { game: $('#current-game').value }); } catch (e) { toast(e.message, { error: true }); }
+  });
+  for (const tab of document.querySelectorAll('.tab[data-tab]')) {
+    tab.addEventListener('click', () => {
+      for (const t of document.querySelectorAll('.tab[data-tab]')) t.classList.toggle('active', t === tab);
+      $('#tab-bracket').hidden = tab.dataset.tab !== 'bracket';
+      $('#tab-manual').hidden = tab.dataset.tab !== 'manual';
+    });
+  }
+  for (const id of ['bracket-search', 'opt-hide-done', 'opt-show-tbd']) $(`#${id}`).addEventListener('input', () => renderBracket(false));
+  $('#btn-sync').addEventListener('click', async () => {
+    try { await api('POST', '/api/startgg/sync'); } catch (e) { toast(e.message, { error: true }); }
+  });
+  $('#btn-copy-all').addEventListener('click', async () => {
+    const rows = (S.log || []).filter((e) => e.status === 'saved').slice().reverse().map(bibleRow);
+    if (!rows.length) return toast('Nothing saved yet');
+    const ok = await copyText(rows.join('\n'));
+    toast(ok ? `Copied ${rows.length} Stream Bible row${rows.length === 1 ? '' : 's'}. Paste into the worksheet.` : 'Could not copy to the clipboard', { error: !ok });
+  });
+  $('#btn-open-folder').addEventListener('click', async () => {
+    try { const r = await api('POST', '/api/open-folder'); toast(`Opened ${r.dir}`); } catch (e) { toast(e.message, { error: true }); }
+  });
+  $('#round-list').innerHTML = ROUND_SUGGESTIONS.map((r) => `<option value="${esc(r)}">`).join('');
+
+  // ---------- boot ----------
+  fetch('/api/fighters').then((r) => r.json()).then((list) => { fighters = list; }).catch(() => {});
+  connect();
+  setInterval(() => { if (S) { renderChips(); renderRecord(); } }, 1000);
+})();

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TEC Match Recorder: stream overlay</title>
+<style>
+  @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Bold.ttf') format('truetype'); font-weight: 700; }
+  html, body { margin: 0; padding: 0; background: transparent; width: 1920px; height: 1080px; overflow: hidden; }
+  body { position: relative; font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; }
+  /* Pieces: white edge underneath, dark face on top. Faces of touching pieces overlap so joints are seamless. */
+  .piece { position: absolute; }
+  .piece .edge { position: absolute; inset: 0; background: #fff; filter: drop-shadow(0 2px 3px rgba(0,0,0,.4)); }
+  .piece .face { position: absolute; inset: 3px; background: #2a2626; }
+  .piece.bridge .face { background: #3b3636; }
+  .seg { position: absolute; }
+  .seg.center { background: #3b3636; }
+  .seg.badge { background: #fff; color: #1b1818; display: flex; align-items: center; justify-content: center; font-weight: 700; line-height: 1; }
+  .text {
+    position: absolute; display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
+    text-shadow: 0 2px 4px rgba(0,0,0,.6); line-height: 1;
+  }
+  .text span { display: inline-block; }
+  /* Game-win pips under each name plate (Bo3 shows two, Bo5 three). Lit = TEC Ignite Red. */
+  .pips { position: absolute; display: none; gap: 8px; }
+  .pips .pip { width: 34px; height: 13px; background: #2a2626; border: 2px solid #fff; transform: skewX(-18deg); filter: drop-shadow(0 2px 3px rgba(0,0,0,.4)); }
+  .pips .pip.on { background: #FF3D2E; }
+</style>
+</head>
+<body>
+<!-- edges first, faces after, so the dark faces cover the white seams where pieces meet -->
+<div id="edges"></div>
+<div id="faces"></div>
+<div id="segC" class="seg center"></div>
+<div id="s1" class="seg badge"><span></span></div>
+<div id="s2" class="seg badge"><span></span></div>
+<div id="p1" class="text"><span></span></div>
+<div id="p2" class="text"><span></span></div>
+<div id="center" class="text"><span></span></div>
+<div id="w1" class="pips"></div>
+<div id="w2" class="pips"></div>
+<script src="/overlay.js"></script>
+</body>
+</html>

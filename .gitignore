@@ -1,0 +1,25 @@
+# Local state and secrets (OBS password, start.gg token, event logs)
+data/config.json
+data/state.json
+data/bracket.json
+data/*.tmp
+
+# Character art fetched from TournamentStreamHelper (Nintendo artwork, downloaded on demand)
+data/portraits/
+data/icons/
+data/portraits-learned/
+
+# Detector samples, training queue and per-event logos
+data/samples/
+data/train/
+data/event-logos/
+
+# Your own overlay artwork and any recordings
+public/overlay/*.png
+*.mp4
+*.mkv
+
+# OS and editor noise
+Thumbs.db
+.DS_Store
+*.log
