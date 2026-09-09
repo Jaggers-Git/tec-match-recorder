@@ -28,6 +28,9 @@ const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, 'data');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
+const PKG = readJson(path.join(ROOT, 'package.json'), {});
+const APP_VERSION = PKG.version || '0.0.0';
+const REPO_URL = String((PKG.repository && PKG.repository.url) || PKG.repository || '').replace(/^git\+/, '').replace(/\.git$/, '');
 const STATE_PATH = path.join(DATA_DIR, 'state.json');
 const BRACKET_PATH = path.join(DATA_DIR, 'bracket.json');
 const FIGHTERS_PATH = path.join(ROOT, 'fighters.json');
@@ -49,15 +52,24 @@ const DEFAULT_CONFIG = {
     stripPrefixes: true,
     eventSubfolder: true,
   },
-  detect: { enabled: true, source: '', intervalMs: 1000, minScore: 0.6, videosFolder: path.join(os.homedir(), 'Videos') },
+  detect: { enabled: true, source: '', intervalMs: 1000, minScore: 0.6, videosFolder: path.join(os.homedir(), 'Videos'), samplesMaxMb: 500 },
   // Stream overlay (Browser Source layer): what the small centre plate shows and where the text boxes sit.
   overlay: { center: 'round', scene: '', boxes: {} },
   // Who may open the dashboard: this PC only (localhost) unless lan is on, in which case a PIN is required.
   network: { lan: false, pin: '' },
+  // The setup checklist opens at startup until it is dismissed from the checklist itself.
+  setup: { dismissed: false },
 };
 
 // ---------- utilities ----------
-const log = (...args) => console.log(new Date().toLocaleTimeString(), ...args);
+// Console log plus a short in-memory tail for the diagnostics download.
+const logLines = [];
+const log = (...args) => {
+  const stamp = new Date().toLocaleTimeString();
+  console.log(stamp, ...args);
+  logLines.push(`${stamp} ${args.map((a) => (a instanceof Error ? a.message : typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}`);
+  if (logLines.length > 400) logLines.splice(0, logLines.length - 400);
+};
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const nowIso = () => new Date().toISOString();
 const pad = (n) => String(n).padStart(2, '0');
@@ -349,7 +361,7 @@ const obs = new ObsClient();
 obs.on('status', () => broadcast());
 obs.on('event', (ev) => {
   if (ev.type === 'ready') {
-    if (ev.recording && !state.rec.active) adoptRecording(Date.now() - (ev.durationMs || 0));
+    if (ev.recording && !state.rec.active && !(testRec && testRec.running)) adoptRecording(Date.now() - (ev.durationMs || 0));
     if (!ev.recording && state.rec.active) {
       state.rec = { active: false, startedAt: null, startedByApp: false };
       persistState();
@@ -360,7 +372,7 @@ obs.on('event', (ev) => {
   } else if (ev.type === 'record') {
     if (ev.state === 'OBS_WEBSOCKET_OUTPUT_STARTED') {
       lastStopped = null;
-      if (!state.rec.active) adoptRecording(Date.now());
+      if (!state.rec.active && !(testRec && testRec.running)) adoptRecording(Date.now());
     }
     if (ev.state === 'OBS_WEBSOCKET_OUTPUT_STOPPED') {
       resolveStopped(ev.path);
@@ -464,6 +476,45 @@ async function stopRecording({ externalPath = null } = {}) {
   } finally {
     stopInProgress = false;
   }
+}
+
+// ---------- test recording (setup check): record a few seconds, verify the file, remove it ----------
+let testRec = null;
+async function testRecording(seconds) {
+  if (obs.status !== 'connected') throw new Error('OBS is not connected');
+  if (state.rec.active || stopInProgress) throw new Error('A real recording is in progress');
+  if (testRec && testRec.running) throw new Error('A test is already running');
+  const status = await obs.request('GetRecordStatus');
+  if (status.outputActive) throw new Error('OBS is already recording');
+  const secs = Math.min(15, Math.max(3, Number(seconds) || 5));
+  testRec = { running: true, startedAt: Date.now(), seconds: secs };
+  broadcast();
+  try {
+    await obs.request('StartRecord');
+    await sleep(secs * 1000);
+    const res = await obs.request('StopRecord', {}, 30000);
+    const src = res.outputPath || (await waitForStoppedPath(10000)) || '';
+    if (!src) throw new Error('OBS did not report where it saved the test file');
+    await waitUntil(() => !obs.recording, 8000);
+    await waitForStableFile(src, 20000);
+    // With "Automatically remux to mp4" on, OBS writes a sibling right after stopping; let it finish before cleaning up.
+    let sibling = null;
+    for (let i = 0; i < 3 && !sibling; i += 1) { sibling = remuxedSibling(src); if (!sibling) await sleep(1000); }
+    const files = [src];
+    if (sibling) { await waitForStableFile(sibling, 60000); files.push(sibling); }
+    let bytes = 0;
+    for (const f of files) { try { bytes = Math.max(bytes, fs.statSync(f).size); } catch { /* missing */ } }
+    if (!bytes) throw new Error(`OBS reported ${src} but the file is empty or missing`);
+    for (const f of files) { try { fs.unlinkSync(f); } catch { /* leave it */ } }
+    const result = { ok: true, seconds: secs, bytes, dir: path.dirname(src), removed: files.map((f) => path.basename(f)), at: nowIso() };
+    testRec = { running: false, ...result };
+    log(`Test recording OK: ${(bytes / 1048576).toFixed(1)} MB written to ${result.dir}, test file removed`);
+    return result;
+  } catch (e) {
+    testRec = { running: false, ok: false, error: e.message, at: nowIso() };
+    log('Test recording failed:', e.message);
+    throw e;
+  } finally { broadcast(); }
 }
 
 async function finalizeEntry(entry) {
@@ -928,6 +979,8 @@ function updateConfig(body) {
   next.network = { lan: !!(next.network && next.network.lan), pin: String((next.network && next.network.pin) || '').replace(/D/g, '').slice(0, 8) };
   if (next.network.lan && !next.network.pin) next.network.pin = String(crypto.randomInt(100000, 1000000));
   const lanChanged = !!next.network.lan !== !!(cfg.network && cfg.network.lan);
+  next.detect.samplesMaxMb = Math.max(0, Math.round(Number(next.detect.samplesMaxMb) || 0));
+  next.setup = { dismissed: !!(next.setup && next.setup.dismissed) };
   const obsChanged = JSON.stringify(next.obs) !== JSON.stringify(cfg.obs);
   const sgChanged = JSON.stringify(next.startgg) !== JSON.stringify(cfg.startgg);
   cfg = next;
@@ -972,6 +1025,9 @@ function snapshot() {
     lan: cfg.network && cfg.network.lan ? lanUrls() : [],
     network: { lan: !!(cfg.network && cfg.network.lan), pin: (cfg.network && cfg.network.pin) || '' },
     art: artStatus(),
+    version: APP_VERSION,
+    testRec,
+    samples: samplesInfo,
   };
 }
 function bracketPayload() {
@@ -1273,6 +1329,45 @@ async function handleDetectApi(route, req, res, url) {
   }
 }
 
+// ---------- detector sample frames: keep the folder under a size cap ----------
+let samplesInfo = { bytes: 0, files: 0, checkedAt: null, maxMb: 0, removed: 0 };
+function protectedSampleFiles() {
+  const keep = new Set();
+  for (const q of trainer.queue || []) {
+    if (q.status !== 'pending') continue;
+    for (const f of [q.frameFile, q.p1 && q.p1.maskFile, q.p1 && q.p1.cropFile, q.p1 && q.p1.hudCropFile, q.p2 && q.p2.maskFile, q.p2 && q.p2.cropFile, q.p2 && q.p2.hudCropFile]) if (f) keep.add(f);
+  }
+  return keep;
+}
+// Oldest frames go first; frames still waiting for review are never touched. clearAll removes every unreferenced frame.
+function sweepSamples({ clearAll = false } = {}) {
+  const dir = detector.samplesDir;
+  let entries = [];
+  try {
+    entries = fs.readdirSync(dir).map((f) => { try { const st = fs.statSync(path.join(dir, f)); return st.isFile() ? { f, size: st.size, mtime: st.mtimeMs } : null; } catch { return null; } }).filter(Boolean);
+  } catch { entries = []; }
+  const keep = protectedSampleFiles();
+  const maxMb = Math.max(0, Number(cfg.detect.samplesMaxMb) || 0);
+  let total = entries.reduce((sum, e) => sum + e.size, 0);
+  let removed = 0;
+  if (clearAll || (maxMb > 0 && total > maxMb * 1048576)) {
+    const victims = entries.filter((e) => !keep.has(e.f)).sort((a, b) => a.mtime - b.mtime);
+    for (const v of victims) {
+      if (!clearAll && total <= maxMb * 1048576 * 0.9) break;
+      try { fs.unlinkSync(path.join(dir, v.f)); total -= v.size; removed += 1; } catch { /* in use */ }
+    }
+  }
+  samplesInfo = { bytes: total, files: entries.length - removed, checkedAt: nowIso(), maxMb, removed };
+  if (removed) log(`Detector samples: removed ${removed} old frames, ${(total / 1048576).toFixed(0)} MB left`);
+  return samplesInfo;
+}
+function compareVersions(a, b) {
+  const pa = String(a).split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = String(b).split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) { const d = (pa[i] || 0) - (pb[i] || 0); if (d) return d; }
+  return 0;
+}
+
 // ---------- character art packs (downloaded on demand, never shipped) ----------
 let artJob = null;
 function artStatus() {
@@ -1388,6 +1483,45 @@ async function handleApi(req, res, url) {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Set-Cookie': `tec_pin=${encodeURIComponent(pin)}; Path=/; SameSite=Lax; Max-Age=2592000` });
       return res.end('{"ok":true}');
     }
+    case 'GET /api/version': return sendJson(res, 200, { version: APP_VERSION, repo: REPO_URL });
+    case 'POST /api/update/check': {
+      const m = /github\.com\/([^/]+)\/([^/#?]+)/i.exec(REPO_URL);
+      if (!m) return sendJson(res, 200, { version: APP_VERSION, error: 'No GitHub repository is set in package.json yet' });
+      try {
+        const r = await fetch(`https://api.github.com/repos/${m[1]}/${m[2]}/releases/latest`, { headers: { 'User-Agent': 'tec-match-recorder', Accept: 'application/vnd.github+json' } });
+        if (r.status === 404) return sendJson(res, 200, { version: APP_VERSION, error: 'No releases published yet' });
+        if (!r.ok) throw new Error(`GitHub answered ${r.status}`);
+        const rel = await r.json();
+        const latest = String(rel.tag_name || '').replace(/^v/i, '');
+        return sendJson(res, 200, { version: APP_VERSION, latest, url: rel.html_url, upToDate: compareVersions(APP_VERSION, latest) >= 0 });
+      } catch (e) { return sendJson(res, 200, { version: APP_VERSION, error: e.message }); }
+    }
+    case 'GET /api/diagnostics': {
+      const snap = snapshot();
+      const conf = publicConfig();
+      delete conf.gameList;
+      conf.network = { ...(conf.network || {}), pin: conf.network && conf.network.pin ? '(set)' : '' };
+      const body = {
+        generatedAt: nowIso(),
+        app: { name: 'TEC Match Recorder', version: APP_VERSION, node: process.version, platform: `${os.platform()} ${os.release()}`, arch: os.arch(), uptimeSec: Math.round(process.uptime()) },
+        config: conf,
+        obs: snap.obs,
+        startgg: { ...snap.startgg, events: (snap.startgg.events || []).map((e) => e.name || e.slug || e) },
+        disk: snap.disk, detect: snap.detect, train: snap.train,
+        art: { portraitFiles: snap.art.portrait.files, iconFiles: snap.art.icon.files },
+        samples: samplesInfo, testRecording: testRec,
+        recentRecordings: state.log.slice(0, 20).map((e) => ({ ts: e.ts, status: e.status, error: e.error, title: e.title, filename: e.filename, durationSec: e.durationSec })),
+        log: logLines.slice(-300),
+      };
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': `attachment; filename="tec-recorder-diagnostics-${localDate()}-${localTime()}.json"` });
+      return res.end(JSON.stringify(body, null, 2));
+    }
+    case 'POST /api/record/test': {
+      const { seconds } = await readBody(req);
+      try { return sendJson(res, 200, await testRecording(seconds)); } catch (e) { return sendJson(res, 409, { error: e.message }); }
+    }
+    case 'GET /api/detect/samples': return sendJson(res, 200, sweepSamples());
+    case 'POST /api/detect/samples/clear': return sendJson(res, 200, sweepSamples({ clearAll: true }));
     case 'GET /api/art/status': return sendJson(res, 200, artStatus());
     case 'POST /api/art/download': {
       const { pack = 'portrait' } = await readBody(req);
@@ -1444,6 +1578,8 @@ server.listen(cfg.port, listenHost(), () => {
   syncStartgg();
   checkDisk();
   setInterval(checkDisk, 30000);
+  sweepSamples();
+  setInterval(sweepSamples, 10 * 60 * 1000);
   detector.start();
   if (OPEN_BROWSER && process.platform === 'win32') {
     spawn('cmd', ['/c', 'start', '', `http://localhost:${cfg.port}`], { detached: true, stdio: 'ignore' }).unref();

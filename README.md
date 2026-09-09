@@ -22,6 +22,10 @@ Get the code by downloading the repository as a zip or with `git clone`, then ru
 Settings in the dashboard writes `data/config.json` on first save; `data/config.example.json` shows the shape if you
 prefer to create it by hand. Nothing else needs to exist before the first start.
 
+On the first start a **setup checklist** opens: OBS connection, recording folder, start.gg bracket, character art and a
+test recording, each with a green, yellow or grey mark. None of it is mandatory; tick *Don't open this at startup*
+and it lives on under Settings, About and maintenance.
+
 ## First-time setup (5 minutes)
 
 1. **OBS: Tools, then WebSocket Server Settings.** Tick *Enable WebSocket server*, keep port 4455, click
@@ -175,6 +179,17 @@ TEC colors (Ignite Red `#FF3D2E`, Scholastic Green `#1FC97B`) and the Tomorrow d
 MIT, see `LICENSE`. Third-party material (the Tomorrow font, the character art source, OBS and start.gg) is listed in
 `THIRD_PARTY.md`. "Smash", "Tekken" and "Street Fighter" are their owners' trademarks; this project is not affiliated
 with Nintendo, Bandai Namco, Capcom, OBS or start.gg.
+
+## Maintenance (Settings, About and maintenance)
+
+- **Test recording**: records five seconds in OBS, checks that a file appeared in the recording folder, then deletes
+  it. Run it once the capture chain is plugged in, before the first bracket.
+- **Check for updates**: compares this version with the latest GitHub release and links to it. Nothing is installed
+  automatically. **Download diagnostics** saves a JSON file (versions, OBS state, recent log lines, config without
+  secrets) to attach to a bug report.
+- **Detector sample frames**: the character detector keeps small review frames in `data/samples`. They are capped at
+  500 MB by default (oldest go first, frames still waiting for review are kept); set the cap to 0 for no limit, or
+  press *Clear samples now*.
 
 ## Troubleshooting
 

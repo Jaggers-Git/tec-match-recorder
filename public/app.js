@@ -136,7 +136,9 @@
   // ---------- rendering ----------
   function render() {
     if (!S) return;
-    if (!$('#settings').hidden) { renderNetworkStatus(); renderArtStatus(); }
+    if (!$('#settings').hidden) { renderNetworkStatus(); renderArtStatus(); renderMaintenance(); }
+    if (!$('#setup').hidden) renderSetup();
+    maybeAutoOpenSetup();
     renderChips();
     renderBanner();
     renderCurrent();
@@ -554,8 +556,11 @@
     set('overlay.scores', !c.overlay || c.overlay.scores !== false);
     set('network.lan', c.network && c.network.lan);
     set('network.pin', c.network ? c.network.pin : '');
+    set('detect.samplesMaxMb', c.detect && c.detect.samplesMaxMb !== undefined ? c.detect.samplesMaxMb : 500);
+    $('#about-version').textContent = `TEC Match Recorder v${S.version || '?'}`;
     renderNetworkStatus();
     renderArtStatus();
+    renderMaintenance();
     refreshOverlayStatus();
     $('#settings').hidden = false;
     renderSettingsStatus();
@@ -589,6 +594,104 @@
       renderArtStatus();
     } catch (e) { toast(e.message, { error: true }); }
   });
+  // ---------- maintenance (Settings) ----------
+  const fmtMb = (b) => `${(Number(b || 0) / 1048576).toFixed(Number(b || 0) > 100 * 1048576 ? 0 : 1)} MB`;
+  function testRecText(t) {
+    if (!t) return 'Not run yet.';
+    if (t.running) return `Recording a ${t.seconds}-second test in OBS...`;
+    if (t.ok) return `OK: ${fmtMb(t.bytes)} written to ${t.dir}, test file removed (${new Date(t.at).toLocaleTimeString()}).`;
+    return `Failed: ${t.error}`;
+  }
+  function renderMaintenance() {
+    if (!S) return;
+    const tr = $('#test-rec-status'); if (tr) tr.textContent = testRecText(S.testRec);
+    const tb = $('#btn-test-rec'); if (tb) tb.disabled = !!(S.testRec && S.testRec.running);
+    const ss = $('#samples-status');
+    if (ss && S.samples) ss.textContent = `${fmtMb(S.samples.bytes)} in ${S.samples.files} frames${S.samples.maxMb ? ` (cap ${S.samples.maxMb} MB)` : ' (no cap)'}`;
+  }
+  async function runTestRecording() {
+    try {
+      const r = await api('POST', '/api/record/test', { seconds: 5 });
+      toast(`Test recording OK: ${fmtMb(r.bytes)} in ${r.dir}. Test file removed.`);
+    } catch (e) { toast(e.message, { error: true }); }
+  }
+  $('#btn-test-rec').addEventListener('click', runTestRecording);
+  $('#btn-samples-clear').addEventListener('click', async () => {
+    try {
+      const r = await api('POST', '/api/detect/samples/clear');
+      toast(`Removed ${r.removed} sample frames, ${fmtMb(r.bytes)} left (frames waiting for review are kept).`);
+      if (S) { S.samples = r; renderMaintenance(); }
+    } catch (e) { toast(e.message, { error: true }); }
+  });
+  $('#btn-update-check').addEventListener('click', async () => {
+    const out = $('#update-status');
+    out.textContent = 'Checking...';
+    try {
+      const r = await api('POST', '/api/update/check');
+      if (r.error) out.textContent = `v${r.version}. ${r.error}.`;
+      else if (r.upToDate) out.textContent = `v${r.version} is the latest release.`;
+      else out.innerHTML = `v${esc(r.version)} installed, v${esc(r.latest)} is available: <a href="${esc(r.url)}" target="_blank" rel="noopener">release notes and download</a>.`;
+    } catch (e) { out.textContent = e.message; }
+  });
+
+  // ---------- setup checklist (optional; opens at startup until dismissed) ----------
+  let setupAutoOpened = false;
+  function maybeAutoOpenSetup() {
+    if (setupAutoOpened || !S || !S.config) return;
+    setupAutoOpened = true;
+    if (!(S.config.setup && S.config.setup.dismissed)) openSetup();
+  }
+  function openSetup() {
+    $('#setup-dismiss').checked = !!(S && S.config.setup && S.config.setup.dismissed);
+    $('#setup').hidden = false;
+    renderSetup();
+  }
+  function setupItems() {
+    const gb = S.disk && S.disk.freeBytes != null ? `${(S.disk.freeBytes / 1024 ** 3).toFixed(0)} GB free` : '';
+    const sg = S.startgg || {};
+    const art = S.art && S.art.portrait ? S.art.portrait.files : 0;
+    const t = S.testRec;
+    return [
+      S.obs.connected
+        ? { state: 'ok', title: `OBS connected${S.obs.version ? ` (${S.obs.version})` : ''}`, text: 'The recorder can start and stop recordings.' }
+        : { state: 'warn', title: 'OBS not connected', text: 'In OBS open Tools, WebSocket Server Settings, tick Enable WebSocket server, then paste the password from Show Connect Info into Settings.', action: 'settings', label: 'Open Settings' },
+      S.obs.recordDirectory
+        ? { state: S.disk && S.disk.low ? 'warn' : 'ok', title: 'Recording folder', text: `${S.obs.recordDirectory}${gb ? `, ${gb}` : ''}${S.disk && S.disk.low ? '. Under 25 GB: make room before the event.' : ''}` }
+        : { state: 'opt', title: 'Recording folder', text: 'Read from OBS once it connects (Settings, Output, Recording path in OBS).' },
+      sg.configured
+        ? { state: 'ok', title: 'start.gg bracket', text: `${sg.tournamentName || 'Event'}: ${sg.setCount} sets loaded.` }
+        : { state: 'opt', title: 'start.gg bracket (optional)', text: 'Paste an API token and the event URL in Settings to pick sets from the live bracket. Typing names by hand works without it.', action: 'settings', label: 'Open Settings' },
+      art > 0
+        ? { state: 'ok', title: 'Character art', text: `${art} portraits on this PC for automatic character tags and title cards.` }
+        : { state: 'opt', title: 'Character art (optional)', text: 'Needed only for automatic character tags and title cards. About 23 MB, downloaded from the TournamentStreamHelper repository.', action: 'art', label: 'Download' },
+      t && t.ok
+        ? { state: 'ok', title: 'Test recording', text: testRecText(t) }
+        : t && !t.running && t.error
+          ? { state: 'warn', title: 'Test recording', text: testRecText(t), action: 'test', label: 'Run again' }
+          : { state: 'opt', title: 'Test recording', text: t && t.running ? testRecText(t) : 'Records five seconds, checks the file, removes it. Needs OBS connected.', action: 'test', label: t && t.running ? 'Running...' : 'Run test' },
+    ];
+  }
+  function renderSetup() {
+    if (!S) return;
+    $('#setup-list').innerHTML = setupItems().map((it) => `<li><span class="dot ${it.state === 'opt' ? '' : it.state}"></span><div class="body"><b>${esc(it.title)}</b><span>${esc(it.text)}</span></div>${it.action ? `<button type="button" class="small" data-setup="${it.action}"${it.label === 'Running...' ? ' disabled' : ''}>${esc(it.label)}</button>` : ''}</li>`).join('');
+  }
+  $('#setup-list').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-setup]');
+    if (!b) return;
+    if (b.dataset.setup === 'settings') { $('#setup').hidden = true; openSettings(); }
+    else if (b.dataset.setup === 'art') { try { await api('POST', '/api/art/download', { pack: 'portrait' }); toast('Downloading the portrait pack.'); } catch (e) { toast(e.message, { error: true }); } }
+    else if (b.dataset.setup === 'test') runTestRecording();
+  });
+  $('#setup-refresh').addEventListener('click', renderSetup);
+  $('#setup-settings').addEventListener('click', () => { $('#setup').hidden = true; openSettings(); });
+  $('#setup-close').addEventListener('click', async () => {
+    $('#setup').hidden = true;
+    const dismissed = $('#setup-dismiss').checked;
+    if (S && !!(S.config.setup && S.config.setup.dismissed) !== dismissed) {
+      try { await api('PUT', '/api/config', { setup: { dismissed } }); } catch (e) { toast(e.message, { error: true }); }
+    }
+  });
+  $('#btn-setup').addEventListener('click', () => { $('#settings').hidden = true; openSetup(); });
   async function loadSources(selected) {
     const sel = $('#settings-form').elements['detect.source'];
     if (!sel) return;

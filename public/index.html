@@ -253,6 +253,25 @@
         <div id="network-status" class="muted"></div>
       </fieldset>
       <fieldset>
+        <legend>About and maintenance</legend>
+        <div class="row" style="align-items:center;flex-wrap:wrap;gap:8px">
+          <span id="about-version" class="muted">TEC Match Recorder</span>
+          <button type="button" id="btn-update-check" class="small">Check for updates</button>
+          <a class="small" href="/api/diagnostics" target="_blank" rel="noopener" style="text-decoration:none">Download diagnostics</a>
+          <button type="button" id="btn-setup" class="small">Setup checklist</button>
+        </div>
+        <div id="update-status" class="muted"></div>
+        <div class="row" style="align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px">
+          <button type="button" id="btn-test-rec" class="small">Test recording (5 s)</button>
+          <span id="test-rec-status" class="muted"></span>
+        </div>
+        <div class="muted" style="margin-top:2px">Records five seconds in OBS, checks that a file appeared in the recording folder, then removes it.</div>
+        <div class="grid2" style="margin-top:8px">
+          <label>Keep detector sample frames under (MB, 0 = no limit) <input name="detect.samplesMaxMb" type="number" min="0" step="50"></label>
+          <div class="row" style="align-items:flex-end;gap:8px"><button type="button" id="btn-samples-clear" class="small">Clear samples now</button><span id="samples-status" class="muted"></span></div>
+        </div>
+      </fieldset>
+      <fieldset>
         <legend>Character art (used by the character detector and the title cards)</legend>
         <div class="muted">The portraits are Nintendo's artwork and are not included with the recorder. This fetches the community pack from the TournamentStreamHelper repository onto this PC only. Use it within Nintendo's community tournament guidelines.</div>
         <div class="row" style="align-items:center;margin-top:8px">
@@ -263,6 +282,23 @@
       <div id="settings-info" class="muted"></div>
       <div class="modal-actions"><button type="submit" class="primary">Save settings</button></div>
     </form>
+  </div>
+</div>
+
+<div id="setup" class="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>Setup checklist</h3>
+      <span class="spacer"></span>
+      <button id="setup-refresh" class="small">Check again</button>
+      <button id="setup-close" class="small">Close</button>
+    </div>
+    <p class="muted">Nothing here is required. Green is ready, yellow needs a look, grey is an optional extra.</p>
+    <ul id="setup-list" class="setup-list"></ul>
+    <div class="modal-actions" style="justify-content:space-between;align-items:center">
+      <label class="check"><input type="checkbox" id="setup-dismiss"> Don't open this at startup (it stays under Settings)</label>
+      <button id="setup-settings" class="small">Open Settings</button>
+    </div>
   </div>
 </div>
 

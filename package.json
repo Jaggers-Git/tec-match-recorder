@@ -6,12 +6,30 @@
   "author": "Texas Esports Collective",
   "private": false,
   "main": "server.js",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node server.js",
     "start:headless": "node server.js --no-browser",
     "fetch-art": "node tools/fetch-icons.js portrait",
     "thumbnails": "node tools/thumbnails.js"
   },
-  "keywords": ["obs", "start.gg", "tournament", "vod", "smash", "tekken", "street-fighter", "fgc"]
+  "keywords": [
+    "obs",
+    "start.gg",
+    "tournament",
+    "vod",
+    "smash",
+    "tekken",
+    "street-fighter",
+    "fgc"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/texasesports/tec-match-recorder"
+  },
+  "bugs": {
+    "url": "https://github.com/texasesports/tec-match-recorder/issues"
+  }
 }
