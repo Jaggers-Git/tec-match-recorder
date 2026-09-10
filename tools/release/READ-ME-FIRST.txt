@@ -28,7 +28,7 @@ Pick the set, START RECORDING when the players sit down, END & SAVE when it ends
 
 WHERE THINGS GO
 Recordings land in the folder OBS already records to, in a subfolder named after the event, next
-to a recordings.csv you can paste into a Stream Bible sheet.
+to a recordings.csv whose rows paste straight into a stream worksheet.
 
 HELP
 README.md has the full guide and a troubleshooting table. Settings has "Download diagnostics" for

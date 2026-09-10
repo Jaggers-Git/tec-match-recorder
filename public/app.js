@@ -117,7 +117,7 @@
   }
   async function copyRow(e) {
     const ok = await copyText(bibleRow(e));
-    toast(ok ? 'Stream Bible row copied. Paste it into the worksheet (columns B to F).' : 'Could not copy to the clipboard', { error: !ok });
+    toast(ok ? 'Worksheet row copied. Paste it into the stream worksheet (columns B to F).' : 'Could not copy to the clipboard', { error: !ok });
   }
 
   // ---------- live updates ----------
@@ -364,7 +364,7 @@
     for (const e of entries) {
       const prev = seenStatus.get(e.id);
       if (prev && prev !== e.status) {
-        if (e.status === 'saved') toast(`Saved: ${e.filename}`, { action: { label: 'Copy Stream Bible row', onClick: () => copyRow(e) } });
+        if (e.status === 'saved') toast(`Saved: ${e.filename}`, { action: { label: 'Copy worksheet row', onClick: () => copyRow(e) } });
         else if (e.status === 'error') toast(`Could not save "${e.title}": ${e.error}`, { error: true, sticky: true });
       }
       seenStatus.set(e.id, e.status);
@@ -820,7 +820,7 @@
     const rows = (S.log || []).filter((e) => e.status === 'saved').slice().reverse().map(bibleRow);
     if (!rows.length) return toast('Nothing saved yet');
     const ok = await copyText(rows.join('\n'));
-    toast(ok ? `Copied ${rows.length} Stream Bible row${rows.length === 1 ? '' : 's'}. Paste into the worksheet.` : 'Could not copy to the clipboard', { error: !ok });
+    toast(ok ? `Copied ${rows.length} worksheet row${rows.length === 1 ? '' : 's'}. Paste into the worksheet.` : 'Could not copy to the clipboard', { error: !ok });
   });
   $('#btn-open-folder').addEventListener('click', async () => {
     try { const r = await api('POST', '/api/open-folder'); toast(`Opened ${r.dir}`); } catch (e) { toast(e.message, { error: true }); }

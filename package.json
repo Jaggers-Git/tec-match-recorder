@@ -1,7 +1,7 @@
 {
   "name": "tec-match-recorder",
   "version": "1.0.0",
-  "description": "One-button tournament VOD station for OBS: pick the set from a start.gg bracket, record, and get a correctly named file, a stream overlay and a Stream Bible row.",
+  "description": "One-button tournament VOD station for OBS: pick the set from a start.gg bracket, record, and get a correctly named file plus a stream overlay. By Texas Esports Collective.",
   "license": "MIT",
   "author": "Texas Esports Collective",
   "private": false,

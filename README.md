@@ -73,7 +73,7 @@ Inside OBS's recording folder, in a subfolder named after the event (toggle in S
 - The renamed recordings.
 - `recordings.csv`, one row per set: Player 1, Character(s), Player 2, Character(s), Round, Set, Date, Time,
   Duration, Title, Filename, Event. The first five columns match VGBootCamp's Stream Worksheet, so a whole day
-  can be pasted in at once (**Copy all Stream Bible rows** in the dashboard does the same via the clipboard).
+  can be pasted in at once (**Copy all worksheet rows** in the dashboard does the same via the clipboard).
 
 ## Naming
 

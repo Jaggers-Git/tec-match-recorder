@@ -15,7 +15,7 @@
 3. Keep score with **+1** / **-1** under each name as games finish (shows on the stream overlay). Optional; it resets with the next set.
 4. **START RECORDING** the moment the players sit down. You can still fix names and characters while it records.
 5. Set over? **END & SAVE**, then tap it again to confirm. Done. The form clears for the next set.
-6. Filling in the Stream Bible sheet? Tap **Copy row** on the log line and paste it into the worksheet.
+6. Filling in the stream worksheet? Tap **Copy row** on the log line and paste it in.
 
 **Rules of thumb**
 - One recording per *set* (the whole Bo3/Bo5), not per game.
