@@ -1,0 +1,38 @@
+TEC MATCH RECORDER {version}
+One-button tournament VOD station for OBS, by Texas Esports Collective.
+
+WHAT IT DOES
+Pick the set being played (from your start.gg bracket, or type the names), press START RECORDING,
+press END & SAVE when the set is over. OBS records, and the app names the file properly, logs it,
+and clears the form for the next set. Optional extras: a name-plate overlay for your stream, automatic
+character tags for Smash Ultimate, and title cards for YouTube.
+
+YOU NEED
+- A Windows 10 or 11 PC with OBS Studio 28 or newer (the capture PC).
+- Nothing else. Node.js is included in this folder (node.exe, {node}).
+
+FIRST START (5 minutes)
+1. Unzip this folder anywhere, for example C:\TEC Match Recorder. Keep the files together.
+2. In OBS: Tools, WebSocket Server Settings. Tick "Enable WebSocket server", click "Show Connect Info"
+   and copy the password.
+3. Double-click "Start Recorder.bat". A black window opens (leave it open) and the dashboard opens
+   in your browser at http://localhost:8420. Windows may ask about the firewall: allow it if you want
+   to run the dashboard from a phone later; otherwise it does not matter.
+4. A setup checklist appears. Open Settings and paste the OBS password. Optional: paste a start.gg
+   API token and your event URL to pick sets from the live bracket, and download the character art
+   for automatic character tags. Press "Test recording" once to prove the chain works.
+5. Read OPERATOR-CHEATSHEET.md (one page) with whoever runs the station on the day.
+
+EVERY SET
+Pick the set, START RECORDING when the players sit down, END & SAVE when it ends. One file per set.
+
+WHERE THINGS GO
+Recordings land in the folder OBS already records to, in a subfolder named after the event, next
+to a recordings.csv you can paste into a Stream Bible sheet.
+
+HELP
+README.md has the full guide and a troubleshooting table. Settings has "Download diagnostics" for
+bug reports. Issues and updates: https://github.com/Jaggers-Git/tec-match-recorder
+
+Character portraits used by the detector and the title cards are Nintendo's artwork. They are not in
+this download; the app offers to fetch the community pack onto your own PC. MIT licensed, see LICENSE.

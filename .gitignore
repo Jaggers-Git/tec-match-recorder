@@ -23,3 +23,6 @@ public/overlay/*.png
 Thumbs.db
 .DS_Store
 *.log
+
+# Release builds
+dist/
