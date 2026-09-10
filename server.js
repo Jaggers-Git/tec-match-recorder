@@ -367,6 +367,7 @@ obs.on('event', (ev) => {
       persistState();
     }
     checkDisk();
+    refreshOverlayCache();
     trainer.cleanupLeftovers();
     if (obs.recordDirectory && cfg.lastRecordDirectory !== obs.recordDirectory) { cfg.lastRecordDirectory = obs.recordDirectory; writeJson(CONFIG_PATH, cfg); }
   } else if (ev.type === 'record') {
@@ -1026,6 +1027,8 @@ function snapshot() {
     network: { lan: !!(cfg.network && cfg.network.lan), pin: (cfg.network && cfg.network.pin) || '' },
     art: artStatus(),
     version: APP_VERSION,
+    overlay: overlayCache,
+    overlayDemoUntil,
     testRec,
     samples: samplesInfo,
   };
@@ -1139,6 +1142,20 @@ async function overlayStatus() {
   } catch { /* leave defaults */ }
   return out;
 }
+// Cached overlay state for the dashboard chip: which scenes hold the source and what OBS is showing right now.
+let overlayCache = { installed: false, inScenes: [], scene: '', currentScene: '', checkedAt: null };
+let overlayDemoUntil = 0;
+async function refreshOverlayCache() {
+  if (obs.status !== 'connected') { overlayCache = { ...overlayCache, installed: false, inScenes: [], currentScene: '', checkedAt: nowIso() }; return overlayCache; }
+  try {
+    const st = await overlayStatus();
+    let currentScene = '';
+    try { currentScene = (await obs.request('GetCurrentProgramScene')).currentProgramSceneName; } catch { /* leave blank */ }
+    overlayCache = { installed: st.installed, inScenes: st.inScenes, scene: cfg.overlay.scene || '', currentScene, checkedAt: nowIso() };
+  } catch { /* keep the last known state */ }
+  broadcast();
+  return overlayCache;
+}
 // Add the overlay page as a Browser Source at the top of a scene (the "Gameplay" scene by default).
 async function installOverlay(sceneName) {
   if (obs.status !== 'connected') throw new Error('OBS is not connected');
@@ -1161,11 +1178,21 @@ async function installOverlay(sceneName) {
   // Top of the stack so nothing added later covers the names.
   const count = ((await obs.request('GetSceneItemList', { sceneName: target })).sceneItems || []).length;
   await obs.request('SetSceneItemIndex', { sceneName: target, sceneItemId, sceneItemIndex: Math.max(0, count - 1) });
-  await obs.request('SetSceneItemTransform', { sceneName: target, sceneItemId, sceneItemTransform: { positionX: 0, positionY: 0, scaleX: 1, scaleY: 1 } }).catch(() => {});
+  // The page is laid out for 1920x1080; scale the item so it covers a smaller or larger canvas the same way.
+  let canvas = null;
+  try { const v = await obs.request('GetVideoSettings'); canvas = { w: v.baseWidth, h: v.baseHeight }; } catch { canvas = null; }
+  const scaleX = canvas && canvas.w ? canvas.w / 1920 : 1;
+  const scaleY = canvas && canvas.h ? canvas.h / 1080 : 1;
+  await obs.request('SetSceneItemTransform', { sceneName: target, sceneItemId, sceneItemTransform: { positionX: 0, positionY: 0, scaleX, scaleY } }).catch(() => {});
   cfg.overlay.scene = target;
   writeJson(CONFIG_PATH, cfg);
-  log(`Overlay added to OBS scene "${target}"`);
-  return { ok: true, scene: target, url: overlayUrl() };
+  let currentScene = '';
+  try { currentScene = (await obs.request('GetCurrentProgramScene')).currentProgramSceneName; } catch { /* unknown */ }
+  // Show sample names for half a minute so the new layer is visible in OBS even before a set is picked.
+  overlayDemoUntil = Date.now() + 30000;
+  log(`Overlay added to OBS scene "${target}"${currentScene && currentScene !== target ? ` (OBS is showing "${currentScene}")` : ''}`);
+  refreshOverlayCache();
+  return { ok: true, scene: target, url: overlayUrl(), currentScene, visibleNow: !currentScene || currentScene === target, canvas };
 }
 // OBS reports the recordings folder while connected; keep the last one so tools work with OBS closed.
 function recordDirectory() {
@@ -1252,6 +1279,8 @@ async function handleDetectApi(route, req, res, url) {
     }
     case 'POST /api/overlay/remove': {
       try { await obs.request('RemoveInput', { inputName: OVERLAY_INPUT }); } catch (e) { if (!/not found|does not exist/i.test(e.message)) { sendJson(res, 400, { error: e.message }); return true; } }
+      overlayDemoUntil = 0;
+      refreshOverlayCache();
       sendJson(res, 200, { ok: true });
       return true;
     }
@@ -1580,6 +1609,7 @@ server.listen(cfg.port, listenHost(), () => {
   setInterval(checkDisk, 30000);
   sweepSamples();
   setInterval(sweepSamples, 10 * 60 * 1000);
+  setInterval(() => { if (obs.status === 'connected') refreshOverlayCache(); }, 30000);
   detector.start();
   if (OPEN_BROWSER && process.platform === 'win32') {
     spawn('cmd', ['/c', 'start', '', `http://localhost:${cfg.port}`], { detached: true, stdio: 'ignore' }).unref();

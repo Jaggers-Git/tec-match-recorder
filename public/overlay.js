@@ -138,6 +138,16 @@
       default: return '';
     }
   }
+  // Right after "Add overlay to OBS" the server opens a short window in which sample names are shown,
+  // so the new layer is visible in OBS before any set is picked.
+  let demoTimer = null;
+  function demoActive() {
+    const until = Number(S && S.overlayDemoUntil) || 0;
+    const active = until > Date.now() && !(S.current.p1 || S.current.p2);
+    clearTimeout(demoTimer);
+    if (active) demoTimer = setTimeout(render, until - Date.now() + 200);
+    return active;
+  }
   function render() {
     if (!S) return;
     const ov = S.config.overlay || {};
@@ -147,9 +157,10 @@
     showScores = ov.scores !== false;
     const sizes = G.type === 'notched' ? layoutNotched() : layoutBar();
     for (const id of ['#s1', '#s2']) $(id).style.display = showScores ? 'flex' : 'none';
-    fit($('#p1'), S.current.p1, Math.round(sizes.textH * 0.5));
-    fit($('#p2'), S.current.p2, Math.round(sizes.textH * 0.5));
-    fit($('#center'), centerText(), Math.round(sizes.centerH * 0.62));
+    const demo = demoActive();
+    fit($('#p1'), demo ? 'PLAYER 1' : S.current.p1, Math.round(sizes.textH * 0.5));
+    fit($('#p2'), demo ? 'PLAYER 2' : S.current.p2, Math.round(sizes.textH * 0.5));
+    fit($('#center'), demo ? 'OVERLAY READY' : centerText(), Math.round(sizes.centerH * 0.62));
     layoutPips(sizes);
     for (const [id, val] of [['#s1', S.current.score1], ['#s2', S.current.score2]]) {
       const span = $(id).querySelector('span');

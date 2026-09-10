@@ -116,6 +116,10 @@ bars, timer and round-win markers live at the top, it becomes a notched shape: t
 health bars joined by a thin bridge over the top-centre, so the timer and round markers stay uncovered. Preview it at
 http://localhost:8420/overlay. **Remove from OBS** takes the layer out again.
 
+After you press the button, the header chip reads **Overlay: live in <scene>**, the layer shows sample names for
+30 seconds, and if OBS is showing a different scene the message says so: switch OBS to that scene to see it. The item
+is scaled to your canvas, so a 1280x720 canvas gets the same layout at 2/3 size.
+
 ## Character detection (optional)
 
 The recorder can recognize the fighters during a game and fill them in for you. While OBS is connected it looks

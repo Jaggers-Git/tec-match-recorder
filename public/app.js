@@ -178,6 +178,16 @@
     if (S.disk.freeBytes == null) { diskChip.textContent = 'Disk: unknown'; diskChip.className = 'chip'; }
     else { diskChip.textContent = `${gb(S.disk.freeBytes)} free`; diskChip.className = `chip ${S.disk.low ? 'bad' : 'ok'}`; }
 
+    const ov = $('#chip-overlay');
+    if (ov) {
+      const o = S.overlay || {};
+      if (!S.obs.connected) { ov.textContent = 'Overlay: waiting for OBS'; ov.className = 'chip'; }
+      else if (o.installed) {
+        const onScreen = o.currentScene && o.inScenes.includes(o.currentScene);
+        ov.textContent = onScreen ? `Overlay: live in ${o.currentScene}` : `Overlay: in ${o.inScenes.join(', ')} (OBS is showing ${o.currentScene || 'another scene'})`;
+        ov.className = `chip ${onScreen ? 'ok' : 'warn'}`;
+      } else { ov.textContent = 'Overlay: not in OBS yet'; ov.className = 'chip'; }
+    }
     const det = $('#chip-detect');
     if (det) {
       const d = S.detect || {};
@@ -664,6 +674,9 @@
       art > 0
         ? { state: 'ok', title: 'Character art', text: `${art} portraits on this PC for automatic character tags and title cards.` }
         : { state: 'opt', title: 'Character art (optional)', text: 'Needed only for automatic character tags and title cards. About 23 MB, downloaded from the TournamentStreamHelper repository.', action: 'art', label: 'Download' },
+      S.overlay && S.overlay.installed
+        ? { state: 'ok', title: 'Stream overlay', text: `In OBS scene ${S.overlay.inScenes.join(', ')} as the source "TEC Overlay".${S.overlay.currentScene && !S.overlay.inScenes.includes(S.overlay.currentScene) ? ` OBS is showing "${S.overlay.currentScene}" right now.` : ''}` }
+        : { state: 'opt', title: 'Stream overlay (optional)', text: S.obs.connected ? 'Player names, round and wins drawn over the gameplay scene. Adds a Browser Source called "TEC Overlay" to OBS.' : 'Player names, round and wins over the gameplay scene. Available once OBS is connected.', action: S.obs.connected ? 'overlay' : undefined, label: 'Add to OBS' },
       t && t.ok
         ? { state: 'ok', title: 'Test recording', text: testRecText(t) }
         : t && !t.running && t.error
@@ -681,6 +694,7 @@
     if (b.dataset.setup === 'settings') { $('#setup').hidden = true; openSettings(); }
     else if (b.dataset.setup === 'art') { try { await api('POST', '/api/art/download', { pack: 'portrait' }); toast('Downloading the portrait pack.'); } catch (e) { toast(e.message, { error: true }); } }
     else if (b.dataset.setup === 'test') runTestRecording();
+    else if (b.dataset.setup === 'overlay') { try { const r = await api('POST', '/api/overlay/install', { scene: '' }); toast(overlayInstalledMessage(r), { sticky: true }); } catch (e) { toast(e.message, { error: true }); } }
   });
   $('#setup-refresh').addEventListener('click', renderSetup);
   $('#setup-settings').addEventListener('click', () => { $('#setup').hidden = true; openSettings(); });
@@ -709,15 +723,28 @@
       const st = await api('GET', '/api/overlay/status');
       const preferred = (S && S.config.overlay && S.config.overlay.scene) || st.inScenes[0] || st.scenes.find((s) => /gameplay|game/i.test(s)) || st.scenes[0] || '';
       sel.innerHTML = st.scenes.map((s) => `<option value="${esc(s)}"${s === preferred ? ' selected' : ''}>${esc(s)}</option>`).join('') || '<option value="">(connect OBS to list scenes)</option>';
-      out.textContent = st.installed ? `Installed in: ${st.inScenes.join(', ')}.${st.image ? '' : ' No overlay.png yet: plain plates are drawn.'}` : `Not in OBS yet.${st.image ? '' : ' No overlay.png yet: plain plates are drawn.'}`;
+      const o = (S && S.overlay) || {};
+      const showing = st.installed && o.currentScene && !st.inScenes.includes(o.currentScene) ? ` OBS is showing "${o.currentScene}" right now; switch to ${st.inScenes.join(' or ')} to see it.` : '';
+      out.textContent = st.installed ? `Installed in: ${st.inScenes.join(', ')} (source "TEC Overlay", top of the scene).${showing}` : 'Not in OBS yet. Press "Add overlay to OBS" while OBS is connected; it lands at the top of the chosen scene.';
     } catch (e) { out.textContent = e.message; }
   }
   $('#btn-overlay-add').addEventListener('click', async () => {
     try {
       const r = await api('POST', '/api/overlay/install', { scene: $('#overlay-scene').value });
-      toast(`Overlay added to OBS scene "${r.scene}" as a Browser Source on top.`);
+      toast(overlayInstalledMessage(r), { sticky: true });
       refreshOverlayStatus();
     } catch (e) { toast(e.message, { error: true }); }
+  });
+  function overlayInstalledMessage(r) {
+    const where = r.visibleNow
+      ? 'It is on screen in OBS now'
+      : `OBS is showing "${r.currentScene}" right now, so switch OBS to "${r.scene}" to see it`;
+    return `Overlay added to OBS scene "${r.scene}" as the top source "TEC Overlay". ${where}. Sample names show for 30 seconds, then the plates follow the selected set.`;
+  }
+  $('#chip-overlay').addEventListener('click', () => {
+    if (!S) return;
+    openSettings();
+    setTimeout(() => $('#btn-overlay-add').scrollIntoView({ block: 'center' }), 60);
   });
   $('#btn-overlay-remove').addEventListener('click', async () => {
     try { await api('POST', '/api/overlay/remove'); toast('Overlay removed from OBS.'); refreshOverlayStatus(); } catch (e) { toast(e.message, { error: true }); }
