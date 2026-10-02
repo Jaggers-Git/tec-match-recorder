@@ -32,8 +32,19 @@
   const img = (file) => `/api/train/image?dir=samples&file=${encodeURIComponent(file)}`;
 
   // ---------- rendering ----------
+  // Themed stations show their own logo and name here too (colours come from /theme.js and style.css).
+  const TEC_MARK = $('#brand-mark').innerHTML;
+  function renderBrand() {
+    const b = S.branding || { theme: 'tec' };
+    const tec = b.theme === 'tec';
+    document.documentElement.dataset.theme = b.theme;
+    const want = tec ? TEC_MARK : b.logo ? `<img src="${b.logo}" alt="">` : '';
+    if ($('#brand-mark').dataset.key !== want) { $('#brand-mark').dataset.key = want; $('#brand-mark').innerHTML = want; }
+    $('#brand-org').textContent = b.org || 'Texas Esports Collective';
+  }
   function renderHeader() {
     if (!S) return;
+    renderBrand();
     const o = $('#chip-obs');
     o.textContent = S.obs.connected ? `OBS ${S.obs.version} connected` : 'OBS not connected';
     o.className = `chip ${S.obs.connected ? 'ok' : 'bad'}`;

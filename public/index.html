@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TEC Match Recorder</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='34%2045%20188%20186'%3E%3Cpath%20fill='%23FF3D2E'%20d='M159.2,98.1l9-50.9h-50.9l-9,50.9,20.9,25.4,29.9-25.4ZM96,113.4h-50.9l-9,50.9h50.9l29.9-25.4-20.9-25.4ZM168.2,113.4l-29.9,25.4,20.9,25.4h50.9l9-50.9h-50.9ZM96,177.7l-9,50.9h50.9l9-50.9-20.9-25.4-29.9,25.4Z'/%3E%3C/svg%3E">
+<script src="/theme.js"></script>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <header class="topbar">
   <div class="brand">
-    <svg viewBox="34 45 188 186" aria-hidden="true"><path fill="#FF3D2E" d="M159.2,98.1l9-50.9h-50.9l-9,50.9,20.9,25.4,29.9-25.4ZM96,113.4h-50.9l-9,50.9h50.9l29.9-25.4-20.9-25.4ZM168.2,113.4l-29.9,25.4,20.9,25.4h50.9l9-50.9h-50.9ZM96,177.7l-9,50.9h50.9l9-50.9-20.9-25.4-29.9,25.4Z"/></svg>
-    <div><span class="name">Match Recorder</span><span class="org">Texas Esports Collective</span></div>
+    <span id="brand-mark" class="brand-mark"><svg viewBox="34 45 188 186" aria-hidden="true"><path fill="#FF3D2E" d="M159.2,98.1l9-50.9h-50.9l-9,50.9,20.9,25.4,29.9-25.4ZM96,113.4h-50.9l-9,50.9h50.9l29.9-25.4-20.9-25.4ZM168.2,113.4l-29.9,25.4,20.9,25.4h50.9l9-50.9h-50.9ZM96,177.7l-9,50.9h50.9l9-50.9-20.9-25.4-29.9,25.4Z"/></svg></span>
+    <div><span class="name">Match Recorder</span><span id="brand-org" class="org">Texas Esports Collective</span></div>
   </div>
   <div class="chips">
     <span id="chip-obs" class="chip">OBS</span>
@@ -172,24 +173,47 @@
     </div>
     <form id="settings-form">
       <fieldset>
+        <legend>Look and games</legend>
+        <div class="grid2">
+          <label>Theme (dashboard and stream overlay)
+            <select name="branding.theme" id="theme-select">
+              <option value="tec">Texas Esports Collective</option>
+              <option value="tt">Tuesday Takedown (TAMUSA Esports)</option>
+            </select>
+          </label>
+          <label class="tt-only">Label next to the scoreboard (blank for none) <input name="branding.label" maxlength="40" placeholder="(no label)"></label>
+        </div>
+        <div class="tt-only">
+          <div class="row" style="align-items:center;margin-top:4px;flex-wrap:wrap;gap:8px">
+            <img id="logo-preview" class="logo-preview" alt="Current logo" hidden>
+            <button type="button" id="btn-logo-startgg" class="small">Use the start.gg tournament logo</button>
+            <label class="small file-btn">Choose image…<input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp" hidden></label>
+            <button type="button" id="btn-logo-remove" class="small">Remove logo</button>
+          </div>
+          <div id="logo-status" class="muted" style="margin-top:6px"></div>
+          <div class="muted">The logo sits in the middle of the scoreboard and in the header. It is kept on this PC only (data\branding), not in the app's files. A PNG with a transparent background looks best.</div>
+        </div>
+        <label class="check" style="margin-top:10px"><input type="checkbox" name="smashOnly" id="smash-only"> Smash Ultimate only: hide Street Fighter 6 and Tekken 8 (game picker, title suffixes, tournament import)</label>
+      </fieldset>
+      <fieldset>
         <legend>Event</legend>
         <label>Event name used in titles <input name="event.name" placeholder="(taken from start.gg when blank)"></label>
         <div class="grid2">
           <label>Title suffix: Smash Ultimate <input name="games.ssbu.suffix"></label>
-          <label>Title suffix: Street Fighter 6 <input name="games.sf6.suffix"></label>
-          <label>Title suffix: Tekken 8 <input name="games.tekken8.suffix"></label>
-          <label>Title suffix: other games <input name="games.other.suffix"></label>
+          <label class="multi-game">Title suffix: Street Fighter 6 <input name="games.sf6.suffix"></label>
+          <label class="multi-game">Title suffix: Tekken 8 <input name="games.tekken8.suffix"></label>
+          <label class="multi-game">Title suffix: other games <input name="games.other.suffix"></label>
         </div>
       </fieldset>
       <fieldset>
         <legend>start.gg live sync</legend>
-        <label>Event URLs, one per line (the Ultimate, SF6 and Tekken brackets of the same tournament) <textarea name="startgg.eventUrls" rows="3" placeholder="https://www.start.gg/tournament/…/event/…"></textarea></label>
+        <label>Event URLs, one per line (the <span class="multi-game">Ultimate, SF6 and Tekken </span>brackets of the same tournament) <textarea name="startgg.eventUrls" rows="3" placeholder="https://www.start.gg/tournament/…/event/…"></textarea></label>
         <div class="grid2">
           <label>API token <input name="startgg.token" type="password" autocomplete="off"></label>
           <label>Check for updates every (seconds) <input name="startgg.pollSeconds" type="number" min="15" step="5"></label>
         </div>
         <div class="row" style="align-items:flex-end;margin-top:4px">
-          <label style="flex:1">Add a whole tournament (its Ultimate singles, Street Fighter 6 and Tekken 8 brackets) <input id="import-url" placeholder="https://www.start.gg/tournament/…" autocomplete="off"></label>
+          <label style="flex:1">Add a whole tournament (its Ultimate singles<span class="multi-game">, Street Fighter 6 and Tekken 8</span> brackets) <input id="import-url" placeholder="https://www.start.gg/tournament/…" autocomplete="off"></label>
           <button type="button" id="btn-import" class="small">Add events</button>
         </div>
         <div id="import-status" class="muted"></div>
@@ -328,7 +352,7 @@
     </div>
     <div id="howto-quick">
       <ol class="quick-steps">
-        <li><b>Pick the set</b><span>Tap it in the bracket list on the left (in pools, tap the pool first: the same letter repeats in every pool), or type both player names on the right. Players on the wrong sides? Tap <b>⇄ swap</b>. Recording Street Fighter or Tekken by hand? Set the game in the dropdown above the names (sets picked from start.gg set it for you).</span></li>
+        <li><b>Pick the set</b><span>Tap it in the bracket list on the left (in pools, tap the pool first: the same letter repeats in every pool), or type both player names on the right. Players on the wrong sides? Tap <b>⇄ swap</b>.<span class="multi-game"> Recording Street Fighter or Tekken by hand? Set the game in the dropdown above the names (sets picked from start.gg set it for you).</span></span></li>
         <li><b>Start recording</b><span>Press <b>START RECORDING</b> when the players sit down. Characters fill in by themselves once the game starts (chips marked <i>auto</i>); fix them with <b>Characters…</b> if needed. Names can be edited any time before saving.</span></li>
         <li><b>End &amp; save</b><span>When the set is over, press <b>END &amp; SAVE</b>, then press it again to confirm. The file is named and saved, and the form clears for the next set.</span></li>
       </ol>

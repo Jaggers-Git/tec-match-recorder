@@ -102,6 +102,13 @@ the recorder adds every Ultimate singles, Street Fighter 6 and Tekken 8 bracket 
 squad strike and games it does not know. With more than one bracket loaded, the bracket list gets event tabs; in
 pools it also gets pool chips, groups sets by pool, and names files with the pool ("A3-A").
 
+Two brackets of the same game on one night (Tuesday Takedown's Ultimate Singles plus its Redemption bracket) would
+give identical titles, so sets from the smaller bracket carry its event name in the round: "Redemption Winners
+Round 1". The bracket cards show which event each set belongs to.
+
+A station that only ever records Ultimate can tick **Smash Ultimate only** (Settings, Look and games). The game
+picker, the SF6/Tekken title suffixes and their brackets disappear; tournament import skips them too.
+
 ## Stream overlay (player names over the gameplay)
 
 Settings has a **Stream overlay** section. **Add overlay to OBS** puts a Browser Source called "TEC Overlay"
@@ -173,10 +180,27 @@ Storage: `data/templates/` holds the learned name masks (plus a crop of each so 
   asks for the PIN once and remembers it. No internet is needed, just the local network.
 - OBS on a different PC than the recorder? Add `?pin=YOURPIN` to the overlay Browser Source URL.
 
-## Branding
+## Branding and themes
 
 TEC colors (Ignite Red `#FF3D2E`, Scholastic Green `#1FC97B`) and the Tomorrow display font, bundled in
 `public/fonts/` under the SIL Open Font License so the dashboard looks right offline and on any machine.
+
+Settings, **Look and games**, switches the whole station to another event series' look. The one built in besides
+TEC is **Tuesday Takedown** (TAMUSA Esports' Smash monthly):
+
+- Dashboard in TAMUSA maroon and championship-belt gold, with the Oswald condensed type of the TT banners.
+- Stream overlay rebuilt from the TT stream's scoreboard: maroon name plates in a black frame with the win count at
+  each end, the belt logo over the middle, the round and "Best of 3" in black bands underneath, game-win pips
+  beside them, and "Tuesday Takedown" in yellow on the left (the label is editable, blank hides it). Tags use the
+  Silkscreen arcade font in small caps, like the stream. Tekken 8 and SF6 keep their notched shape in TT colors.
+- The TT logo is event artwork, so it is not in this repository. **Use the start.gg tournament logo** saves the
+  tournament's profile picture from start.gg (it happens on its own the first time the theme is picked with a
+  bracket loaded), or **Choose image…** takes any PNG, JPG or WebP. It is kept in `data/branding/` on that PC.
+  Without one, a plain TT badge stands in.
+- Picking the theme also ticks Smash Ultimate only, which can be unticked.
+
+Overlay geometry can be fine-tuned in `data/config.json` under `overlay.tt` (for example `"logo": 190` or
+`"plateW": 340`; the defaults are at the top of `public/overlay.js`).
 
 ## License
 

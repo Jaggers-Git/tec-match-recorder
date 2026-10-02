@@ -136,7 +136,8 @@
   // ---------- rendering ----------
   function render() {
     if (!S) return;
-    if (!$('#settings').hidden) { renderNetworkStatus(); renderArtStatus(); renderMaintenance(); }
+    applyBranding();
+    if (!$('#settings').hidden) { renderNetworkStatus(); renderArtStatus(); renderMaintenance(); renderLogoStatus(); }
     if (!$('#setup').hidden) renderSetup();
     maybeAutoOpenSetup();
     renderChips();
@@ -147,6 +148,25 @@
     renderRecent();
     renderBracket(false);
     renderSettingsStatus();
+  }
+  // ---------- branding (picked in Settings; /theme.js applies it before the first paint) ----------
+  const TEC_MARK = $('#brand-mark').innerHTML;
+  const TEC_ICON = document.querySelector('link[rel="icon"]').href;
+  // Stand-in for a theme whose logo has not been saved yet.
+  const TT_EMBLEM = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="#1a0d10" stroke="#F2B53A" stroke-width="6"/><circle cx="50" cy="50" r="36" fill="#6D2E3F"/><text x="50" y="62" text-anchor="middle" font-family="Oswald, Arial Narrow, sans-serif" font-weight="700" font-size="34" fill="#FCE319">TT</text></svg>';
+  let brandKey = '';
+  function applyBranding() {
+    const b = S.branding || { theme: 'tec' };
+    const key = [b.theme, b.logo, b.smashOnly, b.org].join('|');
+    if (key === brandKey) return;
+    brandKey = key;
+    const tec = b.theme === 'tec';
+    document.documentElement.dataset.theme = b.theme;
+    document.documentElement.classList.toggle('smash-only', !!b.smashOnly);
+    $('#brand-mark').innerHTML = tec ? TEC_MARK : b.logo ? `<img src="${esc(b.logo)}" alt="">` : TT_EMBLEM;
+    $('#brand-org').textContent = b.org || 'Texas Esports Collective';
+    document.title = tec ? 'TEC Match Recorder' : `${b.name} · Match Recorder`;
+    document.querySelector('link[rel="icon"]').href = !tec && b.logo ? b.logo : TEC_ICON;
   }
   function obsText() {
     const o = S.obs;
@@ -259,6 +279,7 @@
     const want = games.map((g) => `${g.id}|${g.name}`).join(',');
     if (sel.dataset.options !== want) { sel.dataset.options = want; sel.innerHTML = games.map((g) => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join(''); }
     if (document.activeElement !== sel && sel.value !== (c.game || 'ssbu')) sel.value = c.game || 'ssbu';
+    sel.hidden = games.length < 2;
     const profile = games.find((g) => g.id === (c.game || 'ssbu')) || { characters: true };
     for (const el of document.querySelectorAll('.chars')) el.hidden = !profile.characters;
     $('#current-source').textContent = c.source === 'startgg' && c.setId ? `from start.gg set ${c.setLetter || ''}${c.eventName ? ` · ${c.eventName}` : ''}` : 'manual entry';
@@ -352,7 +373,8 @@
       const group = `${s.phase ? `${s.phase} · ` : ''}${s.multiPool && s.pool ? `Pool ${s.pool} · ` : ''}${s.roundLabel}`;
       if (group !== lastGroup) { html += `<div class="round-head">${esc(group)}</div>`; lastGroup = group; }
       const isRec = recorded.has(s.id);
-      const meta = [events.length > 1 && !bracketEvent ? (gameShort(s.game) || s.eventName || '') : '', (s.isPools || s.multiPool) && s.pool ? `Pool ${s.pool}` : '', stateLabel(s), isRec ? '🎥 recorded' : ''].filter(Boolean).join(' · ');
+      const sharedGame = events.filter((e) => e.game === s.game).length > 1;
+      const meta = [events.length > 1 && !bracketEvent ? ((sharedGame ? s.eventName : gameShort(s.game)) || s.eventName || '') : '', (s.isPools || s.multiPool) && s.pool ? `Pool ${s.pool}` : '', stateLabel(s), isRec ? '🎥 recorded' : ''].filter(Boolean).join(' · ');
       html += `<button class="set-card state-${s.state}${selected === s.id ? ' selected' : ''}${isRec ? ' recorded' : ''}" data-id="${esc(s.id)}">
         <span class="letter">${esc(s.letter) || '·'}</span>
         <span class="names"><b>${esc(s.p1) || 'TBD'}</b><i>vs</i><b>${esc(s.p2) || 'TBD'}</b></span>
@@ -543,8 +565,12 @@
       if (!el) return;
       if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? '';
     };
+    set('branding.theme', (c.branding && c.branding.theme) || 'tec');
+    set('branding.label', c.branding ? c.branding.label : '');
+    set('smashOnly', c.smashOnly);
+    f.dataset.theme = f.elements['branding.theme'].value;
     set('event.name', c.event.name);
-    for (const g of c.gameList || []) set(`games.${g.id}.suffix`, g.suffix);
+    for (const g of c.gameListAll || c.gameList || []) set(`games.${g.id}.suffix`, g.suffix);
     set('startgg.eventUrls', (c.startgg.eventUrls || []).join('\n'));
     set('startgg.token', '');
     f.elements['startgg.token'].placeholder = c.startgg.hasToken ? '(saved, leave blank to keep)' : 'paste your start.gg API token';
@@ -571,6 +597,7 @@
     renderNetworkStatus();
     renderArtStatus();
     renderMaintenance();
+    renderLogoStatus();
     refreshOverlayStatus();
     $('#settings').hidden = false;
     renderSettingsStatus();
@@ -602,6 +629,57 @@
       await api('POST', '/api/art/download', { pack: 'portrait' });
       toast('Downloading the portrait pack. The detector picks it up when the download finishes.');
       renderArtStatus();
+    } catch (e) { toast(e.message, { error: true }); }
+  });
+  // ---------- theme logo (Settings, Look and games) ----------
+  // The buttons act on the theme picked in the form, so a logo can be set before the theme is saved.
+  const formTheme = () => $('#theme-select').value;
+  function renderLogoStatus() {
+    if (!S || !S.branding) return;
+    const url = (S.branding.logos || {})[formTheme()] || '';
+    const img = $('#logo-preview');
+    img.hidden = !url;
+    if (url && img.getAttribute('src') !== url) img.src = url;
+    const sg = S.startgg || {};
+    $('#logo-status').textContent = url ? 'Logo saved on this PC.'
+      : `No logo yet, so a plain TT badge stands in. ${sg.configured ? 'Use the start.gg tournament logo, or choose an image.' : 'Choose an image, or add the start.gg event and token above, save, and use the start.gg logo.'}`;
+  }
+  $('#theme-select').addEventListener('change', () => {
+    const f = $('#settings-form');
+    f.dataset.theme = formTheme();
+    // Tuesday Takedown is an Ultimate-only monthly; preselect Smash-only (it can still be unticked).
+    if (formTheme() === 'tt') f.elements.smashOnly.checked = true;
+    if (formTheme() === 'tt' && !f.elements['branding.label'].value) f.elements['branding.label'].value = 'Tuesday Takedown';
+    renderLogoStatus();
+  });
+  $('#btn-logo-startgg').addEventListener('click', async () => {
+    const out = $('#logo-status');
+    out.textContent = 'Fetching the logo from start.gg…';
+    try {
+      const r = await api('POST', `/api/branding/logo/startgg?theme=${encodeURIComponent(formTheme())}`);
+      S.branding = r.branding;
+      renderLogoStatus();
+      toast(`Logo saved from ${r.tournament} on start.gg.`);
+    } catch (e) { out.textContent = e.message; }
+  });
+  $('#logo-file').addEventListener('change', async () => {
+    const file = $('#logo-file').files[0];
+    $('#logo-file').value = '';
+    if (!file) return;
+    try {
+      const res = await fetch(`/api/branding/logo?theme=${encodeURIComponent(formTheme())}`, { method: 'POST', headers: { 'Content-Type': file.type }, body: file });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`);
+      S.branding = data.branding;
+      renderLogoStatus();
+      toast('Logo saved.');
+    } catch (e) { toast(e.message, { error: true }); }
+  });
+  $('#btn-logo-remove').addEventListener('click', async () => {
+    try {
+      const r = await api('DELETE', `/api/branding/logo?theme=${encodeURIComponent(formTheme())}`);
+      S.branding = r.branding;
+      renderLogoStatus();
     } catch (e) { toast(e.message, { error: true }); }
   });
   // ---------- maintenance (Settings) ----------

@@ -23,6 +23,12 @@ FIRST START (5 minutes)
    for automatic character tags. Press "Test recording" once to prove the chain works.
 5. Read OPERATOR-CHEATSHEET.md (one page) with whoever runs the station on the day.
 
+TUESDAY TAKEDOWN STATIONS
+Settings, Look and games, Theme: Tuesday Takedown. The dashboard and the stream overlay switch to the
+TT scoreboard and the station goes Smash-only. With the start.gg token and event URL saved, the TT logo
+is fetched from the tournament page on its own (or press "Use the start.gg tournament logo"). Set the
+format to Best of 3 at the start of the night so the scoreboard shows it.
+
 EVERY SET
 Pick the set, START RECORDING when the players sit down, END & SAVE when it ends. One file per set.
 

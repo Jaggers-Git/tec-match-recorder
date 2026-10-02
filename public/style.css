@@ -1,5 +1,6 @@
 @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Oswald'; src: url('/fonts/Oswald-Variable.ttf') format('truetype'); font-weight: 200 700; font-style: normal; font-display: swap; }
 
 :root {
   --bg: #0e1013;
@@ -16,6 +17,14 @@
   --rec: #FF3D2E;
   --brand-soft: #3a1f1c;
   --brand-edge: #6b3029;
+  --brand-fill: #FF3D2E; /* filled buttons and lit pips */
+  --on-brand: #fff;
+  --tag-text: #ffd9d5;
+  --link: #ffb4ad;
+  --focus-ring: rgba(255, 61, 46, .18);
+  --selected-bg: #23191b;
+  --rec-glow: rgba(255, 61, 46, .6);
+  --rec-glow-0: rgba(255, 61, 46, 0);
   --display: 'Tomorrow', Bahnschrift, 'Segoe UI', system-ui, sans-serif;
   --body: 'Segoe UI', system-ui, Roboto, sans-serif;
 }
@@ -29,7 +38,7 @@ input, select {
   background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
   padding: 10px 12px; font-size: 16px; width: 100%;
 }
-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255, 61, 46, .18); }
+input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--focus-ring); }
 input[type="checkbox"] { width: auto; }
 .muted { color: var(--muted); font-size: 13px; }
 .mono { font-family: ui-monospace, Consolas, "Courier New", monospace; font-size: 13px; word-break: break-all; }
@@ -63,7 +72,7 @@ button.small {
   background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 14px;
 }
 button.small:hover:not(:disabled) { border-color: var(--brand); }
-button.primary { background: var(--brand); color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-family: var(--display); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+button.primary { background: var(--brand-fill); color: var(--on-brand); border: none; border-radius: 8px; padding: 10px 16px; font-family: var(--display); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 
 .tabs { display: flex; gap: 4px; }
 .tab { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 6px 14px; border-radius: 8px; font-family: var(--display); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
@@ -83,7 +92,7 @@ button.primary { background: var(--brand); color: #fff; border: none; border-rad
 .set-card .names { font-size: 15px; }
 .set-card .names i { color: var(--muted); font-style: normal; margin: 0 6px; }
 .set-card .meta { font-size: 12px; color: var(--muted); }
-.set-card.selected { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand) inset; background: #23191b; }
+.set-card.selected { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand) inset; background: var(--selected-bg); }
 .set-card.state-completed { opacity: .55; }
 .set-card.recorded .meta { color: var(--ok); }
 .set-card.state-in_progress .meta, .set-card.state-called .meta { color: var(--warn); }
@@ -97,7 +106,7 @@ button.primary { background: var(--brand); color: #fff; border: none; border-rad
 .chars { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
 .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip-row .tag {
-  background: var(--brand-soft); border: 1px solid var(--brand-edge); color: #ffd9d5; border-radius: 999px; padding: 3px 10px; font-size: 13px;
+  background: var(--brand-soft); border: 1px solid var(--brand-edge); color: var(--tag-text); border-radius: 999px; padding: 3px 10px; font-size: 13px;
   display: inline-flex; gap: 6px; align-items: center;
 }
 .chip-row .tag button { background: none; border: none; color: inherit; padding: 0; font-size: 13px; line-height: 1; }
@@ -112,9 +121,9 @@ button.primary { background: var(--brand); color: #fff; border: none; border-rad
   width: 100%; padding: 22px; font-family: var(--display); font-size: 24px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
   border: none; border-radius: 14px; background: var(--ok); color: #06210f;
 }
-.record-btn.recording { background: var(--brand); color: #fff; animation: pulse 1.5s infinite; }
+.record-btn.recording { background: var(--rec); color: #fff; animation: pulse 1.5s infinite; }
 .record-btn.armed { background: var(--warn); color: #211500; animation: none; }
-@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 61, 46, .6); } 50% { box-shadow: 0 0 0 12px rgba(255, 61, 46, 0); } }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 var(--rec-glow); } 50% { box-shadow: 0 0 0 12px var(--rec-glow-0); } }
 .record-status { margin-top: 10px; text-align: center; color: var(--muted); min-height: 20px; font-size: 15px; }
 .rec-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--rec); margin-right: 6px; animation: blink 1s infinite; }
 @keyframes blink { 50% { opacity: .2; } }
@@ -162,7 +171,7 @@ input.inline { width: 140px; display: inline-block; margin: 0 4px; padding: 6px 
 .chip-row .tag.auto { border-style: dashed; }
 .chip-row .tag em { font-style: normal; font-family: var(--display); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--ok); }
 .topbar a.small { color: var(--text); }
-fieldset a { color: #ffb4ad; }
+fieldset a { color: var(--link); }
 .howto-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }
 @media (max-width: 800px) { .howto-grid { grid-template-columns: 1fr; } }
 .howto h4 { font-family: var(--display); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--brand); margin: 10px 0 6px; }
@@ -174,17 +183,17 @@ fieldset a { color: #ffb4ad; }
 .howto-table td:first-child { color: var(--warn); white-space: nowrap; font-weight: 600; }
 .howto-btn {
   width: 100%; margin-top: 14px; padding: 14px 16px; font-family: var(--display); font-weight: 700; font-size: 16px;
-  letter-spacing: .08em; text-transform: uppercase; background: var(--brand-soft); color: #ffd9d5;
+  letter-spacing: .08em; text-transform: uppercase; background: var(--brand-soft); color: var(--tag-text);
   border: 2px solid var(--brand); border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 12px;
 }
-.howto-btn .q { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 18px; }
-.howto-btn:hover { background: var(--brand); color: #fff; }
+.howto-btn .q { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: var(--brand-fill); color: var(--on-brand); font-size: 18px; }
+.howto-btn:hover { background: var(--brand-fill); color: var(--on-brand); }
 .quick-steps { list-style: none; counter-reset: step; margin: 0; padding: 0; display: grid; gap: 12px; }
 .quick-steps li { counter-increment: step; display: grid; grid-template-columns: 56px 1fr; gap: 14px; align-items: start; background: var(--panel2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
 .quick-steps li::before { content: counter(step); font-family: var(--display); font-weight: 700; font-size: 26px; color: var(--brand); width: 56px; height: 56px; border: 2px solid var(--brand); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .quick-steps li > b { display: block; font-family: var(--display); text-transform: uppercase; letter-spacing: .06em; font-size: 15px; margin: 4px 0 6px; }
 .quick-steps li > span { color: var(--text); font-size: 15px; line-height: 1.5; }
-.linkish { background: none; border: none; color: #ffb4ad; text-decoration: underline; padding: 0; font: inherit; cursor: pointer; }
+.linkish { background: none; border: none; color: var(--link); text-decoration: underline; padding: 0; font: inherit; cursor: pointer; }
 .quick-steps li::before { grid-row: 1 / span 2; }
 .quick-steps li > b { grid-column: 2; }
 .quick-steps li > span { grid-column: 2; }
@@ -210,7 +219,7 @@ textarea:focus { outline: none; border-color: var(--accent); }
   transform: skewX(-16deg);
 }
 .pip:hover { border-color: var(--brand); }
-.pip.on { background: var(--brand); border-color: #fff; }
+.pip.on { background: var(--brand-fill); border-color: #fff; }
 
 /* setup checklist */
 .setup-list { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 8px; }
@@ -222,3 +231,62 @@ textarea:focus { outline: none; border-color: var(--accent); }
 .setup-list .body b { display: block; margin-bottom: 2px; }
 .setup-list .body span { font-size: 13px; opacity: .85; overflow-wrap: anywhere; }
 .setup-list button { flex: none; }
+
+/* header mark: TEC's SVG, or the theme's logo image */
+.brand .brand-mark { display: inline-flex; width: 30px; height: 30px; flex: 0 0 auto; align-items: center; justify-content: center; }
+.brand .brand-mark svg, .brand .brand-mark img { width: 100%; height: 100%; object-fit: contain; }
+
+/* Settings: theme-specific rows, logo picker */
+#settings-form:not([data-theme="tt"]) .tt-only { display: none; }
+html.smash-only .multi-game { display: none !important; }
+.logo-preview { width: 56px; height: 56px; object-fit: contain; background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 4px; }
+label.small.file-btn { display: inline-flex; align-items: center; margin: 0; cursor: pointer; background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+label.small.file-btn:hover { border-color: var(--brand); }
+
+/* ---------- Tuesday Takedown (TAMUSA Esports) ----------
+   TAMUSA maroon for surfaces and filled buttons, the championship belt's gold for accents,
+   Oswald (the condensed poster type of the TT banners and results graphics) for display text. */
+:root[data-theme="tt"] {
+  --bg: #120b0d;
+  --panel: #1c1215;
+  --panel2: #28181d;
+  --border: #45272f;
+  --text: #f7efe9;
+  --muted: #b59ca3;
+  --brand: #F2B53A;        /* belt gold */
+  --accent: #F2B53A;
+  --brand-fill: #8E2B40;   /* TAMUSA maroon */
+  --on-brand: #fff;
+  --brand-soft: #3b1a23;
+  --brand-edge: #7d3546;
+  --tag-text: #ffe3b3;
+  --link: #f6c96d;
+  --focus-ring: rgba(242, 181, 58, .22);
+  --selected-bg: #321b22;
+  --display: 'Oswald', 'Arial Narrow', Bahnschrift, 'Segoe UI', sans-serif;
+}
+:root[data-theme="tt"] body {
+  background:
+    radial-gradient(900px 420px at 92% -8%, rgba(142, 43, 64, .38), transparent 62%),
+    radial-gradient(700px 360px at -6% 108%, rgba(142, 43, 64, .22), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+:root[data-theme="tt"] .topbar {
+  background: linear-gradient(100deg, #5a1a2a 0%, #3a141d 38%, var(--panel) 72%);
+  border-top: 3px solid #6D2E3F;
+  border-bottom: 2px solid var(--brand);
+}
+:root[data-theme="tt"] .brand .brand-mark { width: 46px; height: 46px; margin: -6px 0; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .5)); }
+:root[data-theme="tt"] .brand .name { font-size: 21px; font-weight: 700; letter-spacing: .04em; }
+:root[data-theme="tt"] .brand .org { color: var(--brand); letter-spacing: .16em; font-size: 11px; }
+:root[data-theme="tt"] h2, :root[data-theme="tt"] h3 { font-size: 16px; letter-spacing: .06em; color: var(--brand); }
+:root[data-theme="tt"] legend { font-size: 13px; letter-spacing: .1em; color: var(--brand); }
+:root[data-theme="tt"] .panel { border-color: #3a2129; box-shadow: 0 1px 0 rgba(255, 255, 255, .03) inset; }
+:root[data-theme="tt"] .set-card .letter { font-size: 21px; }
+:root[data-theme="tt"] .round-head { font-size: 12px; color: #d9b98a; }
+:root[data-theme="tt"] .record-btn { font-size: 28px; letter-spacing: .06em; }
+:root[data-theme="tt"] .score-num { font-size: 32px; }
+:root[data-theme="tt"] .tab, :root[data-theme="tt"] .preview .label, :root[data-theme="tt"] .score .label, :root[data-theme="tt"] .games .label { letter-spacing: .08em; }
+:root[data-theme="tt"] .tab { font-size: 14px; }
+:root[data-theme="tt"] .pip.on { background: var(--brand); border-color: #fff; }

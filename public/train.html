@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TEC Match Recorder: Training</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='34%2045%20188%20186'%3E%3Cpath%20fill='%23FF3D2E'%20d='M159.2,98.1l9-50.9h-50.9l-9,50.9,20.9,25.4,29.9-25.4ZM96,113.4h-50.9l-9,50.9h50.9l29.9-25.4-20.9-25.4ZM168.2,113.4l-29.9,25.4,20.9,25.4h50.9l9-50.9h-50.9ZM96,177.7l-9,50.9h50.9l9-50.9-20.9-25.4-29.9,25.4Z'/%3E%3C/svg%3E">
+<script src="/theme.js"></script>
 <link rel="stylesheet" href="/style.css">
 <style>
   .train-layout { padding: 16px; display: grid; gap: 16px; grid-template-columns: minmax(300px, 1fr) minmax(420px, 2fr); }
@@ -27,7 +28,7 @@
   .review-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
   .meta { font-size: 12px; color: var(--muted); margin-left: auto; }
   .learned { display: flex; gap: 6px; flex-wrap: wrap; }
-  .learned .tag { background: var(--brand-soft); border: 1px solid var(--brand-edge); color: #ffd9d5; border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+  .learned .tag { background: var(--brand-soft); border: 1px solid var(--brand-edge); color: var(--tag-text); border-radius: 999px; padding: 3px 10px; font-size: 13px; }
   .stat { font-family: var(--display); font-size: 28px; font-weight: 700; }
   .stats { display: flex; gap: 24px; margin: 8px 0 12px; }
   .stats .muted { display: block; }
@@ -37,8 +38,8 @@
 <body>
 <header class="topbar">
   <div class="brand">
-    <svg viewBox="34 45 188 186" aria-hidden="true"><path fill="#FF3D2E" d="M159.2,98.1l9-50.9h-50.9l-9,50.9,20.9,25.4,29.9-25.4ZM96,113.4h-50.9l-9,50.9h50.9l29.9-25.4-20.9-25.4ZM168.2,113.4l-29.9,25.4,20.9,25.4h50.9l9-50.9h-50.9ZM96,177.7l-9,50.9h50.9l9-50.9-20.9-25.4-29.9,25.4Z"/></svg>
-    <div><span class="name">Detector training</span><span class="org">Texas Esports Collective</span></div>
+    <span id="brand-mark" class="brand-mark"><svg viewBox="34 45 188 186" aria-hidden="true"><path fill="#FF3D2E" d="M159.2,98.1l9-50.9h-50.9l-9,50.9,20.9,25.4,29.9-25.4ZM96,113.4h-50.9l-9,50.9h50.9l29.9-25.4-20.9-25.4ZM168.2,113.4l-29.9,25.4,20.9,25.4h50.9l9-50.9h-50.9ZM96,177.7l-9,50.9h50.9l9-50.9-20.9-25.4-29.9,25.4Z"/></svg></span>
+    <div><span class="name">Detector training</span><span id="brand-org" class="org">Texas Esports Collective</span></div>
   </div>
   <div class="chips">
     <span id="chip-obs" class="chip">OBS</span>

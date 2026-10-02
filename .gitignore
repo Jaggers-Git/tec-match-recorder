@@ -26,3 +26,6 @@ Thumbs.db
 
 # Release builds
 dist/
+
+# Theme logos (event artwork, saved from start.gg or picked in Settings)
+data/branding/

@@ -22,6 +22,14 @@
       bridge: { x: 704, y: 0, w: 512, h: 34 }, badge: 46, endSlant: 20,
     },
   };
+  // Tuesday Takedown scoreboard (bar-type games only). Measured off the TT stream at 1920x1080: plates
+  // y 28-84 in a black frame from y 18, the belt logo over the centre gap, 24 px bands underneath.
+  // Any of these can be overridden from config.json under overlay.tt.
+  const TT = {
+    cx: 960, top: 18, plateY: 28, plateH: 56, plateW: 318, gap: 72, cell: 52, pad: 8, slant: 18,
+    bandH: 24, bandW: 236, bandSlant: 10, logo: 176, logoY: -12,
+    nameSize: 34, subSize: 16, scoreSize: 30, labelSize: 40, labelGap: 18,
+  };
   let G = LAYOUTS.ssbu;
   let mode = 'round';
   let showScores = true;
@@ -138,6 +146,79 @@
       default: return '';
     }
   }
+  function ttPips(el, wins, need, box, alignRight) {
+    if (!need) { el.style.display = 'none'; return; }
+    el.replaceChildren(...Array.from({ length: need }, (_, i) => {
+      const d = document.createElement('div');
+      d.className = `pip${i < (Number(wins) || 0) ? ' on' : ''}`;
+      return d;
+    }));
+    el.style.display = 'flex';
+    el.style.top = px(box.y);
+    el.style.left = alignRight ? '' : px(box.x);
+    el.style.right = alignRight ? px(1920 - box.x) : '';
+  }
+  function renderTT(ov, demo) {
+    const g = { ...TT, ...(ov.tt || {}) };
+    const c = S.current;
+    const b = S.branding || {};
+    const frameB = g.plateY + g.plateH + 4;          // where the black frame ends and the bands begin
+    const cell = showScores ? g.cell : 0;
+    const ps = Math.round((g.slant * g.plateH) / (frameB - g.top));
+    const bestOf = Number(c.bestOf) || 1;
+    const need = bestOf === 5 ? 3 : bestOf === 3 ? 2 : 0;
+    const sub = [demo ? 'Overlay ready' : centerText(), demo ? 'Best of 3' : bestOf > 1 ? `Best of ${bestOf}` : ''];
+    let labelRight = 0;
+    for (const side of [1, 2]) {
+      const left = side === 1;
+      const inner = left ? g.cx - g.gap : g.cx + g.gap;                      // plate edge beside the logo
+      const plateX = left ? inner - g.plateW : inner;
+      const outer = left ? plateX - cell - g.pad : plateX + g.plateW + cell + g.pad;
+      if (left) labelRight = outer;
+      const frame = $(`#tt-frame${side}`);
+      place(frame, left ? { x: outer, y: g.top, w: g.cx - outer, h: frameB - g.top } : { x: g.cx, y: g.top, w: outer - g.cx, h: frameB - g.top });
+      frame.style.clipPath = left ? `polygon(${g.slant}px 0, 100% 0, 100% 100%, 0 100%)` : `polygon(0 0, calc(100% - ${g.slant}px) 0, 100% 100%, 0 100%)`;
+      const plate = $(`#tt-plate${side}`);
+      place(plate, { x: plateX, y: g.plateY, w: g.plateW, h: g.plateH });
+      plate.style.clipPath = left ? `polygon(${ps}px 0, 100% 0, 100% 100%, 0 100%)` : `polygon(0 0, calc(100% - ${ps}px) 0, 100% 100%, 0 100%)`;
+      place($(`#tt-n${side}`), left ? { x: plateX + ps, y: g.plateY, w: g.plateW - ps, h: g.plateH } : { x: plateX, y: g.plateY, w: g.plateW - ps, h: g.plateH });
+      fit($(`#tt-n${side}`), demo ? `Player ${side}` : c[`p${side}`], g.nameSize);
+      const score = $(`#tt-s${side}`);
+      score.style.display = cell ? 'flex' : 'none';
+      if (cell) {
+        place(score, { x: left ? plateX - cell + 4 : plateX + g.plateW - 4, y: g.plateY, w: cell, h: g.plateH });
+        const span = score.querySelector('span');
+        span.textContent = String(c[`score${side}`] || 0);
+        span.style.fontSize = px(g.scoreSize);
+      }
+      // Band under the plate: round on the left, set format on the right; hidden when there is nothing to say.
+      // A long round ("Redemption Winners Round 1") widens its band outwards, up to the plate's width,
+      // before the text is shrunk.
+      const band = $(`#tt-band${side}`);
+      const subEl = $(`#tt-sub${side}`);
+      const text = sub[side - 1];
+      const span = subEl.querySelector('span');
+      span.textContent = text;
+      span.style.fontSize = px(g.subSize);
+      const bandW = Math.min(g.plateW + cell, Math.max(g.bandW, span.scrollWidth + 28 + g.bandSlant));
+      band.style.display = text ? 'block' : 'none';
+      place(band, left ? { x: inner - bandW, y: frameB, w: g.cx - (inner - bandW), h: g.bandH } : { x: g.cx, y: frameB, w: inner + bandW - g.cx, h: g.bandH });
+      band.style.clipPath = left ? `polygon(0 0, 100% 0, 100% 100%, ${g.bandSlant}px 100%)` : `polygon(0 0, 100% 0, calc(100% - ${g.bandSlant}px) 100%, 0 100%)`;
+      place(subEl, left ? { x: inner - bandW + g.bandSlant, y: frameB + 1, w: bandW - g.bandSlant, h: g.bandH } : { x: inner, y: frameB + 1, w: bandW - g.bandSlant, h: g.bandH });
+      fit(subEl, text, g.subSize);
+      ttPips($(`#tt-w${side}`), c[`wins${side}`], need, { x: left ? inner - bandW - 10 : inner + bandW + 10, y: frameB + 6 }, left);
+    }
+    const label = $('#tt-label');
+    place(label, { x: 0, y: g.plateY, w: Math.max(0, labelRight - g.labelGap), h: g.plateH });
+    fit(label, b.label || '', g.labelSize);
+    const logoBox = { x: g.cx - g.logo / 2, y: g.logoY, w: g.logo, h: g.logo };
+    const img = $('#tt-logo');
+    img.hidden = !b.logo;
+    $('#tt-emblem').hidden = !!b.logo;
+    if (b.logo && img.getAttribute('src') !== b.logo) img.src = b.logo;
+    place(img, logoBox);
+    place($('#tt-emblem'), { x: g.cx - 60, y: 10, w: 120, h: 120 });
+  }
   // Right after "Add overlay to OBS" the server opens a short window in which sample names are shown,
   // so the new layer is visible in OBS before any set is picked.
   let demoTimer = null;
@@ -155,6 +236,14 @@
     G = { ...(LAYOUTS[game] || LAYOUTS.ssbu), ...(ov.geometry || {}), ...((ov.byGame && ov.byGame[game]) || {}) };
     mode = ov.center || 'round';
     showScores = ov.scores !== false;
+    // Tuesday Takedown: its own scoreboard where the HUD is at the bottom (Ultimate); the notched shape
+    // for Tekken and SF6 keeps the timer clear and just takes the TT colours.
+    const tt = !!(S.branding && S.branding.theme === 'tt');
+    const useTT = tt && G.type !== 'notched';
+    document.body.classList.toggle('tt-colors', tt);
+    $('#tt').hidden = !useTT;
+    $('#tec').hidden = useTT;
+    if (useTT) { renderTT(ov, demoActive()); return; }
     const sizes = G.type === 'notched' ? layoutNotched() : layoutBar();
     for (const id of ['#s1', '#s2']) $(id).style.display = showScores ? 'flex' : 'none';
     const demo = demoActive();

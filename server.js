@@ -59,6 +59,11 @@ const DEFAULT_CONFIG = {
   network: { lan: false, pin: '' },
   // The setup checklist opens at startup until it is dismissed from the checklist itself.
   setup: { dismissed: false },
+  // Look of the dashboard and the stream overlay (see THEMES). The label is the text drawn next to the
+  // Tuesday Takedown scoreboard; the TEC overlay has no label.
+  branding: { theme: 'tec', label: 'Tuesday Takedown' },
+  // Stations that only ever record Ultimate hide the other games everywhere (picker, suffixes, import).
+  smashOnly: false,
 };
 
 // ---------- utilities ----------
@@ -127,6 +132,64 @@ function gameProfile(id) {
 function gameForVideogame(videogameId) {
   const vid = Number(videogameId);
   return Object.keys(GAMES).find((id) => GAMES[id].videogameIds.includes(vid)) || 'other';
+}
+// The games this station offers: all of them, or Ultimate alone in Smash-only mode.
+const stationGames = () => (cfg.smashOnly ? ['ssbu'] : Object.keys(GAMES));
+
+// ---------- branding ----------
+// A theme re-skins the dashboard and the stream overlay for an event series. TEC is the default; Tuesday
+// Takedown (TAMUSA Esports' Smash monthly) brings its own scoreboard. Event logos are the series' artwork,
+// so they live in data/branding/ on the station PC (fetched from start.gg or picked in Settings), never in git.
+const THEMES = {
+  tec: { name: 'Texas Esports Collective', org: 'Texas Esports Collective' },
+  tt: { name: 'Tuesday Takedown', org: 'Tuesday Takedown · TAMUSA Esports' },
+};
+const BRANDING_DIR = path.join(DATA_DIR, 'branding');
+const LOGO_TYPES = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' };
+const themeId = () => (THEMES[cfg.branding && cfg.branding.theme] ? cfg.branding.theme : 'tec');
+function logoFile(id = themeId()) {
+  for (const ext of Object.keys(LOGO_TYPES)) {
+    const file = path.join(BRANDING_DIR, `${id}-logo.${ext}`);
+    if (fs.existsSync(file)) return file;
+  }
+  return '';
+}
+// URL of a theme's saved logo (versioned so browsers and OBS pick up a replacement), or '' when there is none.
+function logoUrl(id) {
+  const file = logoFile(id);
+  let version = 0;
+  try { version = file ? Math.round(fs.statSync(file).mtimeMs) : 0; } catch { version = 0; }
+  return version ? `/branding/logo?theme=${id}&v=${version}` : '';
+}
+function brandingInfo() {
+  const id = themeId();
+  return {
+    theme: id, name: THEMES[id].name, org: THEMES[id].org,
+    label: String((cfg.branding && cfg.branding.label) || ''),
+    logo: logoUrl(id),
+    logos: Object.fromEntries(Object.keys(THEMES).map((t) => [t, logoUrl(t)])),
+    smashOnly: !!cfg.smashOnly,
+  };
+}
+const themeParam = (url) => (THEMES[url.searchParams.get('theme')] ? url.searchParams.get('theme') : themeId());
+// Runs in the <head> of every page, before the stylesheet paints, so a themed station never flashes TEC red.
+function themeScript() {
+  const b = brandingInfo();
+  return `document.documentElement.dataset.theme=${JSON.stringify(b.theme)};document.documentElement.classList.toggle('smash-only',${b.smashOnly});\n`;
+}
+function saveLogo(buffer, contentType, id = themeId()) {
+  const ext = Object.keys(LOGO_TYPES).find((k) => LOGO_TYPES[k] === String(contentType || '').split(';')[0].trim().toLowerCase());
+  if (!ext) throw new Error('Use a PNG, JPG or WebP image');
+  if (!buffer || buffer.length < 100) throw new Error('That image is empty');
+  fs.mkdirSync(BRANDING_DIR, { recursive: true });
+  for (const old of Object.keys(LOGO_TYPES)) fs.rmSync(path.join(BRANDING_DIR, `${id}-logo.${old}`), { force: true });
+  fs.writeFileSync(path.join(BRANDING_DIR, `${id}-logo.${ext}`), buffer);
+  log(`Branding: ${THEMES[id].name} logo saved (${Math.round(buffer.length / 1024)} KB)`);
+  broadcast();
+}
+function removeLogo(id = themeId()) {
+  for (const ext of Object.keys(LOGO_TYPES)) fs.rmSync(path.join(BRANDING_DIR, `${id}-logo.${ext}`), { force: true });
+  broadcast();
 }
 // Older configs had a single event URL and one global title suffix; fold them into the new shape.
 if (cfg.startgg.eventUrl && !(cfg.startgg.eventUrls || []).includes(cfg.startgg.eventUrl)) {
@@ -670,7 +733,7 @@ function patchCurrent(body) {
   for (const k of ['score1', 'score2']) if (b[k] !== undefined) state.current[k] = clampScore(b[k]);
   for (const k of ['wins1', 'wins2']) if (b[k] !== undefined) state.current[k] = clampWins(b[k]);
   if (b.bestOf !== undefined && BEST_OF.includes(Number(b.bestOf))) state.current.bestOf = Number(b.bestOf);
-  if (typeof b.game === 'string' && GAMES[b.game]) {
+  if (typeof b.game === 'string' && GAMES[b.game] && stationGames().includes(b.game)) {
     state.current.game = b.game;
     if (cfg.game !== b.game) { cfg.game = b.game; writeJson(CONFIG_PATH, cfg); }
     if (!gameProfile(b.game).characters) { state.current.chars1 = []; state.current.chars2 = []; state.current.auto1 = []; state.current.auto2 = []; }
@@ -685,12 +748,21 @@ function patchCurrent(body) {
 function pickName(set, n) {
   return (cfg.naming.stripPrefixes ? set[`p${n}Tag`] : set[`p${n}Full`]) || '';
 }
+// Two brackets of the same game in one night (Tuesday Takedown runs Ultimate Singles plus a Redemption
+// bracket) would otherwise produce identical titles, so sets from the smaller one carry its event name.
+function roundForSet(s) {
+  const round = s.multiPool && s.pool ? `Pool ${s.pool} ${s.roundLabel || s.round || ''}`.trim() : (s.round || '');
+  const sameGame = (bracket.events || []).filter((e) => e.game === s.game);
+  if (sameGame.length < 2 || !s.eventName) return round;
+  const main = sameGame.reduce((a, b) => ((b.setCount || 0) > (a.setCount || 0) ? b : a));
+  return s.eventSlug === main.slug ? round : `${s.eventName} ${round}`.trim();
+}
 function selectSet(s) {
   const same = state.current.setId === s.id;
   state.current = {
     setId: s.id,
     setLetter: s.multiPool && s.pool ? `${s.pool}-${s.letter || ''}` : (s.letter || ''),
-    round: s.multiPool && s.pool ? `Pool ${s.pool} ${s.roundLabel || s.round || ''}`.trim() : (s.round || ''),
+    round: roundForSet(s),
     p1: pickName(s, 1), p2: pickName(s, 2),
     chars1: same ? state.current.chars1 : [], chars2: same ? state.current.chars2 : [],
     auto1: same ? state.current.auto1 || [] : [], auto2: same ? state.current.auto2 || [] : [],
@@ -744,6 +816,27 @@ function parseTournamentSlug(input) {
   const m = String(input || '').match(/tournament\/([^/\s?#]+)/i);
   return m ? m[1] : '';
 }
+const TOURNAMENT_IMAGES_QUERY = `query TournamentImages($slug: String!) {
+  tournament(slug: $slug) { name images { type url width height } }
+}`;
+// The tournament's profile picture on start.gg is the series logo (Tuesday Takedown's belt, 3000x3000
+// with transparency). Save it as the current theme's logo. Tried once on its own after the first sync.
+let autoLogoTried = false;
+async function fetchStartggLogo(id = themeId()) {
+  if (!cfg.startgg.token) throw new Error('Add the start.gg API token in Settings first');
+  const slug = parseTournamentSlug(eventSlugs()[0] || '');
+  if (!slug) throw new Error('Add a start.gg event URL in Settings first');
+  const data = await gql(TOURNAMENT_IMAGES_QUERY, { slug });
+  const t = data && data.tournament;
+  const images = (t && t.images) || [];
+  const pick = images.find((i) => i.type === 'profile') || images.slice().sort((a, b) => (b.width || 0) - (a.width || 0))[0];
+  if (!pick || !pick.url) throw new Error(`${(t && t.name) || slug} has no logo on start.gg`);
+  let res;
+  try { res = await fetch(pick.url, { signal: AbortSignal.timeout(30000) }); } catch { throw new Error('Could not download the logo from start.gg'); }
+  if (!res.ok) throw new Error(`start.gg answered HTTP ${res.status} for the logo`);
+  saveLogo(Buffer.from(await res.arrayBuffer()), res.headers.get('content-type'), id);
+  return { tournament: t.name, url: pick.url, width: pick.width, height: pick.height };
+}
 // Add every event of a tournament the station knows how to record: Ultimate singles (no doubles,
 // crews or squad strike), Street Fighter 6 and Tekken 8. Reports what was added and what was skipped.
 async function importTournament(url) {
@@ -762,6 +855,7 @@ async function importTournament(url) {
     const nonSingles = teams || /doubles|dubs|\b[23]v[23]\b|crew|squad|\bteams?\b/i.test(ev.name || '');
     const label = `${ev.name} (${(ev.videogame && ev.videogame.name) || 'unknown game'}${ev.numEntrants ? `, ${ev.numEntrants} entrants` : ''})`;
     if (game === 'other') { skipped.push(`${label}: game not set up in the recorder`); continue; }
+    if (!stationGames().includes(game)) { skipped.push(`${label}: Smash-only mode is on`); continue; }
     if (nonSingles) { skipped.push(`${label}: not a singles bracket`); continue; }
     const eventUrl = `https://www.start.gg/${ev.slug}`;
     if (urls.some((u) => parseEventSlug(u) === parseEventSlug(eventUrl))) { skipped.push(`${label}: already added`); continue; }
@@ -893,6 +987,7 @@ async function syncStartgg() {
     for (const slug of slugs) {
       try {
         const ev = await fetchEvent(slug, phaseOrder);
+        if (!stationGames().includes(ev.game)) { failures.push(`${ev.eventName} (${ev.videogameName}) skipped, Smash-only mode is on`); continue; }
         events.push({ slug: ev.slug, eventName: ev.eventName, tournamentName: ev.tournamentName, videogameId: ev.videogameId, videogameName: ev.videogameName, game: ev.game, setCount: ev.setCount });
         sets.push(...ev.sets);
       } catch (e) {
@@ -917,7 +1012,7 @@ async function syncStartgg() {
           const key = `p${n}`;
           if (!state.current[key] || state.current[key] === pickName(old, n)) state.current[key] = pickName(fresh, n);
         }
-        if (!state.current.round || state.current.round === old.round) state.current.round = fresh.round;
+        if (!state.current.round || state.current.round === roundForSet(old)) state.current.round = roundForSet(fresh);
         persistState();
       }
     }
@@ -925,6 +1020,10 @@ async function syncStartgg() {
     sg.lastSync = nowIso();
     sg.lastError = failures.length ? `Some events failed: ${failures.join('; ')}` : '';
     broadcastBracket();
+    if (themeId() !== 'tec' && !logoFile() && !autoLogoTried) {
+      autoLogoTried = true;
+      fetchStartggLogo().catch((e) => log(`Branding: no logo from start.gg (${e.message})`));
+    }
   } catch (e) {
     sg.lastError = e.message;
     sg.status = e.kind === 'auth' || e.kind === 'gql' ? 'error' : 'offline';
@@ -962,8 +1061,14 @@ function publicConfig() {
     ...cfg,
     obs: { ...cfg.obs, password: '', hasPassword: !!cfg.obs.password },
     startgg: { ...cfg.startgg, token: '', hasToken: !!cfg.startgg.token, eventSlug: eventSlugs()[0] || '', eventSlugs: eventSlugs() },
-    gameList: Object.keys(GAMES).map((id) => { const g = gameProfile(id); return { id, name: g.name, short: g.short, suffix: g.suffix, characters: !!g.characters }; }),
+    gameList: stationGames().map(gameSummary),
+    // Every game, for the title-suffix fields in Settings (hidden ones keep their values in Smash-only mode).
+    gameListAll: Object.keys(GAMES).map(gameSummary),
   };
+}
+function gameSummary(id) {
+  const g = gameProfile(id);
+  return { id, name: g.name, short: g.short, suffix: g.suffix, characters: !!g.characters };
 }
 function updateConfig(body) {
   const incoming = body && typeof body === 'object' ? body : {};
@@ -982,9 +1087,22 @@ function updateConfig(body) {
   const lanChanged = !!next.network.lan !== !!(cfg.network && cfg.network.lan);
   next.detect.samplesMaxMb = Math.max(0, Math.round(Number(next.detect.samplesMaxMb) || 0));
   next.setup = { dismissed: !!(next.setup && next.setup.dismissed) };
+  next.branding = { theme: THEMES[next.branding && next.branding.theme] ? next.branding.theme : 'tec', label: String((next.branding && next.branding.label) || '').trim().slice(0, 40) };
+  next.smashOnly = !!next.smashOnly;
   const obsChanged = JSON.stringify(next.obs) !== JSON.stringify(cfg.obs);
-  const sgChanged = JSON.stringify(next.startgg) !== JSON.stringify(cfg.startgg);
+  // Turning Smash-only on drops any SF6/Tekken bracket on the next sync, so sync right away.
+  const sgChanged = JSON.stringify(next.startgg) !== JSON.stringify(cfg.startgg) || next.smashOnly !== !!cfg.smashOnly;
+  const themeChanged = next.branding.theme !== themeId();
   cfg = next;
+  if (cfg.smashOnly && state.current.game !== 'ssbu') {
+    state.current.game = 'ssbu';
+    cfg.game = 'ssbu';
+    persistState();
+  }
+  if (themeChanged && cfg.branding.theme !== 'tec' && !logoFile() && cfg.startgg.token && eventSlugs().length) {
+    autoLogoTried = true;
+    fetchStartggLogo().catch((e) => log(`Branding: no logo from start.gg (${e.message})`));
+  }
   if (lanChanged) setTimeout(rebindServer, 200);
   writeJson(CONFIG_PATH, cfg);
   if (obsChanged) obs.connect();
@@ -1026,6 +1144,7 @@ function snapshot() {
     lan: cfg.network && cfg.network.lan ? lanUrls() : [],
     network: { lan: !!(cfg.network && cfg.network.lan), pin: (cfg.network && cfg.network.pin) || '' },
     art: artStatus(),
+    branding: brandingInfo(),
     version: APP_VERSION,
     overlay: overlayCache,
     overlayDemoUntil,
@@ -1082,7 +1201,33 @@ const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.ttf': 'font/ttf', '.woff': 'font/woff', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
 };
-function serveStatic(res, pathname) {
+function readRawBody(req, limit) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > limit) { reject(new Error(`File too large (over ${Math.round(limit / 1048576)} MB)`)); req.destroy(); return; }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+function serveStatic(res, pathname, url) {
+  if (pathname === '/theme.js') {
+    res.writeHead(200, { 'Content-Type': MIME['.js'], 'Cache-Control': 'no-store' });
+    return res.end(themeScript());
+  }
+  if (pathname === '/branding/logo') {
+    const file = logoFile(themeParam(url));
+    if (!file) return sendJson(res, 404, { error: 'No logo saved for this theme' });
+    return fs.readFile(file, (err, data) => {
+      if (err) return sendJson(res, 404, { error: 'not found' });
+      res.writeHead(200, { 'Content-Type': LOGO_TYPES[path.extname(file).slice(1)], 'Cache-Control': 'no-cache' });
+      res.end(data);
+    });
+  }
   const rel = pathname === '/' ? 'index.html' : pathname === '/train' ? 'train.html' : pathname === '/overlay' ? 'overlay.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
   const file = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!file.startsWith(PUBLIC_DIR)) return sendJson(res, 403, { error: 'forbidden' });
@@ -1559,6 +1704,14 @@ async function handleApi(req, res, url) {
     }
     case 'POST /api/open-folder':
       return sendJson(res, 200, { ok: true, dir: openFolder() });
+    case 'POST /api/branding/logo':
+      try { saveLogo(await readRawBody(req, 15 * 1048576), req.headers['content-type'], themeParam(url)); } catch (e) { return sendJson(res, 400, { error: e.message }); }
+      return sendJson(res, 200, { ok: true, branding: brandingInfo() });
+    case 'POST /api/branding/logo/startgg':
+      try { const r = await fetchStartggLogo(themeParam(url)); return sendJson(res, 200, { ok: true, ...r, branding: brandingInfo() }); } catch (e) { return sendJson(res, 409, { error: e.message }); }
+    case 'DELETE /api/branding/logo':
+      removeLogo(themeParam(url));
+      return sendJson(res, 200, { ok: true, branding: brandingInfo() });
     default:
       if (await handleDetectApi(route, req, res, url)) return undefined;
       return sendJson(res, 404, { error: `No route ${route}` });
@@ -1572,7 +1725,7 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 401, { error: 'This dashboard needs the PIN from Settings on the recording PC', pinRequired: true });
     }
     if (url.pathname.startsWith('/api/')) await handleApi(req, res, url);
-    else serveStatic(res, url.pathname);
+    else serveStatic(res, url.pathname, url);
   } catch (e) {
     log('Request failed:', e.message);
     if (!res.headersSent) sendJson(res, 500, { error: e.message });
