@@ -1082,7 +1082,14 @@ function updateConfig(body) {
   next.port = Number(next.port) || 8420;
   next.obs.port = Number(next.obs.port) || 4455;
   next.startgg.pollSeconds = Math.max(15, Number(next.startgg.pollSeconds) || 45);
-  next.network = { lan: !!(next.network && next.network.lan), pin: String((next.network && next.network.pin) || '').replace(/D/g, '').slice(0, 8) };
+  // Only a PIN sent with this save is cleaned and checked, so an odd one saved by an older version
+  // does not block unrelated saves; Settings always sends it, and asks for a proper one there.
+  const pinSent = !!(incoming.network && incoming.network.pin !== undefined);
+  const pin = String((next.network && next.network.pin) || '');
+  next.network = { lan: !!(next.network && next.network.lan), pin: pinSent ? pin.replace(/\D/g, '') : pin };
+  if (pinSent && next.network.pin && (next.network.pin.length < 4 || next.network.pin.length > 8)) {
+    throw new Error('The network PIN must be 4 to 8 digits. Leave it blank to have one made for you.');
+  }
   if (next.network.lan && !next.network.pin) next.network.pin = String(crypto.randomInt(100000, 1000000));
   const lanChanged = !!next.network.lan !== !!(cfg.network && cfg.network.lan);
   next.detect.samplesMaxMb = Math.max(0, Math.round(Number(next.detect.samplesMaxMb) || 0));
@@ -1606,7 +1613,7 @@ async function handleApi(req, res, url) {
       return undefined;
     }
     case 'PUT /api/config':
-      updateConfig(await readBody(req));
+      try { updateConfig(await readBody(req)); } catch (e) { return sendJson(res, 400, { error: e.message }); }
       return sendJson(res, 200, { ok: true, config: publicConfig() });
     case 'PATCH /api/current':
       patchCurrent(await readBody(req));
