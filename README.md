@@ -238,8 +238,15 @@ with Nintendo, Bandai Namco, Capcom, OBS or start.gg.
 
 - **Test recording**: records five seconds in OBS, checks that a file appeared in the recording folder, then deletes
   it. Run it once the capture chain is plugged in, before the first bracket.
-- **Check for updates**: compares this version with the latest GitHub release and links to it. Nothing is installed
-  automatically. **Download diagnostics** saves a JSON file (versions, OBS state, recent log lines, config without
+- **Check for updates**: compares this version with the latest GitHub release. When a newer one exists, **Update
+  now** downloads it, checks it against the SHA-256 GitHub publishes for the file, and copies it over the app
+  folder. The recorder then restarts by itself in the same black window and the dashboard reloads on the new
+  version (about 10 seconds). It never touches `data/` (settings, session log, learned templates, logos) or
+  `node.exe`, keeps a copy of every file it replaced in `data/update/backup-v<old version>`, and puts the old
+  files back if anything fails while copying. It waits while a set is recording or saving. Nothing installs
+  without the button being pressed. A git clone updates with `git pull` instead. Versions before 1.2.0 do not
+  have the button: replace their folder with the new release zip once (keep the old `data` folder).
+- **Download diagnostics** saves a JSON file (versions, OBS or vMix state, recent log lines, config without
   secrets) to attach to a bug report.
 - **Detector sample frames**: the character detector keeps small review frames in `data/samples`. They are capped at
   500 MB by default (oldest go first, frames still waiting for review are kept); set the cap to 0 for no limit, or

@@ -19,12 +19,16 @@ const { spawn } = require('node:child_process');
 const { Detector } = require('./lib/detector');
 const { Trainer } = require('./lib/trainer');
 const { VmixClient } = require('./lib/vmix');
+const { Updater } = require('./lib/updater');
+const { supervise, underSupervisor, RESTART_CODE } = require('./lib/supervisor');
 const art = require('./lib/art');
 
 if (typeof WebSocket === 'undefined' || typeof fetch === 'undefined') {
   console.error(`Node.js 22 or newer is required (this is ${process.version}). Download it from https://nodejs.org`);
   process.exit(1);
 }
+// The launcher's process becomes the supervisor that restarts the app after an update; the app runs below.
+if (!supervise(__filename)) return;
 
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, 'data');
@@ -541,6 +545,8 @@ let stopInProgress = false;
 async function startRecording() {
   if (sw.status !== 'connected') throw new Error(`${swName()} is not connected`);
   if (state.rec.active) throw new Error('Already recording');
+  const upd = updater.status();
+  if (upd && (upd.running || upd.stage === 'restarting')) throw new Error('An update is installing. Start recording once the recorder has restarted (a few seconds).');
   const status = await sw.recordStatus();
   lastStopped = null;
   if (status.active) {
@@ -1244,6 +1250,7 @@ function snapshot() {
     art: artStatus(),
     branding: brandingInfo(),
     version: APP_VERSION,
+    update: updater.status(),
     overlay: overlayCache,
     overlayDemoUntil,
     testRec,
@@ -1659,11 +1666,28 @@ function sweepSamples({ clearAll = false } = {}) {
   if (removed) log(`Detector samples: removed ${removed} old frames, ${(total / 1048576).toFixed(0)} MB left`);
   return samplesInfo;
 }
-function compareVersions(a, b) {
-  const pa = String(a).split('.').map((n) => parseInt(n, 10) || 0);
-  const pb = String(b).split('.').map((n) => parseInt(n, 10) || 0);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) { const d = (pa[i] || 0) - (pb[i] || 0); if (d) return d; }
-  return 0;
+// ---------- updates (Settings, Check for updates, then Update now) ----------
+// TEC_UPDATE_API points the check at another releases/latest URL, for testing the updater without publishing.
+const updater = new Updater({ root: ROOT, dataDir: DATA_DIR, version: APP_VERSION, repoUrl: REPO_URL, apiUrl: process.env.TEC_UPDATE_API, log, onChange: () => broadcast() });
+function updateBlocker() {
+  if (state.rec.active || stopInProgress) return 'Finish the recording first: End & Save, then update.';
+  if (testRec && testRec.running) return 'Wait for the test recording to finish.';
+  if (trainer.isScanning()) return 'Wait for the training scan to finish, or cancel it.';
+  if (state.log.some((e) => e.status === 'saving')) return 'Wait for the last recording to finish saving.';
+  return '';
+}
+async function installUpdate() {
+  const busy = updateBlocker();
+  if (busy) throw new Error(busy);
+  const version = await updater.install();
+  if (!underSupervisor()) {
+    updater.set({ stage: 'installed-manual' }, true);
+    return;
+  }
+  // The supervisor starts the new version in this same window as soon as this process exits.
+  updater.set({ stage: 'restarting' }, true);
+  log(`Restarting to run v${version}...`);
+  setTimeout(() => { persistState(); process.exit(RESTART_CODE); }, 1500);
 }
 
 // ---------- character art packs (downloaded on demand, never shipped) ----------
@@ -1782,17 +1806,15 @@ async function handleApi(req, res, url) {
       return res.end('{"ok":true}');
     }
     case 'GET /api/version': return sendJson(res, 200, { version: APP_VERSION, repo: REPO_URL });
-    case 'POST /api/update/check': {
-      const m = /github\.com\/([^/]+)\/([^/#?]+)/i.exec(REPO_URL);
-      if (!m) return sendJson(res, 200, { version: APP_VERSION, error: 'No GitHub repository is set in package.json yet' });
-      try {
-        const r = await fetch(`https://api.github.com/repos/${m[1]}/${m[2]}/releases/latest`, { headers: { 'User-Agent': 'tec-match-recorder', Accept: 'application/vnd.github+json' } });
-        if (r.status === 404) return sendJson(res, 200, { version: APP_VERSION, error: 'No releases published yet' });
-        if (!r.ok) throw new Error(`GitHub answered ${r.status}`);
-        const rel = await r.json();
-        const latest = String(rel.tag_name || '').replace(/^v/i, '');
-        return sendJson(res, 200, { version: APP_VERSION, latest, url: rel.html_url, upToDate: compareVersions(APP_VERSION, latest) >= 0 });
-      } catch (e) { return sendJson(res, 200, { version: APP_VERSION, error: e.message }); }
+    case 'POST /api/update/check':
+      try { return sendJson(res, 200, await updater.check()); } catch (e) { return sendJson(res, 200, { version: APP_VERSION, error: e.message }); }
+    case 'POST /api/update/install': {
+      const busy = updateBlocker() || updater.blocker();
+      if (busy) return sendJson(res, 409, { error: busy });
+      if (updater.status() && updater.status().running) return sendJson(res, 409, { error: 'An update is already running' });
+      // Runs in the background; progress reaches the dashboard through the state stream.
+      installUpdate().catch(() => { /* the error is in updater.status() */ });
+      return sendJson(res, 200, { ok: true });
     }
     case 'GET /api/diagnostics': {
       const snap = snapshot();

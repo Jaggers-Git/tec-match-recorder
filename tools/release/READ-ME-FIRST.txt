@@ -1,14 +1,14 @@
 TEC MATCH RECORDER {version}
-One-button tournament VOD station for OBS, by Texas Esports Collective.
+One-button tournament VOD station for OBS or vMix, by Texas Esports Collective.
 
 WHAT IT DOES
 Pick the set being played (from your start.gg bracket, or type the names), press START RECORDING,
-press END & SAVE when the set is over. OBS records, and the app names the file properly, logs it,
+press END & SAVE when the set is over. OBS or vMix records, and the app names the file properly, logs it,
 and clears the form for the next set. Optional extras: a name-plate overlay for your stream, automatic
 character tags for Smash Ultimate, and title cards for YouTube.
 
 YOU NEED
-- A Windows 10 or 11 PC with OBS Studio 28 or newer (the capture PC).
+- A Windows 10 or 11 PC with OBS Studio 28 or newer, or vMix (the capture PC).
 - Nothing else. Node.js is included in this folder (node.exe, {node}).
 
 FIRST START (5 minutes)
@@ -35,6 +35,14 @@ Pick the set, START RECORDING when the players sit down, END & SAVE when it ends
 WHERE THINGS GO
 Recordings land in the folder OBS already records to, in a subfolder named after the event, next
 to a recordings.csv whose rows paste straight into a stream worksheet.
+
+UPDATING
+Settings, About and maintenance, "Check for updates", then "Update now". The recorder downloads the new
+version, installs it over this folder and restarts itself in the same window. Your settings, session
+log and recordings are kept.
+
+USING vMIX INSTEAD OF OBS
+In vMix: Settings, Web Controller, tick Enable. In the recorder: Settings, Production software: vMix.
 
 HELP
 README.md has the full guide and a troubleshooting table. Settings has "Download diagnostics" for

@@ -29,3 +29,6 @@ dist/
 
 # Theme logos (event artwork, saved from start.gg or picked in Settings)
 data/branding/
+
+# In-app updates: the downloaded release and the backup of the files it replaced
+data/update/

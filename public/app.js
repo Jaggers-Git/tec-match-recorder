@@ -138,6 +138,7 @@
     if (!S) return;
     applyBranding();
     applySwitcher();
+    renderUpdate();
     if (!$('#settings').hidden) { renderNetworkStatus(); renderArtStatus(); renderMaintenance(); renderLogoStatus(); }
     if (!$('#setup').hidden) renderSetup();
     maybeAutoOpenSetup();
@@ -241,7 +242,9 @@
   function renderBanner() {
     const el = $('#banner');
     if (!appOnline) {
-      el.textContent = `Lost contact with the recorder app (server.js). Restart it with "Start Recorder.bat". ${S && S.sw ? S.sw.name : 'OBS'} keeps recording in the meantime.`;
+      el.textContent = updateTarget
+        ? `Installing v${updateTarget}: the recorder is restarting. This page reloads by itself in a few seconds.`
+        : `Lost contact with the recorder app (server.js). Restart it with "Start Recorder.bat". ${S && S.sw ? S.sw.name : 'OBS'} keeps recording in the meantime.`;
       el.className = 'banner';
       el.hidden = false;
       return;
@@ -764,9 +767,59 @@
       const r = await api('POST', '/api/update/check');
       if (r.error) out.textContent = `v${r.version}. ${r.error}.`;
       else if (r.upToDate) out.textContent = `v${r.version} is the latest release.`;
-      else out.innerHTML = `v${esc(r.version)} installed, v${esc(r.latest)} is available: <a href="${esc(r.url)}" target="_blank" rel="noopener">release notes and download</a>.`;
+      else {
+        const notes = `<a href="${esc(r.url)}" target="_blank" rel="noopener">release notes</a>`;
+        out.innerHTML = r.canInstall
+          ? `v${esc(r.version)} installed, v${esc(r.latest)} is available (${notes}). <button type="button" id="btn-update-install" class="small primary">Update now</button>`
+          : `v${esc(r.version)} installed, v${esc(r.latest)} is available (${notes}). ${esc(r.why || '')}`;
+      }
     } catch (e) { out.textContent = e.message; }
   });
+  // ---------- in-app update: download, install, restart, then this page reloads on the new version ----------
+  let updateTarget = '';
+  document.addEventListener('click', async (ev) => {
+    if (!ev.target.closest('#btn-update-install')) return;
+    if (!confirm('Download and install the update now? The recorder restarts by itself in this window (about 10 seconds). Settings, the session log and recordings are kept.')) return;
+    try {
+      await api('POST', '/api/update/install');
+      ev.target.disabled = true;
+      toast('Updating. The recorder restarts by itself when the new version is installed.');
+    } catch (e) { toast(e.message, { error: true }); }
+  });
+  function updateText(u) {
+    if (!u) return '';
+    const mb = (b) => (Number(b || 0) / 1048576).toFixed(1);
+    switch (u.stage) {
+      case 'checking': return 'Update: asking GitHub for the latest release...';
+      case 'downloading': return `Update: downloading v${u.target}, ${mb(u.received)}${u.total ? ` of ${mb(u.total)}` : ''} MB...`;
+      case 'verifying': return `Update: checking the v${u.target} download...`;
+      case 'unpacking': case 'installing': return `Update: installing v${u.target}...`;
+      case 'restarting': return `Update: v${u.target} installed. Restarting the recorder...`;
+      case 'installed-manual': return `Update: v${u.target} installed. Close the black window and start the recorder again to finish.`;
+      case 'failed': return `Update failed: ${u.error}. The recorder keeps running this version.`;
+      default: return '';
+    }
+  }
+  function renderUpdate() {
+    const u = S && S.update;
+    if (!u) return;
+    const text = updateText(u);
+    const out = $('#update-status');
+    if (out && text && out.dataset.stage !== `${u.stage}|${u.received || 0}`) { out.dataset.stage = `${u.stage}|${u.received || 0}`; out.textContent = text; }
+    if (u.stage === 'restarting' && !updateTarget) { updateTarget = u.target; waitForNewVersion(); }
+  }
+  // While the app restarts the page loses its connection; poll until the new version answers, then reload.
+  async function waitForNewVersion() {
+    const until = Date.now() + 120000;
+    while (Date.now() < until) {
+      await new Promise((r) => setTimeout(r, 1500));
+      try {
+        const v = await fetch('/api/version', { cache: 'no-store' }).then((r) => r.json());
+        if (v.version === updateTarget) { location.reload(); return; }
+      } catch { /* still restarting */ }
+    }
+    toast('The recorder has not come back after the update. Check its black window, or run Start Recorder.bat again.', { error: true, sticky: true });
+  }
 
   // ---------- setup checklist (optional; opens at startup until dismissed) ----------
   let setupAutoOpened = false;
