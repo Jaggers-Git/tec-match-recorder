@@ -1,9 +1,9 @@
 # Recording station: operator cheat sheet
 
 **Before the first set**
-1. Start OBS (check the capture card picture and game audio are live in the preview).
+1. Start OBS or vMix, whichever this station uses (check the capture card picture and game audio are live in the preview).
 2. Double-click **Start Recorder.bat** on the desktop. Leave the black window open.
-3. In the dashboard, the header should show **OBS connected** (green) and **start.gg LIVE** (green),
+3. In the dashboard, the header should show **OBS connected** or **vMix connected** (green) and **start.gg LIVE** (green),
    or "manual mode" if there is no bracket loaded. Yellow or red? See the bottom of this page.
 
 **Every set**
@@ -21,16 +21,17 @@
 - One recording per *set* (the whole Bo3/Bo5), not per game.
 - The file is named from whatever is in the form at the moment you press End & Save.
 - Players sat on the wrong sides? Tap the **⇄ swap** button between the names. Nobody has to move.
-- Don't press Stop in OBS itself. (If someone does, the app still labels the file.)
-- Players play off the passthrough monitor, never the OBS preview. The preview lags.
+- Don't press Stop in OBS or vMix itself. (If someone does, the app still labels the file.)
+- Players play off the passthrough monitor, never the OBS or vMix preview. The preview lags.
 
 **If something looks wrong**
 | Header shows | Do this |
 | --- | --- |
 | **OBS not connected** (red) | Is OBS open? In OBS: Tools, WebSocket Server Settings, *Enable* must be ticked. It reconnects on its own. |
 | **OBS: wrong password** | Settings (gear icon), OBS, paste the password from OBS's *Show Connect Info*. |
+| **vMix not connected** (red) | Is vMix open? In vMix: Settings, Web Controller, *Enable* must be ticked. It reconnects on its own. |
 | **start.gg OFFLINE** (yellow) | Wi-Fi dropped. Keep going: the bracket you see is the last one downloaded. Tap **Sync now** when it's back. |
 | **start.gg error** | Token or URL problem. Recording still works; enter names by hand and tell the TO. |
 | Disk chip red | Under 25 GB left. Tell the TO before the next set. |
-| Log row says **error** | Tap **Retry**. The video is safe in the OBS folder either way. |
-| Black window closed by accident | Double-click **Start Recorder.bat** again. A recording in progress keeps running in OBS. |
+| Log row says **error** | Tap **Retry**. The video is safe in the OBS or vMix recording folder either way. |
+| Black window closed by accident | Double-click **Start Recorder.bat** again. A recording in progress keeps running in OBS or vMix. |

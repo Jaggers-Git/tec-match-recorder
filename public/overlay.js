@@ -1,4 +1,4 @@
-/* TEC Match Recorder: stream overlay page (loaded by an OBS Browser Source at 1920x1080) */
+/* TEC Match Recorder: stream overlay page (loaded by an OBS Browser Source or a vMix Browser input at 1920x1080) */
 (() => {
   'use strict';
   const $ = (sel) => document.querySelector(sel);

@@ -1,9 +1,10 @@
 'use strict';
 /*
- * TEC Match Recorder: local companion app for OBS Studio.
+ * TEC Match Recorder: local companion app for OBS Studio or vMix.
  *
  * Node.js 22+ only, no npm packages: the built-in WebSocket client talks
- * obs-websocket v5, fetch talks to start.gg, node:http serves the dashboard.
+ * obs-websocket v5, fetch talks to vMix's HTTP API and start.gg, node:http
+ * serves the dashboard.
  *
  *   node server.js               start and open the dashboard in a browser
  *   node server.js --no-browser  start without opening a browser
@@ -17,6 +18,7 @@ const os = require('node:os');
 const { spawn } = require('node:child_process');
 const { Detector } = require('./lib/detector');
 const { Trainer } = require('./lib/trainer');
+const { VmixClient } = require('./lib/vmix');
 const art = require('./lib/art');
 
 if (typeof WebSocket === 'undefined' || typeof fetch === 'undefined') {
@@ -40,7 +42,12 @@ const OPEN_BROWSER = !process.argv.includes('--no-browser');
 
 const DEFAULT_CONFIG = {
   port: 8420,
+  // The production software that records: 'obs' or 'vmix'. Only the chosen one is connected.
+  switcher: 'obs',
   obs: { host: '127.0.0.1', port: 4455, password: '' },
+  // vMix Web Controller. overlayChannel 0 = the first free overlay channel. recordDirectory is learnt from
+  // the first recording (or typed in) and is only needed by vMix versions that do not report the file name.
+  vmix: { host: '127.0.0.1', port: 8088, user: '', password: '', overlayChannel: 0, recordDirectory: '' },
   startgg: { token: '', eventUrl: '', eventUrls: [], pollSeconds: 45 },
   event: { name: '', suffix: '' },
   game: 'ssbu',
@@ -373,7 +380,8 @@ class ObsClient {
       if (d.eventType === 'RecordStateChanged') {
         const data = d.eventData || {};
         this.recording = !!data.outputActive;
-        this.emit('event', { type: 'record', state: data.outputState, active: !!data.outputActive, path: data.outputPath || null });
+        const state = data.outputState === 'OBS_WEBSOCKET_OUTPUT_STARTED' ? 'started' : data.outputState === 'OBS_WEBSOCKET_OUTPUT_STOPPED' ? 'stopped' : data.outputState;
+        this.emit('event', { type: 'record', state, active: !!data.outputActive, path: data.outputPath || null });
       }
     } else if (op === 7) { // RequestResponse
       const p = this.pending.get(d.requestId);
@@ -418,11 +426,57 @@ class ObsClient {
       }
     }
   }
+  disconnect() {
+    clearTimeout(this.reconnectTimer);
+    this.gen += 1;
+    if (this.ws) { try { this.ws.close(); } catch { /* ignore */ } this.ws = null; }
+    this.failPending(new Error('Disconnected from OBS'));
+    this.recording = false;
+    this.setStatus('disconnected', '');
+  }
+  // The calls the recorder makes of either production app (lib/vmix.js has the same ones).
+  async recordStatus() {
+    const s = await this.request('GetRecordStatus');
+    return { active: !!s.outputActive, durationMs: s.outputDuration || 0 };
+  }
+  async startRecord() { await this.request('StartRecord'); }
+  async stopRecord() { return (await this.request('StopRecord', {}, 30000)).outputPath || ''; }
+  canSnapshot() { return true; }
+  async screenshot(sourceName, width, height) {
+    const shot = await this.request('GetSourceScreenshot', { sourceName, imageFormat: 'png', imageWidth: width, imageHeight: height }, 8000);
+    return Buffer.from(String(shot.imageData || '').replace(/^data:image\/png;base64,/, ''), 'base64');
+  }
+  async listSources() {
+    let inputs = [];
+    let scenes = [];
+    try { inputs = (await this.request('GetInputList')).inputs.map((i) => ({ name: i.inputName, kind: i.inputKind })); } catch { inputs = []; }
+    try { scenes = (await this.request('GetSceneList')).scenes.map((s) => s.sceneName); } catch { scenes = []; }
+    return { inputs, scenes };
+  }
 }
 
+// ---------- production software: OBS or vMix, whichever Settings picks ----------
+const SWITCHERS = { obs: 'OBS', vmix: 'vMix' };
+const switcherId = () => (cfg.switcher === 'vmix' ? 'vmix' : 'obs');
 const obs = new ObsClient();
-obs.on('status', () => broadcast());
-obs.on('event', (ev) => {
+const vmix = new VmixClient({ getCfg: () => cfg, log });
+let sw = switcherId() === 'vmix' ? vmix : obs;
+const swName = () => SWITCHERS[switcherId()];
+function useSwitcher() {
+  const next = switcherId() === 'vmix' ? vmix : obs;
+  if (next === sw) return false;
+  sw.disconnect();
+  sw = next;
+  overlayCache = { installed: false, inScenes: [], scene: '', currentScene: '', checkedAt: null };
+  sw.connect();
+  log(`Production software: ${swName()}`);
+  return true;
+}
+for (const client of [obs, vmix]) {
+  client.on('status', () => broadcast());
+  client.on('event', (ev) => { if (client === sw) onSwitcherEvent(ev); });
+}
+function onSwitcherEvent(ev) {
   if (ev.type === 'ready') {
     if (ev.recording && !state.rec.active && !(testRec && testRec.running)) adoptRecording(Date.now() - (ev.durationMs || 0));
     if (!ev.recording && state.rec.active) {
@@ -431,23 +485,35 @@ obs.on('event', (ev) => {
     }
     checkDisk();
     refreshOverlayCache();
-    trainer.cleanupLeftovers();
-    if (obs.recordDirectory && cfg.lastRecordDirectory !== obs.recordDirectory) { cfg.lastRecordDirectory = obs.recordDirectory; writeJson(CONFIG_PATH, cfg); }
+    if (sw === obs) trainer.cleanupLeftovers();
+    rememberRecordDirectory();
   } else if (ev.type === 'record') {
-    if (ev.state === 'OBS_WEBSOCKET_OUTPUT_STARTED') {
+    if (ev.state === 'started') {
       lastStopped = null;
       if (!state.rec.active && !(testRec && testRec.running)) adoptRecording(Date.now());
     }
-    if (ev.state === 'OBS_WEBSOCKET_OUTPUT_STOPPED') {
+    if (ev.state === 'stopped') {
       resolveStopped(ev.path);
+      rememberRecordDirectory();
       if (state.rec.active && !stopInProgress) {
-        log('Recording was stopped from inside OBS, labeling it anyway');
+        log(`Recording was stopped from inside ${swName()}, labeling it anyway`);
         stopRecording({ externalPath: ev.path }).catch((e) => log('external stop failed:', e.message));
       }
     }
   }
   broadcast();
-});
+}
+// Keep the recordings folder each app last reported, so tools work while it is closed. vMix only
+// reports it while recording, so its folder is learnt from the first recording.
+function rememberRecordDirectory() {
+  const dir = sw.recordDirectory;
+  if (!dir) return;
+  if (sw === obs && cfg.lastRecordDirectory !== dir) cfg.lastRecordDirectory = dir;
+  else if (sw === vmix && cfg.vmix.recordDirectory !== dir) cfg.vmix.recordDirectory = dir;
+  else return;
+  writeJson(CONFIG_PATH, cfg);
+  checkDisk();
+}
 function adoptRecording(startedAt) {
   state.rec = { active: true, startedAt, startedByApp: false };
   persistState();
@@ -473,16 +539,16 @@ function waitForStoppedPath(ms) {
 let stopInProgress = false;
 
 async function startRecording() {
-  if (obs.status !== 'connected') throw new Error('OBS is not connected');
+  if (sw.status !== 'connected') throw new Error(`${swName()} is not connected`);
   if (state.rec.active) throw new Error('Already recording');
-  const status = await obs.request('GetRecordStatus');
+  const status = await sw.recordStatus();
   lastStopped = null;
-  if (status.outputActive) {
-    adoptRecording(Date.now() - (status.outputDuration || 0));
+  if (status.active) {
+    adoptRecording(Date.now() - status.durationMs);
     broadcast();
     return;
   }
-  await obs.request('StartRecord');
+  await sw.startRecord();
   state.rec = { active: true, startedAt: Date.now(), startedByApp: true };
   persistState();
   broadcast();
@@ -510,19 +576,17 @@ async function stopRecording({ externalPath = null } = {}) {
       status: 'saving', error: '',
     };
     if (!externalPath) {
-      let res;
       try {
-        res = await obs.request('StopRecord', {}, 30000);
+        entry.sourcePath = await sw.stopRecord();
       } catch (e) {
         if (/not active|not recording/i.test(e.message)) {
           state.rec = { active: false, startedAt: null, startedByApp: false };
           persistState();
           broadcast();
-          throw new Error('OBS says it was not recording, nothing to save');
+          throw new Error(`${swName()} says it was not recording, nothing to save`);
         }
         throw e;
       }
-      entry.sourcePath = res.outputPath || '';
     }
     state.rec = { active: false, startedAt: null, startedByApp: false };
     state.log.unshift(entry);
@@ -542,24 +606,31 @@ async function stopRecording({ externalPath = null } = {}) {
   }
 }
 
+function notReportedMessage(what) {
+  // Older vMix versions do not name the file they are writing; the newest video in the recordings folder stands in.
+  return sw === vmix
+    ? `vMix did not report where it saved ${what}. Type its recording folder (vMix Settings, Recording) into Settings, vMix, and press Retry`
+    : `OBS did not report where it saved ${what}`;
+}
+
 // ---------- test recording (setup check): record a few seconds, verify the file, remove it ----------
 let testRec = null;
 async function testRecording(seconds) {
-  if (obs.status !== 'connected') throw new Error('OBS is not connected');
+  const name = swName();
+  if (sw.status !== 'connected') throw new Error(`${name} is not connected`);
   if (state.rec.active || stopInProgress) throw new Error('A real recording is in progress');
   if (testRec && testRec.running) throw new Error('A test is already running');
-  const status = await obs.request('GetRecordStatus');
-  if (status.outputActive) throw new Error('OBS is already recording');
+  const status = await sw.recordStatus();
+  if (status.active) throw new Error(`${name} is already recording`);
   const secs = Math.min(15, Math.max(3, Number(seconds) || 5));
   testRec = { running: true, startedAt: Date.now(), seconds: secs };
   broadcast();
   try {
-    await obs.request('StartRecord');
+    await sw.startRecord();
     await sleep(secs * 1000);
-    const res = await obs.request('StopRecord', {}, 30000);
-    const src = res.outputPath || (await waitForStoppedPath(10000)) || '';
-    if (!src) throw new Error('OBS did not report where it saved the test file');
-    await waitUntil(() => !obs.recording, 8000);
+    const src = (await sw.stopRecord()) || (await waitForStoppedPath(10000)) || '';
+    if (!src) throw new Error(notReportedMessage('the test file'));
+    await waitUntil(() => !sw.recording, 8000);
     await waitForStableFile(src, 20000);
     // With "Automatically remux to mp4" on, OBS writes a sibling right after stopping; let it finish before cleaning up.
     let sibling = null;
@@ -568,7 +639,7 @@ async function testRecording(seconds) {
     if (sibling) { await waitForStableFile(sibling, 60000); files.push(sibling); }
     let bytes = 0;
     for (const f of files) { try { bytes = Math.max(bytes, fs.statSync(f).size); } catch { /* missing */ } }
-    if (!bytes) throw new Error(`OBS reported ${src} but the file is empty or missing`);
+    if (!bytes) throw new Error(`${name} reported ${src} but the file is empty or missing`);
     for (const f of files) { try { fs.unlinkSync(f); } catch { /* leave it */ } }
     const result = { ok: true, seconds: secs, bytes, dir: path.dirname(src), removed: files.map((f) => path.basename(f)), at: nowIso() };
     testRec = { running: false, ...result };
@@ -587,8 +658,9 @@ async function finalizeEntry(entry) {
   broadcast();
   try {
     if (!entry.sourcePath) entry.sourcePath = (await waitForStoppedPath(10000)) || '';
-    if (!entry.sourcePath) throw new Error('OBS did not report where it saved the recording');
-    await waitUntil(() => !obs.recording, 8000);
+    if (!entry.sourcePath && sw === vmix) entry.sourcePath = await vmix.findRecording(Date.parse(entry.ts) - entry.durationSec * 1000);
+    if (!entry.sourcePath) throw new Error(notReportedMessage('the recording'));
+    await waitUntil(() => !sw.recording, 8000);
     const finalPath = await moveRecording(entry.sourcePath, entry);
     entry.path = finalPath;
     entry.filename = path.basename(finalPath);
@@ -1042,7 +1114,8 @@ function schedulePoll() {
 
 // ---------- disk ----------
 async function checkDisk() {
-  const p = obs.recordDirectory && fs.existsSync(obs.recordDirectory) ? obs.recordDirectory : os.homedir();
+  const dir = recordDirectory();
+  const p = dir && fs.existsSync(dir) ? dir : os.homedir();
   try {
     const s = await fsp.statfs(p);
     disk.freeBytes = Number(s.bavail) * Number(s.bsize);
@@ -1060,6 +1133,7 @@ function publicConfig() {
   return {
     ...cfg,
     obs: { ...cfg.obs, password: '', hasPassword: !!cfg.obs.password },
+    vmix: { ...cfg.vmix, password: '', hasPassword: !!cfg.vmix.password },
     startgg: { ...cfg.startgg, token: '', hasToken: !!cfg.startgg.token, eventSlug: eventSlugs()[0] || '', eventSlugs: eventSlugs() },
     gameList: stationGames().map(gameSummary),
     // Every game, for the title-suffix fields in Settings (hidden ones keep their values in Smash-only mode).
@@ -1074,6 +1148,7 @@ function updateConfig(body) {
   const incoming = body && typeof body === 'object' ? body : {};
   if (incoming.startgg && !incoming.startgg.token) delete incoming.startgg.token;
   if (incoming.obs && !incoming.obs.password) delete incoming.obs.password;
+  if (incoming.vmix && !incoming.vmix.password) delete incoming.vmix.password;
   if (incoming.startgg && typeof incoming.startgg.eventUrls === 'string') {
     incoming.startgg.eventUrls = incoming.startgg.eventUrls.split(/[\r\n,]+/).map((s) => s.trim()).filter(Boolean);
   }
@@ -1081,6 +1156,16 @@ function updateConfig(body) {
   const next = mergeConfig(cfg, incoming);
   next.port = Number(next.port) || 8420;
   next.obs.port = Number(next.obs.port) || 4455;
+  next.switcher = next.switcher === 'vmix' ? 'vmix' : 'obs';
+  if (next.switcher !== switcherId() && (state.rec.active || stopInProgress || (testRec && testRec.running))) {
+    throw new Error(`Stop the recording in ${swName()} before switching the production software.`);
+  }
+  next.vmix = {
+    host: String(next.vmix.host || '').trim() || '127.0.0.1', port: Number(next.vmix.port) || 8088,
+    user: String(next.vmix.user || '').trim(), password: String(next.vmix.password || ''),
+    overlayChannel: Math.min(4, Math.max(0, Math.round(Number(next.vmix.overlayChannel) || 0))),
+    recordDirectory: String(next.vmix.recordDirectory || '').trim(),
+  };
   next.startgg.pollSeconds = Math.max(15, Number(next.startgg.pollSeconds) || 45);
   // Only a PIN sent with this save is cleaned and checked, so an odd one saved by an older version
   // does not block unrelated saves; Settings always sends it, and asks for a proper one there.
@@ -1097,6 +1182,7 @@ function updateConfig(body) {
   next.branding = { theme: THEMES[next.branding && next.branding.theme] ? next.branding.theme : 'tec', label: String((next.branding && next.branding.label) || '').trim().slice(0, 40) };
   next.smashOnly = !!next.smashOnly;
   const obsChanged = JSON.stringify(next.obs) !== JSON.stringify(cfg.obs);
+  const vmixChanged = ['host', 'port', 'user', 'password'].some((k) => next.vmix[k] !== cfg.vmix[k]);
   // Turning Smash-only on drops any SF6/Tekken bracket on the next sync, so sync right away.
   const sgChanged = JSON.stringify(next.startgg) !== JSON.stringify(cfg.startgg) || next.smashOnly !== !!cfg.smashOnly;
   const themeChanged = next.branding.theme !== themeId();
@@ -1112,7 +1198,10 @@ function updateConfig(body) {
   }
   if (lanChanged) setTimeout(rebindServer, 200);
   writeJson(CONFIG_PATH, cfg);
-  if (obsChanged) obs.connect();
+  if (!useSwitcher()) {
+    if (sw === obs && obsChanged) obs.connect();
+    if (sw === vmix && vmixChanged) vmix.connect();
+  }
   if (sgChanged) { schedulePoll(); syncStartgg(); } else broadcastBracket();
   broadcast();
 }
@@ -1127,9 +1216,11 @@ function lanUrls() {
 }
 function snapshot() {
   return {
-    obs: {
-      status: obs.status, connected: obs.status === 'connected', recording: obs.recording,
-      recordDirectory: obs.recordDirectory, version: obs.version, lastError: obs.lastError,
+    // The production software in use (OBS or vMix); `snapshots` says whether the detector can get frames.
+    sw: {
+      id: switcherId(), name: swName(),
+      status: sw.status, connected: sw.status === 'connected', recording: sw.recording,
+      recordDirectory: recordDirectory(), version: sw.version, lastError: sw.lastError, snapshots: sw.canSnapshot(),
     },
     rec: state.rec,
     startgg: {
@@ -1246,7 +1337,7 @@ function serveStatic(res, pathname, url) {
 }
 function openFolder() {
   const last = state.log.find((e) => e.status === 'saved' && e.path);
-  const dir = last ? path.dirname(last.path) : (obs.recordDirectory || os.homedir());
+  const dir = last ? path.dirname(last.path) : (recordDirectory() || os.homedir());
   if (process.platform === 'win32') spawn('explorer.exe', [dir], { detached: true, stdio: 'ignore' }).unref();
   return dir;
 }
@@ -1254,12 +1345,13 @@ function openFolder() {
 // ---------- character detection + training ----------
 const detector = new Detector({
   dataDir: DATA_DIR,
-  obs,
+  screenshot: (sourceName, width, height) => sw.screenshot(sourceName, width, height),
   rosterNames: readJson(FIGHTERS_PATH, []).map((f) => f.name),
   getCfg: () => cfg,
   log,
-  shouldRun: () => obs.status === 'connected' && !!cfg.detect.enabled && !trainer.isScanning() && !!currentGame().characters,
-  getSource: async () => cfg.detect.source || (await obs.request('GetCurrentProgramScene')).currentProgramSceneName,
+  shouldRun: () => sw.status === 'connected' && sw.canSnapshot() && !!cfg.detect.enabled && !trainer.isScanning() && !!currentGame().characters,
+  // Blank means the program output: OBS's current program scene, or vMix's output snapshot.
+  getSource: async () => cfg.detect.source || (sw === obs ? (await obs.request('GetCurrentProgramScene')).currentProgramSceneName : ''),
   onDetection: ({ side, character, score, costume = -1, kind = 'vs' }) => {
     const chars = state.current[`chars${side}`];
     if (costume >= 0) state.current[`costume${side}`] = costume;
@@ -1278,12 +1370,16 @@ function broadcastTrain() {
   for (const c of sseClients) sseSend(c, 'train', payload);
   broadcast();
 }
-// ---------- stream overlay in OBS ----------
+// ---------- stream overlay in OBS or vMix ----------
 const OVERLAY_INPUT = 'TEC Overlay';
 function overlayUrl() { return `http://localhost:${cfg.port || 8420}/overlay`; }
 async function overlayStatus() {
-  const out = { url: overlayUrl(), installed: false, scenes: [], inScenes: [], image: fs.existsSync(path.join(PUBLIC_DIR, 'overlay', 'overlay.png')) };
-  if (obs.status !== 'connected') return out;
+  const out = { url: overlayUrl(), installed: false, scenes: [], inScenes: [], channel: 0, image: fs.existsSync(path.join(PUBLIC_DIR, 'overlay', 'overlay.png')) };
+  if (sw.status !== 'connected') return out;
+  if (sw === vmix) {
+    try { Object.assign(out, await vmix.overlayState(OVERLAY_INPUT)); } catch { /* leave defaults */ }
+    return out;
+  }
   try {
     out.scenes = (await obs.request('GetSceneList')).scenes.map((s) => s.sceneName).reverse();
     for (const sceneName of out.scenes) {
@@ -1297,8 +1393,17 @@ async function overlayStatus() {
 // Cached overlay state for the dashboard chip: which scenes hold the source and what OBS is showing right now.
 let overlayCache = { installed: false, inScenes: [], scene: '', currentScene: '', checkedAt: null };
 let overlayDemoUntil = 0;
+// With vMix the overlay is a Browser input; `channel` is the overlay channel it is on (0 = none, not on air).
 async function refreshOverlayCache() {
-  if (obs.status !== 'connected') { overlayCache = { ...overlayCache, installed: false, inScenes: [], currentScene: '', checkedAt: nowIso() }; return overlayCache; }
+  if (sw.status !== 'connected') { overlayCache = { ...overlayCache, installed: false, inScenes: [], currentScene: '', channel: 0, checkedAt: nowIso() }; return overlayCache; }
+  if (sw === vmix) {
+    try {
+      const st = await vmix.overlayState(OVERLAY_INPUT);
+      overlayCache = { installed: st.installed, channel: st.channel, inScenes: [], scene: '', currentScene: '', checkedAt: nowIso() };
+    } catch { /* keep the last known state */ }
+    broadcast();
+    return overlayCache;
+  }
   try {
     const st = await overlayStatus();
     let currentScene = '';
@@ -1307,6 +1412,16 @@ async function refreshOverlayCache() {
   } catch { /* keep the last known state */ }
   broadcast();
   return overlayCache;
+}
+// vMix: the overlay page as a Browser input called "TEC Overlay" on an overlay channel (the one set in
+// Settings, else the first free one), so it sits over whatever is in Program.
+async function installVmixOverlay(channel) {
+  if (vmix.status !== 'connected') throw new Error('vMix is not connected');
+  const r = await vmix.installOverlay({ title: OVERLAY_INPUT, url: overlayUrl(), channel: channel === undefined || channel === '' ? cfg.vmix.overlayChannel : channel });
+  overlayDemoUntil = Date.now() + 30000;
+  log(`Overlay added to vMix as input ${r.number} "${OVERLAY_INPUT}" on overlay channel ${r.channel}`);
+  refreshOverlayCache();
+  return { ok: true, vmix: true, input: OVERLAY_INPUT, number: r.number, channel: r.channel, url: overlayUrl(), visibleNow: true };
 }
 // Add the overlay page as a Browser Source at the top of a scene (the "Gameplay" scene by default).
 async function installOverlay(sceneName) {
@@ -1346,9 +1461,10 @@ async function installOverlay(sceneName) {
   refreshOverlayCache();
   return { ok: true, scene: target, url: overlayUrl(), currentScene, visibleNow: !currentScene || currentScene === target, canvas };
 }
-// OBS reports the recordings folder while connected; keep the last one so tools work with OBS closed.
+// OBS reports the recordings folder while connected, vMix while it records; keep the last one so tools
+// work with the app closed.
 function recordDirectory() {
-  return obs.recordDirectory || cfg.lastRecordDirectory || '';
+  return sw.recordDirectory || (sw === vmix ? cfg.vmix.recordDirectory : cfg.lastRecordDirectory) || '';
 }
 function safeFileName(name) {
   const s = String(name || '');
@@ -1361,11 +1477,9 @@ async function handleDetectApi(route, req, res, url) {
       sendJson(res, 200, { detect: detector.status(), train: trainer.status() });
       return true;
     case 'GET /api/detect/sources': {
-      let inputs = [];
-      let scenes = [];
-      try { inputs = (await obs.request('GetInputList')).inputs.map((i) => ({ name: i.inputName, kind: i.inputKind })); } catch { inputs = []; }
-      try { scenes = (await obs.request('GetSceneList')).scenes.map((s) => s.sceneName); } catch { scenes = []; }
-      sendJson(res, 200, { inputs, scenes });
+      let sources = { inputs: [], scenes: [] };
+      try { sources = await sw.listSources(); } catch { /* not connected */ }
+      sendJson(res, 200, sources);
       return true;
     }
     case 'GET /api/templates':
@@ -1425,12 +1539,15 @@ async function handleDetectApi(route, req, res, url) {
     }
     case 'POST /api/overlay/install': {
       const body = await readBody(req);
-      try { sendJson(res, 200, await installOverlay(String(body.scene || ''))); }
+      try { sendJson(res, 200, sw === vmix ? await installVmixOverlay(body.channel) : await installOverlay(String(body.scene || ''))); }
       catch (e) { sendJson(res, 400, { error: e.message }); }
       return true;
     }
     case 'POST /api/overlay/remove': {
-      try { await obs.request('RemoveInput', { inputName: OVERLAY_INPUT }); } catch (e) { if (!/not found|does not exist/i.test(e.message)) { sendJson(res, 400, { error: e.message }); return true; } }
+      try {
+        if (sw === vmix) await vmix.removeOverlay(OVERLAY_INPUT);
+        else await obs.request('RemoveInput', { inputName: OVERLAY_INPUT });
+      } catch (e) { if (!/not found|does not exist/i.test(e.message)) { sendJson(res, 400, { error: e.message }); return true; } }
       overlayDemoUntil = 0;
       refreshOverlayCache();
       sendJson(res, 200, { ok: true });
@@ -1686,7 +1803,7 @@ async function handleApi(req, res, url) {
         generatedAt: nowIso(),
         app: { name: 'TEC Match Recorder', version: APP_VERSION, node: process.version, platform: `${os.platform()} ${os.release()}`, arch: os.arch(), uptimeSec: Math.round(process.uptime()) },
         config: conf,
-        obs: snap.obs,
+        switcher: snap.sw,
         startgg: { ...snap.startgg, events: (snap.startgg.events || []).map((e) => e.name || e.slug || e) },
         disk: snap.disk, detect: snap.detect, train: snap.train,
         art: { portraitFiles: snap.art.portrait.files, iconFiles: snap.art.icon.files },
@@ -1762,14 +1879,19 @@ server.listen(cfg.port, listenHost(), () => {
   log(`TEC Match Recorder: dashboard at http://localhost:${cfg.port}`);
   if (cfg.network.lan) for (const u of lanUrls()) log(`  also on this network: ${u} (PIN required)`);
   else log('  other devices cannot open it; turn on network access in Settings if you need a phone or a second laptop');
-  obs.connect();
+  sw.connect();
   schedulePoll();
   syncStartgg();
   checkDisk();
   setInterval(checkDisk, 30000);
   sweepSamples();
   setInterval(sweepSamples, 10 * 60 * 1000);
-  setInterval(() => { if (obs.status === 'connected') refreshOverlayCache(); }, 30000);
+  // The overlay check is one cheap read in vMix but a walk through every scene in OBS: every 10 s vs 30 s.
+  let overlayTicks = 0;
+  setInterval(() => {
+    overlayTicks += 1;
+    if (sw.status === 'connected' && (sw === vmix || overlayTicks % 3 === 0)) refreshOverlayCache();
+  }, 10000);
   detector.start();
   if (OPEN_BROWSER && process.platform === 'win32') {
     spawn('cmd', ['/c', 'start', '', `http://localhost:${cfg.port}`], { detached: true, stdio: 'ignore' }).unref();

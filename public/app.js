@@ -137,6 +137,7 @@
   function render() {
     if (!S) return;
     applyBranding();
+    applySwitcher();
     if (!$('#settings').hidden) { renderNetworkStatus(); renderArtStatus(); renderMaintenance(); renderLogoStatus(); }
     if (!$('#setup').hidden) renderSetup();
     maybeAutoOpenSetup();
@@ -168,13 +169,24 @@
     document.title = tec ? 'TEC Match Recorder' : `${b.name} · Match Recorder`;
     document.querySelector('link[rel="icon"]').href = !tec && b.logo ? b.logo : TEC_ICON;
   }
-  function obsText() {
-    const o = S.obs;
-    if (o.status === 'connected') return `OBS ${o.version ? o.version + ' ' : ''}connected`;
-    if (o.status === 'connecting') return 'OBS connecting…';
-    if (o.status === 'auth-failed') return 'OBS: wrong password';
-    return 'OBS not connected';
+  // OBS or vMix: .obs-only / .vmix-only blocks (the how-to guide) follow the saved choice, and every
+  // .sw-name span outside Settings says which app it is.
+  let swKey = '';
+  function applySwitcher() {
+    if (!S.sw || S.sw.id === swKey) return;
+    swKey = S.sw.id;
+    document.documentElement.dataset.sw = S.sw.id;
+    for (const el of document.querySelectorAll('.sw-name')) if (!el.closest('#settings-form')) el.textContent = S.sw.name;
   }
+  // S.sw is the production software in use: OBS or vMix.
+  function swText() {
+    const o = S.sw;
+    if (o.status === 'connected') return `${o.name} ${o.version ? o.version + ' ' : ''}connected`;
+    if (o.status === 'connecting') return `${o.name} connecting…`;
+    if (o.status === 'auth-failed') return `${o.name}: wrong password`;
+    return `${o.name} not connected`;
+  }
+  const isVmix = () => !!(S && S.sw && S.sw.id === 'vmix');
   function sgText() {
     const g = S.startgg;
     if (!g.configured) return 'start.gg: not set up (manual mode)';
@@ -185,9 +197,9 @@
     return 'start.gg: waiting for first sync';
   }
   function renderChips() {
-    const obsChip = $('#chip-obs');
-    obsChip.textContent = obsText();
-    obsChip.className = `chip ${S.obs.status === 'connected' ? 'ok' : S.obs.status === 'connecting' ? 'warn' : 'bad'}`;
+    const swChip = $('#chip-obs');
+    swChip.textContent = swText();
+    swChip.className = `chip ${S.sw.status === 'connected' ? 'ok' : S.sw.status === 'connecting' ? 'warn' : 'bad'}`;
 
     const sgChip = $('#chip-sg');
     sgChip.textContent = sgText();
@@ -201,8 +213,12 @@
     const ov = $('#chip-overlay');
     if (ov) {
       const o = S.overlay || {};
-      if (!S.obs.connected) { ov.textContent = 'Overlay: waiting for OBS'; ov.className = 'chip'; }
-      else if (o.installed) {
+      if (!S.sw.connected) { ov.textContent = `Overlay: waiting for ${S.sw.name}`; ov.className = 'chip'; }
+      else if (isVmix()) {
+        if (o.installed && o.channel) { ov.textContent = `Overlay: live on vMix overlay ${o.channel}`; ov.className = 'chip ok'; }
+        else if (o.installed) { ov.textContent = 'Overlay: in vMix, not on an overlay channel'; ov.className = 'chip warn'; }
+        else { ov.textContent = 'Overlay: not in vMix yet'; ov.className = 'chip'; }
+      } else if (o.installed) {
         const onScreen = o.currentScene && o.inScenes.includes(o.currentScene);
         ov.textContent = onScreen ? `Overlay: live in ${o.currentScene}` : `Overlay: in ${o.inScenes.join(', ')} (OBS is showing ${o.currentScene || 'another scene'})`;
         ov.className = `chip ${onScreen ? 'ok' : 'warn'}`;
@@ -215,7 +231,8 @@
       if (!S.config.detect || !S.config.detect.enabled) { det.textContent = 'Detect: off'; det.className = 'chip'; }
       else if (gameNow && !gameNow.characters) { det.textContent = `Detect: not used for ${gameNow.name}`; det.className = 'chip'; }
       else if (S.train && S.train.running) { det.textContent = 'Detect: paused (training scan running)'; det.className = 'chip warn'; }
-      else if (!d.running) { det.textContent = 'Detect: waiting for OBS'; det.className = 'chip'; }
+      else if (S.sw.connected && !S.sw.snapshots) { det.textContent = 'Detect: needs vMix on this PC'; det.className = 'chip'; }
+      else if (!d.running) { det.textContent = `Detect: waiting for ${S.sw.name}`; det.className = 'chip'; }
       else if (d.error) { det.textContent = `Detect: ${d.error}`; det.className = 'chip bad'; }
       else if (d.lastResult) { det.textContent = `Detect: ${d.lastResult.p1} vs ${d.lastResult.p2} · ${ago(d.lastResult.at)}`; det.className = 'chip ok'; }
       else { det.textContent = `Detect: watching${d.hasAnchor ? '' : ' (untrained)'}`; det.className = `chip ${d.hasAnchor ? 'ok' : 'warn'}`; }
@@ -224,14 +241,15 @@
   function renderBanner() {
     const el = $('#banner');
     if (!appOnline) {
-      el.textContent = 'Lost contact with the recorder app (server.js). Restart it with "Start Recorder.bat". OBS keeps recording in the meantime.';
+      el.textContent = `Lost contact with the recorder app (server.js). Restart it with "Start Recorder.bat". ${S && S.sw ? S.sw.name : 'OBS'} keeps recording in the meantime.`;
       el.className = 'banner';
       el.hidden = false;
       return;
     }
     if (!S) return;
-    if (S.obs.status !== 'connected') {
-      el.textContent = `OBS not connected: ${S.obs.lastError || 'start OBS and enable Tools → WebSocket Server Settings.'}`;
+    if (S.sw.status !== 'connected') {
+      const hint = isVmix() ? 'start vMix and tick Settings → Web Controller → Enable.' : 'start OBS and enable Tools → WebSocket Server Settings.';
+      el.textContent = `${S.sw.name} not connected: ${S.sw.lastError || hint}`;
       el.className = 'banner';
       el.hidden = false;
     } else if (S.disk.low) {
@@ -285,24 +303,28 @@
     $('#current-source').textContent = c.source === 'startgg' && c.setId ? `from start.gg set ${c.setLetter || ''}${c.eventName ? ` · ${c.eventName}` : ''}` : 'manual entry';
     $('#btn-unmark').hidden = !(c.setId && (S.recordedSetIds || []).includes(c.setId));
     $('#preview-title').textContent = S.preview.title;
-    $('#preview-file').textContent = `${S.preview.filenameBase}.mkv`;
+    // The real extension is whatever the app records to: show the last saved file's, else each app's default.
+    const lastFile = ((S.log || []).find((e) => e.filename) || {}).filename || '';
+    const ext = (/\.[a-z0-9]+$/i.exec(lastFile) || [isVmix() ? '.mp4' : '.mkv'])[0];
+    $('#preview-file').textContent = `${S.preview.filenameBase}${ext}`;
   }
   function renderRecord() {
     if (!S) return;
     const btn = $('#btn-record');
     const st = $('#record-status');
-    const connected = S.obs.connected;
+    const connected = S.sw.connected;
+    const name = S.sw.name;
     if (S.rec.active) {
       btn.className = `record-btn recording${confirmArmed ? ' armed' : ''}`;
       btn.textContent = confirmArmed ? 'TAP AGAIN TO END & SAVE' : 'END & SAVE';
       btn.disabled = busy || !connected;
       const secs = (Date.now() - S.rec.startedAt) / 1000;
       const who = S.current.p1 || S.current.p2 ? ` · ${S.current.p1 || '?'} vs ${S.current.p2 || '?'}` : '';
-      st.innerHTML = `<span class="rec-dot"></span>RECORDING ${fmtDur(secs)}${who}${S.rec.startedByApp ? '' : ' (started from OBS)'}`;
-      if (!connected) st.innerHTML += '<br>OBS connection lost. Stop the recording in OBS if needed.';
+      st.innerHTML = `<span class="rec-dot"></span>RECORDING ${fmtDur(secs)}${who}${S.rec.startedByApp ? '' : ` (started from ${name})`}`;
+      if (!connected) st.innerHTML += `<br>${name} connection lost. Stop the recording in ${name} if needed.`;
     } else {
       btn.className = 'record-btn';
-      btn.textContent = connected ? 'START RECORDING' : 'OBS NOT CONNECTED';
+      btn.textContent = connected ? 'START RECORDING' : `${name.toUpperCase()} NOT CONNECTED`;
       btn.disabled = busy || !connected;
       st.textContent = connected ? 'Pick a set or enter the players, then start. Names can still be fixed while recording.' : '';
     }
@@ -421,9 +443,11 @@
   }
   function renderSettingsStatus() {
     if ($('#settings').hidden || !S) return;
-    $('#settings-obs-status').textContent = `${obsText()}${S.obs.lastError && S.obs.status !== 'connected' ? `: ${S.obs.lastError}` : ''}`;
+    const swStatus = `${swText()}${S.sw.lastError && S.sw.status !== 'connected' ? `: ${S.sw.lastError}` : ''}`;
+    $('#settings-obs-status').textContent = isVmix() ? 'Not in use: the production software is vMix.' : swStatus;
+    $('#settings-vmix-status').textContent = isVmix() ? swStatus : 'Not in use: the production software is OBS.';
     $('#settings-sg-status').textContent = S.startgg.configured ? `${sgText()}${S.startgg.tournamentName ? ` · ${S.startgg.tournamentName} / ${S.startgg.eventName} (${S.startgg.setCount} sets)` : ''}` : 'Not configured. Get a token at start.gg → your profile → Developer Settings → Create new token.';
-    $('#settings-info').innerHTML = `Recordings folder (from OBS): <span class="mono">${esc(S.obs.recordDirectory || '(connect OBS to read it)')}</span><br>`
+    $('#settings-info').innerHTML = `Recordings folder (from ${esc(S.sw.name)}): <span class="mono">${esc(S.sw.recordDirectory || (isVmix() ? '(read from vMix on the first recording)' : '(connect OBS to read it)'))}</span><br>`
       + `Dashboard on this network: ${(S.lan || []).map((u) => `<span class="mono">${esc(u)}</span>`).join(' · ') || 'none'}`;
   }
 
@@ -575,10 +599,20 @@
     set('startgg.token', '');
     f.elements['startgg.token'].placeholder = c.startgg.hasToken ? '(saved, leave blank to keep)' : 'paste your start.gg API token';
     set('startgg.pollSeconds', c.startgg.pollSeconds);
+    set('switcher', c.switcher || 'obs');
     set('obs.host', c.obs.host);
     set('obs.port', c.obs.port);
     set('obs.password', '');
     f.elements['obs.password'].placeholder = c.obs.hasPassword ? '(saved, leave blank to keep)' : 'OBS → Tools → WebSocket Server Settings';
+    const vm = c.vmix || {};
+    set('vmix.host', vm.host || '127.0.0.1');
+    set('vmix.port', vm.port || 8088);
+    set('vmix.user', vm.user || '');
+    set('vmix.password', '');
+    f.elements['vmix.password'].placeholder = vm.hasPassword ? '(saved, leave blank to keep)' : '(only if the Web Controller has one)';
+    set('vmix.overlayChannel', String(vm.overlayChannel || 0));
+    set('vmix.recordDirectory', vm.recordDirectory || '');
+    setFormSwitcher();
     set('naming.titleTemplate', c.naming.titleTemplate);
     set('naming.filenamePrefix', c.naming.filenamePrefix);
     set('naming.filenamePrefixTemplate', c.naming.filenamePrefixTemplate);
@@ -602,13 +636,25 @@
     $('#settings').hidden = false;
     renderSettingsStatus();
   }
+  // The OBS and vMix rows in Settings follow the form's choice, so they switch before saving.
+  const formSwitcher = () => $('#settings-form').elements.switcher.value;
+  function setFormSwitcher() {
+    const f = $('#settings-form');
+    f.dataset.sw = formSwitcher();
+    const name = formSwitcher() === 'vmix' ? 'vMix' : 'OBS';
+    for (const el of f.querySelectorAll('.sw-name')) el.textContent = name;
+    const pending = S && S.sw && S.sw.id !== formSwitcher();
+    $('#switcher-pending').hidden = !pending;
+  }
+  $('#settings-form').elements.switcher.addEventListener('change', setFormSwitcher);
   function renderNetworkStatus() {
     const el = $('#network-status');
     if (!el || !S) return;
     const n = S.network || {};
-    if (!n.lan) { el.textContent = 'Only this PC can open the dashboard right now. The overlay in OBS on this PC keeps working either way.'; return; }
+    const name = S.sw ? S.sw.name : 'OBS';
+    if (!n.lan) { el.textContent = `Only this PC can open the dashboard right now. The overlay in ${name} on this PC keeps working either way.`; return; }
     const urls = (S.lan || []).join('   ');
-    el.textContent = `Other devices open: ${urls || '(no network address found)'}   PIN: ${n.pin || '(set on save)'}. OBS on another PC: add ?pin=${n.pin || 'PIN'} to the overlay URL.`;
+    el.textContent = `Other devices open: ${urls || '(no network address found)'}   PIN: ${n.pin || '(set on save)'}. ${name} on another PC: add ?pin=${n.pin || 'PIN'} to the overlay URL.`;
   }
   function renderArtStatus() {
     const el = $('#art-status');
@@ -686,7 +732,7 @@
   const fmtMb = (b) => `${(Number(b || 0) / 1048576).toFixed(Number(b || 0) > 100 * 1048576 ? 0 : 1)} MB`;
   function testRecText(t) {
     if (!t) return 'Not run yet.';
-    if (t.running) return `Recording a ${t.seconds}-second test in OBS...`;
+    if (t.running) return `Recording a ${t.seconds}-second test in ${S && S.sw ? S.sw.name : 'OBS'}...`;
     if (t.ok) return `OK: ${fmtMb(t.bytes)} written to ${t.dir}, test file removed (${new Date(t.at).toLocaleTimeString()}).`;
     return `Failed: ${t.error}`;
   }
@@ -739,28 +785,41 @@
     const sg = S.startgg || {};
     const art = S.art && S.art.portrait ? S.art.portrait.files : 0;
     const t = S.testRec;
+    const o = S.sw;
+    const vm = isVmix();
     return [
-      S.obs.connected
-        ? { state: 'ok', title: `OBS connected${S.obs.version ? ` (${S.obs.version})` : ''}`, text: 'The recorder can start and stop recordings.' }
-        : { state: 'warn', title: 'OBS not connected', text: 'In OBS open Tools, WebSocket Server Settings, tick Enable WebSocket server, then paste the password from Show Connect Info into Settings.', action: 'settings', label: 'Open Settings' },
-      S.obs.recordDirectory
-        ? { state: S.disk && S.disk.low ? 'warn' : 'ok', title: 'Recording folder', text: `${S.obs.recordDirectory}${gb ? `, ${gb}` : ''}${S.disk && S.disk.low ? '. Under 25 GB: make room before the event.' : ''}` }
-        : { state: 'opt', title: 'Recording folder', text: 'Read from OBS once it connects (Settings, Output, Recording path in OBS).' },
+      o.connected
+        ? { state: 'ok', title: `${o.name} connected${o.version ? ` (${o.version})` : ''}`, text: 'The recorder can start and stop recordings.' }
+        : vm
+          ? { state: 'warn', title: 'vMix not connected', text: 'In vMix open Settings, Web Controller, tick Enable (port 8088). Running vMix on another PC? Put its address in Settings, vMix. Using OBS instead? Switch Production software in Settings.', action: 'settings', label: 'Open Settings' }
+          : { state: 'warn', title: 'OBS not connected', text: 'In OBS open Tools, WebSocket Server Settings, tick Enable WebSocket server, then paste the password from Show Connect Info into Settings. Using vMix instead? Switch Production software in Settings.', action: 'settings', label: 'Open Settings' },
+      o.recordDirectory
+        ? { state: S.disk && S.disk.low ? 'warn' : 'ok', title: 'Recording folder', text: `${o.recordDirectory}${gb ? `, ${gb}` : ''}${S.disk && S.disk.low ? '. Under 25 GB: make room before the event.' : ''}` }
+        : { state: 'opt', title: 'Recording folder', text: vm ? 'Read from vMix on the first recording: run the test recording below. vMix picks the folder and format under Settings, Recording.' : 'Read from OBS once it connects (Settings, Output, Recording path in OBS).' },
       sg.configured
         ? { state: 'ok', title: 'start.gg bracket', text: `${sg.tournamentName || 'Event'}: ${sg.setCount} sets loaded.` }
         : { state: 'opt', title: 'start.gg bracket (optional)', text: 'Paste an API token and the event URL in Settings to pick sets from the live bracket. Typing names by hand works without it.', action: 'settings', label: 'Open Settings' },
       art > 0
         ? { state: 'ok', title: 'Character art', text: `${art} portraits on this PC for automatic character tags and title cards.` }
         : { state: 'opt', title: 'Character art (optional)', text: 'Needed only for automatic character tags and title cards. About 23 MB, downloaded from the TournamentStreamHelper repository.', action: 'art', label: 'Download' },
-      S.overlay && S.overlay.installed
-        ? { state: 'ok', title: 'Stream overlay', text: `In OBS scene ${S.overlay.inScenes.join(', ')} as the source "TEC Overlay".${S.overlay.currentScene && !S.overlay.inScenes.includes(S.overlay.currentScene) ? ` OBS is showing "${S.overlay.currentScene}" right now.` : ''}` }
-        : { state: 'opt', title: 'Stream overlay (optional)', text: S.obs.connected ? 'Player names, round and wins drawn over the gameplay scene. Adds a Browser Source called "TEC Overlay" to OBS.' : 'Player names, round and wins over the gameplay scene. Available once OBS is connected.', action: S.obs.connected ? 'overlay' : undefined, label: 'Add to OBS' },
+      vm ? vmixOverlayItem()
+        : S.overlay && S.overlay.installed
+          ? { state: 'ok', title: 'Stream overlay', text: `In OBS scene ${S.overlay.inScenes.join(', ')} as the source "TEC Overlay".${S.overlay.currentScene && !S.overlay.inScenes.includes(S.overlay.currentScene) ? ` OBS is showing "${S.overlay.currentScene}" right now.` : ''}` }
+          : { state: 'opt', title: 'Stream overlay (optional)', text: o.connected ? 'Player names, round and wins drawn over the gameplay scene. Adds a Browser Source called "TEC Overlay" to OBS.' : 'Player names, round and wins over the gameplay scene. Available once OBS is connected.', action: o.connected ? 'overlay' : undefined, label: 'Add to OBS' },
       t && t.ok
         ? { state: 'ok', title: 'Test recording', text: testRecText(t) }
         : t && !t.running && t.error
           ? { state: 'warn', title: 'Test recording', text: testRecText(t), action: 'test', label: 'Run again' }
-          : { state: 'opt', title: 'Test recording', text: t && t.running ? testRecText(t) : 'Records five seconds, checks the file, removes it. Needs OBS connected.', action: 'test', label: t && t.running ? 'Running...' : 'Run test' },
+          : { state: 'opt', title: 'Test recording', text: t && t.running ? testRecText(t) : `Records five seconds, checks the file, removes it. Needs ${o.name} connected.`, action: 'test', label: t && t.running ? 'Running...' : 'Run test' },
     ];
+  }
+  function vmixOverlayItem() {
+    const ov = S.overlay || {};
+    if (ov.installed && ov.channel) return { state: 'ok', title: 'Stream overlay', text: `Live on vMix overlay channel ${ov.channel} as the Browser input "TEC Overlay".` };
+    if (ov.installed) return { state: 'warn', title: 'Stream overlay', text: 'The Browser input "TEC Overlay" is in vMix but not on an overlay channel, so it is off air.', action: 'overlay', label: 'Put it on air' };
+    return S.sw.connected
+      ? { state: 'opt', title: 'Stream overlay (optional)', text: 'Player names, round and wins over the program output. Adds a Browser input called "TEC Overlay" to vMix on the first free overlay channel.', action: 'overlay', label: 'Add to vMix' }
+      : { state: 'opt', title: 'Stream overlay (optional)', text: 'Player names, round and wins over the program output. Available once vMix is connected.' };
   }
   function renderSetup() {
     if (!S) return;
@@ -772,7 +831,7 @@
     if (b.dataset.setup === 'settings') { $('#setup').hidden = true; openSettings(); }
     else if (b.dataset.setup === 'art') { try { await api('POST', '/api/art/download', { pack: 'portrait' }); toast('Downloading the portrait pack.'); } catch (e) { toast(e.message, { error: true }); } }
     else if (b.dataset.setup === 'test') runTestRecording();
-    else if (b.dataset.setup === 'overlay') { try { const r = await api('POST', '/api/overlay/install', { scene: '' }); toast(overlayInstalledMessage(r), { sticky: true }); } catch (e) { toast(e.message, { error: true }); } }
+    else if (b.dataset.setup === 'overlay') { try { const r = await api('POST', '/api/overlay/install', { scene: '' }); toast(overlayInstalledMessage(r), { sticky: true }); renderSetup(); } catch (e) { toast(e.message, { error: true }); } }
   });
   $('#setup-refresh').addEventListener('click', renderSetup);
   $('#setup-settings').addEventListener('click', () => { $('#setup').hidden = true; openSettings(); });
@@ -788,8 +847,9 @@
     const sel = $('#settings-form').elements['detect.source'];
     if (!sel) return;
     let data = { inputs: [], scenes: [] };
-    try { data = await api('GET', '/api/detect/sources'); } catch { /* OBS offline */ }
-    const opts = [['', 'Program output (whatever OBS is showing)'], ...data.inputs.map((i) => [i.name, `${i.name} (${i.kind})`]), ...data.scenes.map((s) => [s, `Scene: ${s}`])];
+    try { data = await api('GET', '/api/detect/sources'); } catch { /* app offline */ }
+    const program = isVmix() ? 'Program output (vMix output snapshot)' : 'Program output (whatever OBS is showing)';
+    const opts = [['', program], ...data.inputs.map((i) => [i.name, `${i.name} (${i.kind})`]), ...data.scenes.map((s) => [s, `Scene: ${s}`])];
     if (selected && !opts.some((o) => o[0] === selected)) opts.push([selected, selected]);
     sel.innerHTML = opts.map(([v, label]) => `<option value="${esc(v)}"${v === selected ? ' selected' : ''}>${esc(label)}</option>`).join('');
   }
@@ -799,6 +859,12 @@
     const sel = $('#overlay-scene');
     try {
       const st = await api('GET', '/api/overlay/status');
+      if (isVmix()) {
+        out.textContent = st.installed
+          ? (st.channel ? `In vMix as input ${st.number} "TEC Overlay", live on overlay channel ${st.channel}.` : `In vMix as input ${st.number} "TEC Overlay", but not on an overlay channel. Press "Add overlay to vMix" to put it back on air.`)
+          : (S.sw.connected ? 'Not in vMix yet. "Add overlay to vMix" adds a Browser input and puts it on the overlay channel picked here.' : 'Connect vMix first.');
+        return;
+      }
       const preferred = (S && S.config.overlay && S.config.overlay.scene) || st.inScenes[0] || st.scenes.find((s) => /gameplay|game/i.test(s)) || st.scenes[0] || '';
       sel.innerHTML = st.scenes.map((s) => `<option value="${esc(s)}"${s === preferred ? ' selected' : ''}>${esc(s)}</option>`).join('') || '<option value="">(connect OBS to list scenes)</option>';
       const o = (S && S.overlay) || {};
@@ -808,12 +874,13 @@
   }
   $('#btn-overlay-add').addEventListener('click', async () => {
     try {
-      const r = await api('POST', '/api/overlay/install', { scene: $('#overlay-scene').value });
+      const r = await api('POST', '/api/overlay/install', isVmix() ? { channel: Number($('#settings-form').elements['vmix.overlayChannel'].value) || 0 } : { scene: $('#overlay-scene').value });
       toast(overlayInstalledMessage(r), { sticky: true });
       refreshOverlayStatus();
     } catch (e) { toast(e.message, { error: true }); }
   });
   function overlayInstalledMessage(r) {
+    if (r.vmix) return `Overlay added to vMix as input ${r.number} "TEC Overlay" and put on overlay channel ${r.channel}, over the program output. Sample names show for 30 seconds, then the plates follow the selected set.`;
     const where = r.visibleNow
       ? 'It is on screen in OBS now'
       : `OBS is showing "${r.currentScene}" right now, so switch OBS to "${r.scene}" to see it`;
@@ -825,7 +892,7 @@
     setTimeout(() => $('#btn-overlay-add').scrollIntoView({ block: 'center' }), 60);
   });
   $('#btn-overlay-remove').addEventListener('click', async () => {
-    try { await api('POST', '/api/overlay/remove'); toast('Overlay removed from OBS.'); refreshOverlayStatus(); } catch (e) { toast(e.message, { error: true }); }
+    try { await api('POST', '/api/overlay/remove'); toast(`Overlay removed from ${S.sw.name}.`); refreshOverlayStatus(); } catch (e) { toast(e.message, { error: true }); }
   });
   document.addEventListener('click', async (ev) => {
     const b = ev.target.closest('.score-btn');

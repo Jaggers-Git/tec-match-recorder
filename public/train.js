@@ -46,15 +46,18 @@
     if (!S) return;
     renderBrand();
     const o = $('#chip-obs');
-    o.textContent = S.obs.connected ? `OBS ${S.obs.version} connected` : 'OBS not connected';
-    o.className = `chip ${S.obs.connected ? 'ok' : 'bad'}`;
+    o.textContent = S.sw.connected ? `${S.sw.name} ${S.sw.version} connected` : `${S.sw.name} not connected`;
+    o.className = `chip ${S.sw.connected ? 'ok' : 'bad'}`;
     const d = $('#chip-detect');
     const det = S.detect || {};
     d.textContent = det.hasAnchor ? `Detector: ${det.characters} characters learned` : 'Detector: no VS anchor yet (confirm one screen)';
     d.className = `chip ${det.hasAnchor ? 'ok' : 'warn'}`;
     const banner = $('#banner');
-    if (!S.obs.connected) { banner.textContent = 'OBS must be running and connected to scan recordings.'; banner.hidden = false; } else banner.hidden = true;
+    // Scans play the recording through an OBS media source, so they need OBS even on a vMix station.
+    if (S.sw.id === 'vmix') { banner.textContent = 'Scans play recordings through OBS. To train, switch the dashboard Settings, Production software, to OBS for the scan (reviewing frames works with vMix).'; banner.hidden = false; }
+    else if (!S.sw.connected) { banner.textContent = 'OBS must be running and connected to scan recordings.'; banner.hidden = false; } else banner.hidden = true;
   }
+  const canScan = () => S.sw.id !== 'vmix' && S.sw.connected;
   function renderScan() {
     if (!S) return;
     const t = S.train || {};
@@ -67,7 +70,7 @@
     else if (t.finishedAt) status.textContent = `Last scan (${t.video}): ${t.frames} frames, ${t.found} VS screens found.`;
     else status.textContent = 'Idle.';
     $('#btn-cancel').hidden = !t.running;
-    for (const b of document.querySelectorAll('[data-scan]')) b.disabled = !!t.running || !S.obs.connected;
+    for (const b of document.querySelectorAll('[data-scan]')) b.disabled = !!t.running || !canScan();
   }
   function renderVideos(list) {
     $('#video-folder').textContent = list.folder ? `Folder: ${list.folder} (change it in the dashboard Settings)` : 'No videos folder configured.';

@@ -1,9 +1,9 @@
 # TEC Match Recorder
 
 A one-button recording station for fighting game tournaments (Super Smash Bros. Ultimate, Tekken 8, Street Fighter 6),
-built by Texas Esports Collective for its own events and released under the MIT license for any TO to use. It sits next to OBS on the capture PC: the operator picks the set being played (live from the
-start.gg bracket) or types the players, hits **Start**, and when the set ends hits **End & Save**. The app stops OBS,
-renames the file to a proper VOD title, logs it, and is ready for the next set.
+built by Texas Esports Collective for its own events and released under the MIT license for any TO to use. It sits next to OBS or vMix on the capture PC: the operator picks the set being played (live from the
+start.gg bracket) or types the players, hits **Start**, and when the set ends hits **End & Save**. The app stops the
+recording, renames the file to a proper VOD title, logs it, and is ready for the next set.
 
 ```
 2026-10-06 C - San Japan 2026 Winners Quarters - Liva (Pikachu) Vs. Leffen (Fox) Smash Ultimate - SSBU.mp4
@@ -15,14 +15,15 @@ last-synced bracket and manual entry keep working, and sync resumes on its own.
 ## Requirements
 
 - Windows PC with the capture card (any Windows 10/11 machine works).
-- **OBS Studio 28 or newer** (the WebSocket server is built in). Tested with OBS 32.
+- **OBS Studio 28 or newer** (the WebSocket server is built in; tested with OBS 32), **or vMix** with its Web
+  Controller turned on (see [Using vMix instead of OBS](#using-vmix-instead-of-obs)).
 - **Node.js 22 or newer** (LTS download from https://nodejs.org). No other installs, no `npm install`.
 
 Get the code by downloading the repository as a zip or with `git clone`, then run `Start Recorder.bat` (or `node server.js`).
 Settings in the dashboard writes `data/config.json` on first save; `data/config.example.json` shows the shape if you
 prefer to create it by hand. Nothing else needs to exist before the first start.
 
-On the first start a **setup checklist** opens: OBS connection, recording folder, start.gg bracket, character art and a
+On the first start a **setup checklist** opens: OBS (or vMix) connection, recording folder, start.gg bracket, character art and a
 test recording, each with a green, yellow or grey mark. None of it is mandatory; tick *Don't open this at startup*
 and it lives on under Settings, About and maintenance.
 
@@ -50,6 +51,28 @@ and it lives on under Settings, About and maintenance.
    - **Event**: titles use the start.gg tournament name unless you type one here.
 
 Settings live in `data/config.json` on this PC only. The token never leaves the machine.
+
+## Using vMix instead of OBS
+
+1. **vMix: Settings, Web Controller.** Tick *Enable* and keep port 8088. A user name and password are optional.
+2. **vMix: Settings, Recording.** Pick the folder and format there. The recorder starts and stops vMix's own
+   recording, so whatever vMix records is what gets renamed.
+3. **Recorder: Settings, Production software: vMix**, then Save. Leave the host at `127.0.0.1` when vMix runs on the
+   same PC. The header chip reads **vMix connected**.
+4. Run **Test recording** (setup checklist or Settings, About and maintenance) once. vMix reports the file it writes,
+   and that tells the recorder which folder to watch for disk space.
+
+Everything else works the same: pick the set, Start, End & Save. Stopping the recording from inside vMix is
+noticed and the file is still labelled. Differences from OBS:
+
+- **Overlay**: **Add overlay to vMix** adds a Browser input called "TEC Overlay" and puts it on the first free overlay
+  channel (or the one picked in Settings), so the names sit over whatever is in Program. If your project is not
+  1920x1080, set the Browser input to 1920x1080 in its own settings.
+- **Character detection** reads vMix snapshots, which vMix saves as files, so it needs vMix on the same PC as the
+  recorder. Pick the gameplay input under Settings, Character detection, or leave it on Program output.
+- **Training scans** play old recordings through OBS, so they stay OBS-only. Reviewing frames works with vMix.
+- vMix versions that do not report the recording's file name still work: the recorder takes the newest video in the
+  recording folder (learnt from the first recording, or typed into Settings, vMix).
 
 ## Event day
 
@@ -228,6 +251,9 @@ with Nintendo, Bandai Namco, Capcom, OBS or start.gg.
 | --- | --- |
 | Header says **OBS not connected** | OBS isn't running, or Tools, WebSocket Server Settings isn't enabled. The app reconnects by itself every 3 s. |
 | **OBS: wrong password** | Re-copy the password from OBS (Show Connect Info) into Settings. |
+| Header says **vMix not connected** | vMix isn't running, or Settings, Web Controller isn't enabled in vMix. Check the host and port under Settings, vMix. |
+| **vMix did not start recording** | vMix refused: check its Settings, Recording (the folder must exist). |
+| **vMix did not report where it saved** | Older vMix. Type its recording folder into Settings, vMix, then press **Retry** on the log row. |
 | Log row shows **error** | Click **Retry**. Common cause: OBS was still finalizing the file. The original is untouched in the OBS folder. |
 | **start.gg error: rejected the API token** | Create a fresh token in start.gg Developer Settings and paste it into Settings. |
 | **start.gg OFFLINE** | No internet. The cached bracket and manual entry keep working; sync resumes automatically. |

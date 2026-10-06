@@ -220,13 +220,33 @@
         <div id="settings-sg-status" class="muted"></div>
       </fieldset>
       <fieldset>
-        <legend>OBS WebSocket</legend>
-        <div class="grid3">
-          <label>Host <input name="obs.host"></label>
-          <label>Port <input name="obs.port" type="number"></label>
-          <label>Password <input name="obs.password" type="password" autocomplete="off"></label>
+        <legend>Production software</legend>
+        <label>The app that records and shows the overlay
+          <select name="switcher">
+            <option value="obs">OBS Studio</option>
+            <option value="vmix">vMix</option>
+          </select>
+        </label>
+        <div id="switcher-pending" class="muted" hidden>Press Save settings to switch. The overlay and detection lists below change over once it is saved.</div>
+        <div class="sw-obs">
+          <div class="grid3">
+            <label>OBS WebSocket host <input name="obs.host"></label>
+            <label>Port <input name="obs.port" type="number"></label>
+            <label>Password <input name="obs.password" type="password" autocomplete="off"></label>
+          </div>
+          <div id="settings-obs-status" class="muted"></div>
         </div>
-        <div id="settings-obs-status" class="muted"></div>
+        <div class="sw-vmix">
+          <div class="grid2">
+            <label>vMix host (127.0.0.1 when vMix runs on this PC) <input name="vmix.host"></label>
+            <label>Web Controller port <input name="vmix.port" type="number"></label>
+            <label>User name (only if the Web Controller has a password) <input name="vmix.user" autocomplete="off"></label>
+            <label>Password <input name="vmix.password" type="password" autocomplete="off"></label>
+          </div>
+          <label>Recording folder (filled in by the first recording; type it only if Save keeps failing to find the file) <input name="vmix.recordDirectory" placeholder="(read from vMix)"></label>
+          <div class="muted">In vMix: Settings, Web Controller, tick Enable. The recorder starts and stops vMix's own recording, so the folder and format are set in vMix under Settings, Recording.</div>
+          <div id="settings-vmix-status" class="muted"></div>
+        </div>
       </fieldset>
       <fieldset>
         <legend>Naming</legend>
@@ -249,12 +269,21 @@
               <option value="none">Nothing</option>
             </select>
           </label>
-          <label>OBS scene to add it to <select id="overlay-scene"></select></label>
+          <label class="sw-obs">OBS scene to add it to <select id="overlay-scene"></select></label>
+          <label class="sw-vmix">vMix overlay channel
+            <select name="vmix.overlayChannel">
+              <option value="0">First free channel</option>
+              <option value="1">Overlay 1</option>
+              <option value="2">Overlay 2</option>
+              <option value="3">Overlay 3</option>
+              <option value="4">Overlay 4</option>
+            </select>
+          </label>
         </div>
         <label class="check"><input type="checkbox" name="overlay.scores"> Show the wins as a badge on each name plate</label>
         <div class="row" style="align-items:center;margin-top:8px">
-          <button type="button" id="btn-overlay-add" class="small">Add overlay to OBS</button>
-          <button type="button" id="btn-overlay-remove" class="small">Remove from OBS</button>
+          <button type="button" id="btn-overlay-add" class="small">Add overlay to <span class="sw-name">OBS</span></button>
+          <button type="button" id="btn-overlay-remove" class="small">Remove from <span class="sw-name">OBS</span></button>
           <span id="overlay-status" class="muted"></span>
         </div>
         <div class="muted" style="margin-top:6px">Artwork: save your overlay as <span class="mono">public\overlay\overlay.png</span> (1920x1080 or the same shape). Without it, plain plates are drawn. Preview: <a href="/overlay" target="_blank">/overlay</a> (transparent page, 1920x1080).</div>
@@ -263,11 +292,11 @@
         <legend>Character detection</legend>
         <label class="check"><input type="checkbox" name="detect.enabled"> Read fighter names from the VS screen and fill them in automatically</label>
         <div class="grid2">
-          <label>Watch this OBS source <select name="detect.source"></select></label>
+          <label>Watch this <span class="sw-name">OBS</span> <span class="sw-obs">source</span><span class="sw-vmix">input</span> <select name="detect.source"></select></label>
           <label>Look every (ms) <input name="detect.intervalMs" type="number" min="300" step="100"></label>
         </div>
         <label>Recordings folder for training scans <input name="detect.videosFolder"></label>
-        <div class="muted">Teach it from old recordings on the <a href="/train">training page</a>.</div>
+        <div class="muted">Teach it from old recordings on the <a href="/train">training page</a>.<span class="sw-vmix"> With vMix, detection reads snapshots vMix saves to disk, so vMix has to run on this PC; training scans need OBS.</span></div>
       </fieldset>
       <fieldset>
         <legend>Network access</legend>
@@ -290,7 +319,7 @@
           <button type="button" id="btn-test-rec" class="small">Test recording (5 s)</button>
           <span id="test-rec-status" class="muted"></span>
         </div>
-        <div class="muted" style="margin-top:2px">Records five seconds in OBS, checks that a file appeared in the recording folder, then removes it.</div>
+        <div class="muted" style="margin-top:2px">Records five seconds in <span class="sw-name">OBS</span>, checks that a file appeared in the recording folder, then removes it.</div>
         <div class="grid2" style="margin-top:8px">
           <label>Keep detector sample frames under (MB, 0 = no limit) <input name="detect.samplesMaxMb" type="number" min="0" step="50"></label>
           <div class="row" style="align-items:flex-end;gap:8px"><button type="button" id="btn-samples-clear" class="small">Clear samples now</button><span id="samples-status" class="muted"></span></div>
@@ -363,16 +392,16 @@
       <section>
         <h4>Before the first set</h4>
         <ol>
-          <li>Start OBS. Check the capture card picture and game audio in the preview.</li>
+          <li>Start <span class="sw-name">OBS</span>. Check the capture card picture and game audio in the preview.</li>
           <li>Run <b>Start Recorder.bat</b> and leave its black window open.</li>
-          <li>The header should show <b>OBS connected</b> and <b>start.gg LIVE</b> in green, or "manual mode" if there is no bracket loaded.</li>
+          <li>The header should show <b><span class="sw-name">OBS</span> connected</b> and <b>start.gg LIVE</b> in green, or "manual mode" if there is no bracket loaded.</li>
         </ol>
         <h4>Rules of thumb</h4>
         <ul>
           <li>One recording per <b>set</b> (the whole Bo3/Bo5), not per game.</li>
           <li>The file is named from whatever is in the form when you press End &amp; Save.</li>
-          <li>Don't press Stop inside OBS. If someone does, the app still labels the file.</li>
-          <li>Players play off the passthrough monitor, never the OBS preview.</li>
+          <li>Don't press Stop inside <span class="sw-name">OBS</span>. If someone does, the app still labels the file.</li>
+          <li>Players play off the passthrough monitor, never the <span class="sw-name">OBS</span> preview.</li>
         </ul>
       </section>
       <section>
@@ -389,14 +418,17 @@
       <section class="howto-wide">
         <h4>If something looks wrong</h4>
         <table class="howto-table">
-          <tr><td>OBS not connected</td><td>Is OBS open? In OBS: Tools, WebSocket Server Settings, <i>Enable</i> must be ticked. It reconnects on its own.</td></tr>
-          <tr><td>OBS: wrong password</td><td>Settings, OBS, paste the password from OBS's <i>Show Connect Info</i>.</td></tr>
+          <tr class="obs-only"><td>OBS not connected</td><td>Is OBS open? In OBS: Tools, WebSocket Server Settings, <i>Enable</i> must be ticked. It reconnects on its own.</td></tr>
+          <tr class="obs-only"><td>OBS: wrong password</td><td>Settings, OBS, paste the password from OBS's <i>Show Connect Info</i>.</td></tr>
+          <tr class="vmix-only"><td>vMix not connected</td><td>Is vMix open? In vMix: Settings, Web Controller, <i>Enable</i> must be ticked (port 8088). It reconnects on its own.</td></tr>
+          <tr class="vmix-only"><td>vMix: wrong password</td><td>Settings, vMix: the user name and password from vMix's Web Controller settings.</td></tr>
+          <tr class="vmix-only"><td>vMix did not start recording</td><td>In vMix: Settings, Recording. Check the folder exists and the format is set.</td></tr>
           <tr><td>start.gg OFFLINE</td><td>Wi-Fi dropped. Keep going with the bracket you see; tap <b>Sync now</b> when it's back.</td></tr>
           <tr><td>start.gg error</td><td>Token or URL problem. Recording still works; enter names by hand and tell the TO.</td></tr>
           <tr><td>Detect: off or untrained</td><td>Characters won't fill in by themselves. Tap them in with <b>Characters…</b>.</td></tr>
           <tr><td>Disk chip red</td><td>Under 25 GB left. Tell the TO before the next set.</td></tr>
-          <tr><td>Log row says error</td><td>Tap <b>Retry</b>. The video is safe in the OBS folder either way.</td></tr>
-          <tr><td>Black window closed</td><td>Run <b>Start Recorder.bat</b> again. A recording in progress keeps going in OBS.</td></tr>
+          <tr><td>Log row says error</td><td>Tap <b>Retry</b>. The video is safe in the <span class="sw-name">OBS</span> folder either way.</td></tr>
+          <tr><td>Black window closed</td><td>Run <b>Start Recorder.bat</b> again. A recording in progress keeps going in <span class="sw-name">OBS</span>.</td></tr>
         </table>
       </section>
     </div>

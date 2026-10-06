@@ -241,6 +241,9 @@ textarea:focus { outline: none; border-color: var(--accent); }
 /* Settings: theme-specific rows, logo picker */
 #settings-form:not([data-theme="tt"]) .tt-only { display: none; }
 html.smash-only .multi-game { display: none !important; }
+/* OBS or vMix: Settings rows follow the form's (unsaved) choice, the how-to guide the saved one */
+#settings-form:not([data-sw="vmix"]) .sw-vmix, #settings-form[data-sw="vmix"] .sw-obs { display: none; }
+:root:not([data-sw="vmix"]) .vmix-only, :root[data-sw="vmix"] .obs-only { display: none; }
 .logo-preview { width: 56px; height: 56px; object-fit: contain; background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 4px; }
 label.small.file-btn { display: inline-flex; align-items: center; margin: 0; cursor: pointer; background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
 label.small.file-btn:hover { border-color: var(--brand); }
