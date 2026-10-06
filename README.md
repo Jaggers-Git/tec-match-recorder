@@ -182,17 +182,20 @@ Storage: `data/templates/` holds the learned name masks (plus a crop of each so 
 
 ## Branding and themes
 
-TEC colors (Ignite Red `#FF3D2E`, Scholastic Green `#1FC97B`) and the Tomorrow display font, bundled in
-`public/fonts/` under the SIL Open Font License so the dashboard looks right offline and on any machine.
+TEC colors (Ignite Red `#FF3D2E`, Scholastic Green `#1FC97B`) and the Urban Constructed display font, on the
+dashboard and the stream overlay in every theme. The fonts are bundled in `public/fonts/` so the dashboard looks right
+offline and on any machine. Urban Constructed is free for noncommercial use only (Creative Commons BY-NC, see
+`THIRD_PARTY.md`); Tomorrow, Oswald and Silkscreen (SIL Open Font License) are the fallbacks.
 
 Settings, **Look and games**, switches the whole station to another event series' look. The one built in besides
 TEC is **Tuesday Takedown** (TAMUSA Esports' Smash monthly):
 
-- Dashboard in TAMUSA maroon and championship-belt gold, with the Oswald condensed type of the TT banners.
+- Dashboard in TAMUSA maroon and championship-belt gold, with Urban Constructed display type.
 - Stream overlay rebuilt from the TT stream's scoreboard: maroon name plates in a black frame with the win count at
   each end, the belt logo over the middle, the round and "Best of 3" in black bands underneath, game-win pips
-  beside them, and "Tuesday Takedown" in yellow on the left (the label is editable, blank hides it). Tags use the
-  Silkscreen arcade font in small caps, like the stream. Tekken 8 and SF6 keep their notched shape in TT colors.
+  beside them, and "Tuesday Takedown" in yellow on the left (the label is editable, blank hides it). Tags use
+  Urban Constructed in mixed case, whose small-capital lowercase keeps the stream's small-caps look. Tekken 8 and
+  SF6 keep their notched shape in TT colors.
 - The TT logo is event artwork, so it is not in this repository. **Use the start.gg tournament logo** saves the
   tournament's profile picture from start.gg (it happens on its own the first time the theme is picked with a
   bracket loaded), or **Choose image…** takes any PNG, JPG or WebP. It is kept in `data/branding/` on that PC.
@@ -204,7 +207,7 @@ Overlay geometry can be fine-tuned in `data/config.json` under `overlay.tt` (for
 
 ## License
 
-MIT, see `LICENSE`. Third-party material (the Tomorrow font, the character art source, OBS and start.gg) is listed in
+MIT, see `LICENSE`. Third-party material (the fonts, the character art source, OBS and start.gg) is listed in
 `THIRD_PARTY.md`. "Smash", "Tekken" and "Street Fighter" are their owners' trademarks; this project is not affiliated
 with Nintendo, Bandai Namco, Capcom, OBS or start.gg.
 

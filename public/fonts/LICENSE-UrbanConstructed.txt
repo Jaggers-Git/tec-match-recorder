@@ -1,0 +1,24 @@
+Urban Constructed is a font by Nils von Blanc (www.nils-von-blanc.de).
+
+The font was inspired by Jakob Fischer / PizzaDude and his "Nonstop" font.
+(http://www.pizzadude.dk)
+
+-----------------------------------------
+This font is licensed under a Creative Commons Attribution-Noncommercial 3.0
+Unported license (http://creativecommons.org/licenses/by-nc/3.0/).
+
+You are free:
+  to Share - to copy, distribute and transmit the work
+  to Remix - to adapt the work
+
+Under the following conditions:
+  Attribution - You must attribute the work in the manner specified by the
+  author or licensor (but not in any way that suggests that they endorse you
+  or your use of the work).
+  Noncommercial - You may not use this work for commercial purposes.
+
+IF YOU WANT TO USE THIS FONT COMMERCIAL: PLEASE SENT A EMAIL TO "VONBLANC@GMX.DE"
+
+(Text from the "Read me.txt" in the font's original download, re-encoded as
+plain ASCII. Only Urban Constructed-Regular.ttf is included here, renamed to
+UrbanConstructed-Regular.ttf.)

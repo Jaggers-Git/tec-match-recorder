@@ -1,6 +1,8 @@
 @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
 @font-face { font-family: 'Oswald'; src: url('/fonts/Oswald-Variable.ttf') format('truetype'); font-weight: 200 700; font-style: normal; font-display: swap; }
+/* Display font for both themes. One heavy cut, so it answers every weight instead of the browser faking a bold. */
+@font-face { font-family: 'Urban Constructed'; src: url('/fonts/UrbanConstructed-Regular.ttf') format('truetype'); font-weight: 100 900; font-style: normal; font-display: swap; }
 
 :root {
   --bg: #0e1013;
@@ -25,7 +27,7 @@
   --selected-bg: #23191b;
   --rec-glow: rgba(255, 61, 46, .6);
   --rec-glow-0: rgba(255, 61, 46, 0);
-  --display: 'Tomorrow', Bahnschrift, 'Segoe UI', system-ui, sans-serif;
+  --display: 'Urban Constructed', 'Tomorrow', Bahnschrift, 'Segoe UI', system-ui, sans-serif;
   --body: 'Segoe UI', system-ui, Roboto, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -245,7 +247,8 @@ label.small.file-btn:hover { border-color: var(--brand); }
 
 /* ---------- Tuesday Takedown (TAMUSA Esports) ----------
    TAMUSA maroon for surfaces and filled buttons, the championship belt's gold for accents,
-   Oswald (the condensed poster type of the TT banners and results graphics) for display text. */
+   Urban Constructed for display text like the TEC theme, with Oswald (the condensed poster type
+   of the TT banners) as the fallback. */
 :root[data-theme="tt"] {
   --bg: #120b0d;
   --panel: #1c1215;
@@ -263,7 +266,7 @@ label.small.file-btn:hover { border-color: var(--brand); }
   --link: #f6c96d;
   --focus-ring: rgba(242, 181, 58, .22);
   --selected-bg: #321b22;
-  --display: 'Oswald', 'Arial Narrow', Bahnschrift, 'Segoe UI', sans-serif;
+  --display: 'Urban Constructed', 'Oswald', 'Arial Narrow', Bahnschrift, 'Segoe UI', sans-serif;
 }
 :root[data-theme="tt"] body {
   background:
@@ -278,15 +281,10 @@ label.small.file-btn:hover { border-color: var(--brand); }
   border-bottom: 2px solid var(--brand);
 }
 :root[data-theme="tt"] .brand .brand-mark { width: 46px; height: 46px; margin: -6px 0; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .5)); }
-:root[data-theme="tt"] .brand .name { font-size: 21px; font-weight: 700; letter-spacing: .04em; }
-:root[data-theme="tt"] .brand .org { color: var(--brand); letter-spacing: .16em; font-size: 11px; }
-:root[data-theme="tt"] h2, :root[data-theme="tt"] h3 { font-size: 16px; letter-spacing: .06em; color: var(--brand); }
-:root[data-theme="tt"] legend { font-size: 13px; letter-spacing: .1em; color: var(--brand); }
+/* Same type sizes as TEC: Urban Constructed is wide, so the bigger sizes Oswald needed would crowd the header. */
+:root[data-theme="tt"] .brand .org { color: var(--brand); }
+:root[data-theme="tt"] h2, :root[data-theme="tt"] h3 { color: var(--brand); }
+:root[data-theme="tt"] legend { color: var(--brand); }
 :root[data-theme="tt"] .panel { border-color: #3a2129; box-shadow: 0 1px 0 rgba(255, 255, 255, .03) inset; }
-:root[data-theme="tt"] .set-card .letter { font-size: 21px; }
-:root[data-theme="tt"] .round-head { font-size: 12px; color: #d9b98a; }
-:root[data-theme="tt"] .record-btn { font-size: 28px; letter-spacing: .06em; }
-:root[data-theme="tt"] .score-num { font-size: 32px; }
-:root[data-theme="tt"] .tab, :root[data-theme="tt"] .preview .label, :root[data-theme="tt"] .score .label, :root[data-theme="tt"] .games .label { letter-spacing: .08em; }
-:root[data-theme="tt"] .tab { font-size: 14px; }
+:root[data-theme="tt"] .round-head { color: #d9b98a; }
 :root[data-theme="tt"] .pip.on { background: var(--brand); border-color: #fff; }

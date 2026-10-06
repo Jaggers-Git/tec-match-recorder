@@ -153,7 +153,7 @@
   const TEC_MARK = $('#brand-mark').innerHTML;
   const TEC_ICON = document.querySelector('link[rel="icon"]').href;
   // Stand-in for a theme whose logo has not been saved yet.
-  const TT_EMBLEM = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="#1a0d10" stroke="#F2B53A" stroke-width="6"/><circle cx="50" cy="50" r="36" fill="#6D2E3F"/><text x="50" y="62" text-anchor="middle" font-family="Oswald, Arial Narrow, sans-serif" font-weight="700" font-size="34" fill="#FCE319">TT</text></svg>';
+  const TT_EMBLEM = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="#1a0d10" stroke="#F2B53A" stroke-width="6"/><circle cx="50" cy="50" r="36" fill="#6D2E3F"/><text x="50" y="62" text-anchor="middle" font-family="Urban Constructed, Oswald, Arial Narrow, sans-serif" font-weight="700" font-size="32" fill="#FCE319">TT</text></svg>';
   let brandKey = '';
   function applyBranding() {
     const b = S.branding || { theme: 'tec' };

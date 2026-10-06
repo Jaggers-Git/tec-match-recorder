@@ -6,8 +6,9 @@
 <style>
   @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Bold.ttf') format('truetype'); font-weight: 700; }
   @font-face { font-family: 'Silkscreen'; src: url('/fonts/Silkscreen-Bold.ttf') format('truetype'); font-weight: 700; }
+  @font-face { font-family: 'Urban Constructed'; src: url('/fonts/UrbanConstructed-Regular.ttf') format('truetype'); font-weight: 100 900; }
   html, body { margin: 0; padding: 0; background: transparent; width: 1920px; height: 1080px; overflow: hidden; }
-  body { position: relative; font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; }
+  body { position: relative; font-family: 'Urban Constructed', 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; }
   [hidden] { display: none !important; }
   /* Pieces: white edge underneath, dark face on top. Faces of touching pieces overlap so joints are seamless. */
   .piece { position: absolute; }
@@ -31,7 +32,8 @@
   /* Tuesday Takedown colours on the notched (Tekken / SF6) shape, for TT stations that record other games. */
   .tt-colors .piece .edge, .tt-colors .piece.bridge .face, .tt-colors .seg.center { background: #0a0a0a; }
   .tt-colors .piece .face { background: #6D2E3F; }
-  .tt-colors .text { font-family: 'Silkscreen', 'Tomorrow', monospace; text-transform: none; font-variant-caps: small-caps; letter-spacing: 0; }
+  /* Urban Constructed's lowercase is drawn as small capitals, so mixed case keeps the TT small-caps look. */
+  .tt-colors .text { font-family: 'Urban Constructed', 'Silkscreen', monospace; text-transform: none; letter-spacing: 0; }
   .tt-colors .pips .pip { background: #0a0a0a; border-color: #F2B53A; }
   .tt-colors .pips .pip.on { background: #FCE319; }
 
@@ -42,7 +44,7 @@
   #tt .plate { position: absolute; background: linear-gradient(180deg, #7c3749 0%, #6D2E3F 42%, #5f2636 100%); }
   #tt .tt-text {
     position: absolute; display: flex; align-items: center; justify-content: center;
-    color: #fff; font-family: 'Silkscreen', 'Tomorrow', monospace; font-weight: 700; font-variant-caps: small-caps;
+    color: #fff; font-family: 'Urban Constructed', 'Silkscreen', monospace; font-weight: 700;
     white-space: nowrap; line-height: 1; text-shadow: 0 3px 0 rgba(0,0,0,.55);
   }
   #tt .tt-text span { display: inline-block; }
@@ -88,7 +90,7 @@
   <div id="tt-w1" class="tt-pips"></div>
   <div id="tt-w2" class="tt-pips"></div>
   <img id="tt-logo" class="tt-logo" alt="" hidden>
-  <div id="tt-emblem" class="tt-logo" hidden><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="#1a0d10" stroke="#F2B53A" stroke-width="6"/><circle cx="50" cy="50" r="36" fill="#6D2E3F"/><text x="50" y="62" text-anchor="middle" font-family="Silkscreen, monospace" font-weight="700" font-size="30" fill="#FCE319">TT</text></svg></div>
+  <div id="tt-emblem" class="tt-logo" hidden><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="#1a0d10" stroke="#F2B53A" stroke-width="6"/><circle cx="50" cy="50" r="36" fill="#6D2E3F"/><text x="50" y="62" text-anchor="middle" font-family="Urban Constructed, Silkscreen, monospace" font-weight="700" font-size="32" fill="#FCE319">TT</text></svg></div>
 </div>
 <script src="/overlay.js"></script>
 </body>
