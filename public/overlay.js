@@ -257,9 +257,17 @@
       span.style.fontSize = px(sizes.textH * 0.6);
     }
   }
+  // OBS and vMix keep a browser source's page loaded for as long as they run, so after an update the
+  // recorder comes back on a new version while this page still has the old look. Reload when that happens.
+  let loadedVersion = '';
   function connect() {
     const es = new EventSource('/api/events');
-    es.addEventListener('state', (ev) => { S = JSON.parse(ev.data); render(); });
+    es.addEventListener('state', (ev) => {
+      S = JSON.parse(ev.data);
+      if (S.version && loadedVersion && S.version !== loadedVersion) { location.reload(); return; }
+      loadedVersion = loadedVersion || S.version || '';
+      render();
+    });
     es.onerror = () => { /* EventSource reconnects on its own */ };
   }
   // Text is measured for fitting, so re-run once the display font has actually loaded.
