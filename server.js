@@ -261,17 +261,27 @@ function tidyText(s) {
     .replace(/(?:\s*-\s*)+$/, '')
     .trim();
 }
+// Names are capped at 180 characters, cut between words so "Smash Ultimate - SSBU" never ends as "Smash Ultima".
+const FILENAME_MAX = 180;
 function sanitizeFilename(s) {
-  return String(s)
+  let out = String(s)
     .replace(/[/\\]/g, '-')
     .replace(/[<>:"|?*\x00-\x1f]/g, '')
     .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/[. ]+$/, '')
-    .slice(0, 180);
+    .trim();
+  if (out.length > FILENAME_MAX) {
+    const space = out.lastIndexOf(' ', FILENAME_MAX);
+    out = out.slice(0, space > FILENAME_MAX / 2 ? space : FILENAME_MAX).replace(/[\s,-]+$/, '');
+  }
+  return out.replace(/[. ]+$/, '');
 }
+// A link is never an event name: a start.gg URL typed into the name field once ended up in every title and file name.
+const looksLikeUrl = (s) => /^https?:\/\/|start\.gg\//i.test(String(s || '').trim());
 function eventDisplayName() {
-  return String(cfg.event.name || bracket.tournamentName || '').trim();
+  const name = String(cfg.event.name || '').trim();
+  if (name && !looksLikeUrl(name)) return name;
+  const tournament = String(bracket.tournamentName || '').trim();
+  return looksLikeUrl(tournament) ? '' : tournament;
 }
 function buildLabel(current) {
   const game = gameProfile(current.game || cfg.game || 'ssbu');
@@ -926,7 +936,9 @@ async function importTournament(url) {
   if (!t) throw new Error(`Tournament not found: ${slug}`);
   const added = [];
   const skipped = [];
-  const urls = [...(cfg.startgg.eventUrls || [])];
+  // A bare link to this tournament (no /event/ part) has nothing to sync, so its events take its place.
+  const urls = (cfg.startgg.eventUrls || []).filter((u) => parseEventSlug(u) || parseTournamentSlug(u) !== slug);
+  const droppedBare = urls.length !== (cfg.startgg.eventUrls || []).length;
   for (const ev of t.events || []) {
     const game = gameForVideogame(ev.videogame && ev.videogame.id);
     const teams = !!(ev.teamRosterSize && (ev.teamRosterSize.maxPlayers || 0) > 1);
@@ -940,7 +952,7 @@ async function importTournament(url) {
     urls.push(eventUrl);
     added.push(label);
   }
-  if (added.length) updateConfig({ startgg: { eventUrls: urls } });
+  if (added.length || droppedBare) updateConfig({ startgg: { eventUrls: urls } });
   return { tournament: t.name, added, skipped, eventUrls: urls };
 }
 
@@ -1173,6 +1185,21 @@ function updateConfig(body) {
     recordDirectory: String(next.vmix.recordDirectory || '').trim(),
   };
   next.startgg.pollSeconds = Math.max(15, Number(next.startgg.pollSeconds) || 45);
+  // A start.gg link pasted as the event name belongs in start.gg live sync: move it there and leave the
+  // name blank, so titles use the tournament's own name. Any other link is refused.
+  const nameLink = String((next.event && next.event.name) || '').trim();
+  if (looksLikeUrl(nameLink)) {
+    const tournament = parseTournamentSlug(nameLink);
+    if (!tournament) throw new Error('The event name is a link. Type the name of the event, or leave it blank to use the name from start.gg.');
+    const eventSlug = parseEventSlug(nameLink);
+    const urls = [...(next.startgg.eventUrls || [])];
+    const known = eventSlug ? urls.some((u) => parseEventSlug(u) === eventSlug) : urls.some((u) => parseTournamentSlug(u) === tournament);
+    if (!known) urls.push(`https://www.start.gg/${eventSlug || `tournament/${tournament}`}`);
+    next.startgg.eventUrls = urls;
+    next.startgg.eventUrl = urls[0] || '';
+    next.event.name = '';
+    log(`Settings: the event name was a start.gg link, ${known ? 'already in' : 'moved to'} start.gg live sync`);
+  }
   // Only a PIN sent with this save is cleaned and checked, so an odd one saved by an older version
   // does not block unrelated saves; Settings always sends it, and asks for a proper one there.
   const pinSent = !!(incoming.network && incoming.network.pin !== undefined);
@@ -1210,6 +1237,15 @@ function updateConfig(body) {
   }
   if (sgChanged) { schedulePoll(); syncStartgg(); } else broadcastBracket();
   broadcast();
+  // A bare tournament link has no bracket of its own: with a token, swap it for the tournament's events as Add events does.
+  if (cfg.startgg.token) {
+    const bare = new Set((cfg.startgg.eventUrls || []).filter((u) => !parseEventSlug(u)).map(parseTournamentSlug).filter(Boolean));
+    for (const slug of bare) {
+      importTournament(`https://www.start.gg/tournament/${slug}`)
+        .then((r) => log(`start.gg: ${r.tournament} link swapped for its events${r.added.length ? ` (${r.added.join('; ')})` : ' (none to add)'}`))
+        .catch((e) => log(`start.gg: could not add the events of ${slug} (${e.message})`));
+    }
+  }
 }
 
 // ---------- HTTP + SSE ----------

@@ -156,6 +156,7 @@ fieldset { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12p
 legend { font-family: var(--display); color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
 fieldset label { display: block; font-size: 13px; color: var(--muted); margin: 8px 0; }
 fieldset label input:not([type="checkbox"]) { margin-top: 4px; }
+.field-warn { color: var(--warn); margin: -4px 0 8px; }
 label.check { display: flex; align-items: center; gap: 8px; color: var(--text); flex-wrap: wrap; }
 input.inline { width: 140px; display: inline-block; margin: 0 4px; padding: 6px 8px; font-size: 14px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

@@ -597,6 +597,7 @@
     set('smashOnly', c.smashOnly);
     f.dataset.theme = f.elements['branding.theme'].value;
     set('event.name', c.event.name);
+    setEventNameHint();
     for (const g of c.gameListAll || c.gameList || []) set(`games.${g.id}.suffix`, g.suffix);
     set('startgg.eventUrls', (c.startgg.eventUrls || []).join('\n'));
     set('startgg.token', '');
@@ -650,6 +651,11 @@
     $('#switcher-pending').hidden = !pending;
   }
   $('#settings-form').elements.switcher.addEventListener('change', setFormSwitcher);
+  // A start.gg link pasted as the event name would end up in every title; point it at the start.gg box instead.
+  function setEventNameHint() {
+    $('#event-name-hint').hidden = !/^https?:\/\/|start\.gg\//i.test($('#settings-form').elements['event.name'].value.trim());
+  }
+  $('#settings-form').elements['event.name'].addEventListener('input', setEventNameHint);
   function renderNetworkStatus() {
     const el = $('#network-status');
     if (!el || !S) return;

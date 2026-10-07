@@ -142,7 +142,7 @@
       case 'score': return `${c.score1 || 0} - ${c.score2 || 0}`;
       case 'set': return c.setLetter || '';
       case 'game': return game ? game.short || game.name : '';
-      case 'event': return (S.startgg && S.startgg.tournamentName) || (S.config.event && S.config.event.name) || '';
+      case 'event': return (S.startgg && S.startgg.tournamentName) || S.eventDisplayName || '';
       default: return '';
     }
   }
