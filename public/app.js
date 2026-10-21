@@ -156,19 +156,26 @@
   const TEC_ICON = document.querySelector('link[rel="icon"]').href;
   // Stand-in for a theme whose logo has not been saved yet.
   const TT_EMBLEM = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="#1a0d10" stroke="#F2B53A" stroke-width="6"/><circle cx="50" cy="50" r="36" fill="#6D2E3F"/><text x="50" y="62" text-anchor="middle" font-family="Urban Constructed, Oswald, Arial Narrow, sans-serif" font-weight="700" font-size="32" fill="#FCE319">TT</text></svg>';
+  // Metroplex Major's crown ships with the app, so that theme never needs a saved logo.
+  const MM_CROWN = '<svg viewBox="-6 -38 190 128" aria-hidden="true"><g fill="#F0B40D"><polygon points="0,9 9,0 22,0 50,28 78,0 89,-13 100,0 128,28 156,0 169,0 178,9 178,69 169,78 156,78 156,31 128,59 100,31 100,78 78,78 78,31 50,59 22,31 22,78 9,78 0,69"/><polygon points="15.5,-15 21.5,-9 15.5,-3 9.5,-9"/><polygon points="89,-32.5 96.5,-25 89,-17.5 81.5,-25"/><polygon points="162.5,-15 168.5,-9 162.5,-3 156.5,-9"/></g></svg>';
+  const MM_ICON = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -38 190 128"><polygon fill="#F0B40D" points="0,9 9,0 22,0 50,28 78,0 89,-13 100,0 128,28 156,0 169,0 178,9 178,69 169,78 156,78 156,31 128,59 100,31 100,78 78,78 78,31 50,59 22,31 22,78 9,78 0,69"/></svg>')}`;
   let brandKey = '';
   function applyBranding() {
     const b = S.branding || { theme: 'tec' };
-    const key = [b.theme, b.logo, b.smashOnly, b.org].join('|');
+    const mm = b.theme === 'mm';
+    // In promo mode the header counts down to the Major.
+    const org = mm && b.mm && b.mm.mode !== 'event' && window.MM.daysTo(b.mm.start) > 0
+      ? `Metroplex Major ◆ ${window.MM.daysTo(b.mm.start)} days out` : b.org || 'Texas Esports Collective';
+    const key = [b.theme, b.logo, b.smashOnly, org].join('|');
     if (key === brandKey) return;
     brandKey = key;
     const tec = b.theme === 'tec';
     document.documentElement.dataset.theme = b.theme;
     document.documentElement.classList.toggle('smash-only', !!b.smashOnly);
-    $('#brand-mark').innerHTML = tec ? TEC_MARK : b.logo ? `<img src="${esc(b.logo)}" alt="">` : TT_EMBLEM;
-    $('#brand-org').textContent = b.org || 'Texas Esports Collective';
+    $('#brand-mark').innerHTML = tec ? TEC_MARK : mm ? MM_CROWN : b.logo ? `<img src="${esc(b.logo)}" alt="">` : TT_EMBLEM;
+    $('#brand-org').innerHTML = window.MM.gems(org);
     document.title = tec ? 'TEC Match Recorder' : `${b.name} · Match Recorder`;
-    document.querySelector('link[rel="icon"]').href = !tec && b.logo ? b.logo : TEC_ICON;
+    document.querySelector('link[rel="icon"]').href = mm ? MM_ICON : !tec && b.logo ? b.logo : TEC_ICON;
   }
   // OBS or vMix: .obs-only / .vmix-only blocks (the how-to guide) follow the saved choice, and every
   // .sw-name span outside Settings says which app it is.
@@ -594,6 +601,11 @@
     };
     set('branding.theme', (c.branding && c.branding.theme) || 'tec');
     set('branding.label', c.branding ? c.branding.label : '');
+    const mmCfg = (c.branding && c.branding.mm) || {};
+    set('branding.mm.mode', mmCfg.mode === 'event' ? 'event' : 'promo');
+    set('branding.mm.corners', mmCfg.corners !== false);
+    set('branding.mm.ticker', mmCfg.ticker || '');
+    setTickerPlaceholder();
     set('smashOnly', c.smashOnly);
     f.dataset.theme = f.elements['branding.theme'].value;
     set('event.name', c.event.name);
@@ -699,6 +711,12 @@
     $('#logo-status').textContent = url ? 'Logo saved on this PC.'
       : `No logo yet, so a plain TT badge stands in. ${sg.configured ? 'Use the start.gg tournament logo, or choose an image.' : 'Choose an image, or add the start.gg event and token above, save, and use the start.gg logo.'}`;
   }
+  // A blank ticker box uses the defaults for the picked mode; show them as the placeholder.
+  function setTickerPlaceholder() {
+    const d = (S && S.branding && S.branding.mm && S.branding.mm.defaults) || {};
+    $('#mm-ticker').placeholder = (d[$('#mm-mode').value] || []).join('\n');
+  }
+  $('#mm-mode').addEventListener('change', setTickerPlaceholder);
   $('#theme-select').addEventListener('change', () => {
     const f = $('#settings-form');
     f.dataset.theme = formTheme();

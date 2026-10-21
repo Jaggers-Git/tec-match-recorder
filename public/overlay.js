@@ -16,12 +16,16 @@
       plate1: { x: 212, y: 0, w: 490, h: 62 }, plate2: { x: 1218, y: 0, w: 490, h: 62 },
       bridge: { x: 696, y: 0, w: 528, h: 34 }, badge: 52, endSlant: 22,
     },
+    // corners: false keeps the Metroplex Major ticker and lockup off SF6's meters in the bottom corners.
     sf6: {
       type: 'notched',
       plate1: { x: 240, y: 0, w: 470, h: 50 }, plate2: { x: 1210, y: 0, w: 470, h: 50 },
-      bridge: { x: 704, y: 0, w: 512, h: 34 }, badge: 46, endSlant: 20,
+      bridge: { x: 704, y: 0, w: 512, h: 34 }, badge: 46, endSlant: 20, corners: false,
     },
   };
+  // Metroplex Major scoreboard (bar-type games), sized off the MM stream kit's game overlay at 1920x1080.
+  // Any of these can be overridden from config.json under overlay.mm.
+  const MMB = { top: 24, h: 62, nameW: 380, cell: 72, crown: 100, nameSize: 27, scoreSize: 32, roundGap: 10, roundSize: 17 };
   // Tuesday Takedown scoreboard (bar-type games only). Measured off the TT stream at 1920x1080: plates
   // y 28-84 in a black frame from y 18, the belt logo over the centre gap, 24 px bands underneath.
   // Any of these can be overridden from config.json under overlay.tt.
@@ -219,6 +223,64 @@
     place(img, logoBox);
     place($('#tt-emblem'), { x: g.cx - 60, y: 10, w: 120, h: 120 });
   }
+  // Metroplex Major: midnight name plates, gold score cells, the crown between them, the round and the
+  // set length on a gold band underneath, and a gem per game won under each name.
+  function renderMM(ov, demo) {
+    const g = { ...MMB, ...(ov.mm || {}) };
+    const c = S.current;
+    const board = $('#mm-board');
+    board.style.top = px(g.top);
+    board.style.height = px(g.h);
+    for (const side of [1, 2]) {
+      const n = $(`#mm-n${side}`);
+      n.style.width = px(g.nameW);
+      fit(n, demo ? `Player ${side === 1 ? 'One' : 'Two'}` : c[`p${side}`], g.nameSize);
+      const s = $(`#mm-s${side}`);
+      s.style.display = showScores ? 'flex' : 'none';
+      s.style.width = px(g.cell);
+      const span = s.querySelector('span');
+      span.textContent = String(demo ? (side === 1 ? 2 : 1) : c[`score${side}`] || 0);
+      span.style.fontSize = px(g.scoreSize);
+    }
+    $('#mm-cr').style.width = px(g.crown);
+    const bestOf = Number(c.bestOf) || 1;
+    const parts = demo ? ['Overlay ready', 'Best of 3'] : [centerText(), bestOf > 1 ? `Best of ${bestOf}` : ''].filter(Boolean);
+    const round = $('#mm-round');
+    round.style.display = parts.length ? 'block' : 'none';
+    round.style.top = px(g.top + g.h + g.roundGap);
+    round.style.fontSize = px(g.roundSize);
+    round.querySelector('span').innerHTML = window.MM.gems(parts.join(' ◆ '));
+    // Gems hang under the name plates, against the score cells.
+    const need = bestOf === 5 ? 3 : bestOf === 3 ? 2 : 0;
+    const half = g.crown / 2 + 2 + (showScores ? g.cell : 0);
+    const y = g.top + g.h + 14;
+    for (const side of [1, 2]) {
+      const el = $(`#mm-w${side}`);
+      if (!need) { el.style.display = 'none'; continue; }
+      el.replaceChildren(...Array.from({ length: need }, (_, i) => {
+        const d = document.createElement('div');
+        d.className = `gem-pip${i < (Number(c[`wins${side}`]) || 0) ? ' on' : ''}`;
+        return d;
+      }));
+      el.style.display = 'flex';
+      el.style.top = px(y);
+      // Keep clear of the round band: start past its edge on each side.
+      const clear = Math.max(half + 24, round.offsetWidth / 2 + 24);
+      el.style.left = side === 2 ? px(960 + clear) : '';
+      el.style.right = side === 1 ? px(960 + clear) : '';
+      el.style.flexDirection = side === 1 ? 'row-reverse' : 'row';
+    }
+  }
+  // Ticker and crown lockup in the bottom corners, for every game whose HUD leaves the corners free.
+  let mmTicker = null;
+  function renderMMCorners(show) {
+    $('#mm-corners').hidden = !show;
+    if (!show) return;
+    const mm = S.branding.mm || {};
+    $('#mm-sub').innerHTML = mm.mode === 'event' ? '' : window.MM.gems('Feb 5-7, 2027 ◆ UNT Dallas');
+    if (!mmTicker) mmTicker = window.MM.ticker($('#mm-ticker'), () => window.MM.lines(S));
+    else mmTicker.refresh();
+  }
   // Right after "Add overlay to OBS" the server opens a short window in which sample names are shown,
   // so the new layer is visible in OBS before any set is picked.
   let demoTimer = null;
@@ -240,10 +302,17 @@
     // for Tekken and SF6 keeps the timer clear and just takes the TT colours.
     const tt = !!(S.branding && S.branding.theme === 'tt');
     const useTT = tt && G.type !== 'notched';
+    // Metroplex Major works the same way: its scoreboard for Ultimate, MM colours on the notched shape.
+    const mm = !!(S.branding && S.branding.theme === 'mm');
+    const useMM = mm && G.type !== 'notched';
     document.body.classList.toggle('tt-colors', tt);
+    document.body.classList.toggle('mm-colors', mm);
     $('#tt').hidden = !useTT;
-    $('#tec').hidden = useTT;
+    $('#mm').hidden = !useMM;
+    $('#tec').hidden = useTT || useMM;
+    renderMMCorners(mm && G.corners !== false && (S.branding.mm || {}).corners !== false);
     if (useTT) { renderTT(ov, demoActive()); return; }
+    if (useMM) { renderMM(ov, demoActive()); return; }
     const sizes = G.type === 'notched' ? layoutNotched() : layoutBar();
     for (const id of ['#s1', '#s2']) $(id).style.display = showScores ? 'flex' : 'none';
     const demo = demoActive();

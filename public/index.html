@@ -179,6 +179,13 @@
             <select name="branding.theme" id="theme-select">
               <option value="tec">Texas Esports Collective</option>
               <option value="tt">Tuesday Takedown (TAMUSA Esports)</option>
+              <option value="mm">Metroplex Major (Feb 5-7, 2027)</option>
+            </select>
+          </label>
+          <label class="mm-only">Metroplex Major mode
+            <select name="branding.mm.mode" id="mm-mode">
+              <option value="promo">Promo: weeks before, at any event we host</option>
+              <option value="event">Event: the Major weekend itself</option>
             </select>
           </label>
           <label class="tt-only">Label next to the scoreboard (blank for none) <input name="branding.label" maxlength="40" placeholder="(no label)"></label>
@@ -192,6 +199,14 @@
           </div>
           <div id="logo-status" class="muted" style="margin-top:6px"></div>
           <div class="muted">The logo sits in the middle of the scoreboard and in the header. It is kept on this PC only (data\branding), not in the app's files. A PNG with a transparent background looks best.</div>
+        </div>
+        <div class="mm-only">
+          <label class="check" style="margin-top:6px"><input type="checkbox" name="branding.mm.corners"> Ticker and crown in the bottom corners of the overlay (always off for Street Fighter 6, whose meters sit there)</label>
+          <label>Ticker lines, one per line (blank = the defaults for the mode)
+            <textarea name="branding.mm.ticker" id="mm-ticker" rows="5" placeholder=""></textarea>
+          </label>
+          <div class="muted">Type ◆ (or &lt;&gt;) for the gold gem. {days} is the countdown to Feb 5 and drops off once the weekend starts; {event} is the tournament loaded from start.gg. Keep the Nintendo notice and license lines in: the license asks for both on promotional material.</div>
+          <div class="muted" style="margin-top:6px">Between sets: add a second Browser Source at <span class="mono">http://localhost:8420/slate</span> (1920x1080) for the full-screen Metroplex Major screen: countdown and register QR in promo mode, the set on the station in both. <span class="mono">/slate?title=Starting%20Soon</span> changes the headline.</div>
         </div>
         <label class="check" style="margin-top:10px"><input type="checkbox" name="smashOnly" id="smash-only"> Smash Ultimate only: hide Street Fighter 6 and Tekken 8 (game picker, title suffixes, tournament import)</label>
       </fieldset>
@@ -437,6 +452,7 @@
   </div>
 </div>
 <div id="toast" class="toast" hidden></div>
+<script src="/mm.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

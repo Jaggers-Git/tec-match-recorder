@@ -241,6 +241,7 @@ textarea:focus { outline: none; border-color: var(--accent); }
 
 /* Settings: theme-specific rows, logo picker */
 #settings-form:not([data-theme="tt"]) .tt-only { display: none; }
+#settings-form:not([data-theme="mm"]) .mm-only { display: none; }
 html.smash-only .multi-game { display: none !important; }
 /* OBS or vMix: Settings rows follow the form's (unsaved) choice, the how-to guide the saved one */
 #settings-form:not([data-sw="vmix"]) .sw-vmix, #settings-form[data-sw="vmix"] .sw-obs { display: none; }
@@ -292,3 +293,40 @@ label.small.file-btn:hover { border-color: var(--brand); }
 :root[data-theme="tt"] .panel { border-color: #3a2129; box-shadow: 0 1px 0 rgba(255, 255, 255, .03) inset; }
 :root[data-theme="tt"] .round-head { color: #d9b98a; }
 :root[data-theme="tt"] .pip.on { background: var(--brand); border-color: #fff; }
+
+/* ---------- Metroplex Major (TEC's flagship, Feb 5-7, 2027) ----------
+   Major Gold on Midnight with Tomorrow display type, from the MM brand kit. Gold carries accents and
+   filled buttons (with midnight text); the record state stays red so it reads at a glance. */
+:root[data-theme="mm"] {
+  --bg: #0b0e12;
+  --panel: #11151A;
+  --panel2: #1a2028;
+  --border: #2a313b;
+  --text: #f3f4f6;
+  --muted: #949cab;
+  --brand: #F0B40D;        /* Major Gold */
+  --accent: #F0B40D;
+  --brand-fill: #F0B40D;
+  --on-brand: #11151A;
+  --brand-soft: #2d2510;
+  --brand-edge: #7a5c08;
+  --tag-text: #ffe39a;
+  --link: #f6cf5c;
+  --focus-ring: rgba(240, 180, 13, .22);
+  --selected-bg: #221d10;
+  --warn: #ffcf4a;
+  --display: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif;
+}
+:root[data-theme="mm"] body {
+  background:
+    radial-gradient(900px 420px at 92% -8%, rgba(240, 180, 13, .10), transparent 62%),
+    var(--bg);
+  background-attachment: fixed;
+}
+:root[data-theme="mm"] .topbar { background: #11151A; border-top: 3px solid var(--brand); border-bottom: 1px solid #2a313b; }
+:root[data-theme="mm"] .brand .brand-mark { width: 44px; height: 32px; }
+:root[data-theme="mm"] .brand .org { color: var(--brand); }
+:root[data-theme="mm"] .brand .org svg.gem, :root[data-theme="mm"] svg.gem { display: inline-block; width: .6em; height: .6em; vertical-align: middle; margin: 0 .45em; transform: translateY(-.05em); }
+:root[data-theme="mm"] h2, :root[data-theme="mm"] h3, :root[data-theme="mm"] legend { color: var(--brand); }
+:root[data-theme="mm"] .round-head { color: #e0c46c; }
+:root[data-theme="mm"] .pip.on { background: var(--brand); border-color: #fff; }
