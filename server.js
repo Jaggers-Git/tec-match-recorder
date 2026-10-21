@@ -71,8 +71,11 @@ const DEFAULT_CONFIG = {
   // The setup checklist opens at startup until it is dismissed from the checklist itself.
   setup: { dismissed: false },
   // Look of the dashboard and the stream overlay (see THEMES). The label is the text drawn next to the
-  // Tuesday Takedown scoreboard; the TEC overlay has no label.
-  branding: { theme: 'tec', label: 'Tuesday Takedown' },
+  // Tuesday Takedown scoreboard; the TEC overlay has no label. `mm` drives the Metroplex Major theme:
+  // promo mode (the weeks before, at any event TEC hosts) or event mode (the weekend itself), the
+  // ticker lines in the overlay's corner (blank = the defaults for the mode, see MM_TICKER) and
+  // whether the corner pieces show at all.
+  branding: { theme: 'tec', label: 'Tuesday Takedown', mm: { mode: 'promo', ticker: '', corners: true } },
   // Stations that only ever record Ultimate hide the other games everywhere (picker, suffixes, import).
   smashOnly: false,
 };
@@ -154,7 +157,38 @@ const stationGames = () => (cfg.smashOnly ? ['ssbu'] : Object.keys(GAMES));
 const THEMES = {
   tec: { name: 'Texas Esports Collective', org: 'Texas Esports Collective' },
   tt: { name: 'Tuesday Takedown', org: 'Tuesday Takedown · TAMUSA Esports' },
+  mm: { name: 'Metroplex Major', org: 'Metroplex Major ◆ Feb 5-7, 2027' },
 };
+// Metroplex Major (TEC's flagship, Feb 5-7, 2027, UNT Dallas). Its crown mark ships with the app, so the
+// theme needs no logo. Ticker lines rotate in the overlay's bottom-left corner and on the /slate screen:
+// ◆ draws as a gold gem, {days} is the countdown to Feb 5 (the line drops once the weekend starts),
+// {event} is the tournament loaded from start.gg. Nintendo's guidelines want the disclaimer and the
+// license number on promotional material and on-site, so both modes carry them.
+const MM = { start: '2027-02-05', license: 'NA26-AAABA-F00977', register: 'start.gg/metroplex', site: 'metroplexmajor.com' };
+const MM_TICKER = {
+  promo: [
+    'Metroplex Major ◆ Feb 5-7, 2027 ◆ UNT Dallas',
+    '$3,500 in guaranteed bonuses ◆ Metroplex Major',
+    '{days} days to the Metroplex Major',
+    `Register now ◆ ${MM.register}`,
+    `${MM.site} ◆ #MetroplexMajor`,
+    'Metroplex Major: Nintendo is not a sponsor of or affiliated with this tournament',
+    `Metroplex Major tournament license ${MM.license}`,
+  ],
+  event: [
+    `${MM.site} ◆ #MetroplexMajor`,
+    'Metroplex Major ◆ UNT Dallas ◆ Feb 5-7, 2027',
+    'Nintendo is not a sponsor of or affiliated with this tournament',
+    `Tournament license ${MM.license}`,
+  ],
+};
+const splitLines = (text) => String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+function mmSettings() {
+  const m = (cfg.branding && cfg.branding.mm) || {};
+  const mode = m.mode === 'event' ? 'event' : 'promo';
+  const own = splitLines(m.ticker);
+  return { ...MM, mode, ticker: own.length ? own : MM_TICKER[mode], custom: own.length > 0, corners: m.corners !== false, defaults: MM_TICKER };
+}
 const BRANDING_DIR = path.join(DATA_DIR, 'branding');
 const LOGO_TYPES = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' };
 const themeId = () => (THEMES[cfg.branding && cfg.branding.theme] ? cfg.branding.theme : 'tec');
@@ -175,11 +209,12 @@ function logoUrl(id) {
 function brandingInfo() {
   const id = themeId();
   return {
-    theme: id, name: THEMES[id].name, org: THEMES[id].org,
+    theme: id, name: THEMES[id].name, org: id === 'mm' && mmSettings().mode === 'event' ? 'Metroplex Major ◆ UNT Dallas' : THEMES[id].org,
     label: String((cfg.branding && cfg.branding.label) || ''),
     logo: logoUrl(id),
     logos: Object.fromEntries(Object.keys(THEMES).map((t) => [t, logoUrl(t)])),
     smashOnly: !!cfg.smashOnly,
+    mm: mmSettings(),
   };
 }
 const themeParam = (url) => (THEMES[url.searchParams.get('theme')] ? url.searchParams.get('theme') : themeId());
@@ -1098,7 +1133,7 @@ async function syncStartgg() {
     sg.lastSync = nowIso();
     sg.lastError = failures.length ? `Some events failed: ${failures.join('; ')}` : '';
     broadcastBracket();
-    if (themeId() !== 'tec' && !logoFile() && !autoLogoTried) {
+    if (themeId() === 'tt' && !logoFile() && !autoLogoTried) {
       autoLogoTried = true;
       fetchStartggLogo().catch((e) => log(`Branding: no logo from start.gg (${e.message})`));
     }
@@ -1185,7 +1220,16 @@ function updateConfig(body) {
   const lanChanged = !!next.network.lan !== !!(cfg.network && cfg.network.lan);
   next.detect.samplesMaxMb = Math.max(0, Math.round(Number(next.detect.samplesMaxMb) || 0));
   next.setup = { dismissed: !!(next.setup && next.setup.dismissed) };
-  next.branding = { theme: THEMES[next.branding && next.branding.theme] ? next.branding.theme : 'tec', label: String((next.branding && next.branding.label) || '').trim().slice(0, 40) };
+  const mmIn = (next.branding && next.branding.mm) || {};
+  next.branding = {
+    theme: THEMES[next.branding && next.branding.theme] ? next.branding.theme : 'tec',
+    label: String((next.branding && next.branding.label) || '').trim().slice(0, 40),
+    mm: {
+      mode: mmIn.mode === 'event' ? 'event' : 'promo',
+      ticker: splitLines(mmIn.ticker).map((l) => l.slice(0, 120)).slice(0, 12).join('\n'),
+      corners: mmIn.corners !== false,
+    },
+  };
   next.smashOnly = !!next.smashOnly;
   const obsChanged = JSON.stringify(next.obs) !== JSON.stringify(cfg.obs);
   const vmixChanged = ['host', 'port', 'user', 'password'].some((k) => next.vmix[k] !== cfg.vmix[k]);
@@ -1198,7 +1242,7 @@ function updateConfig(body) {
     cfg.game = 'ssbu';
     persistState();
   }
-  if (themeChanged && cfg.branding.theme !== 'tec' && !logoFile() && cfg.startgg.token && eventSlugs().length) {
+  if (themeChanged && cfg.branding.theme === 'tt' && !logoFile() && cfg.startgg.token && eventSlugs().length) {
     autoLogoTried = true;
     fetchStartggLogo().catch((e) => log(`Branding: no logo from start.gg (${e.message})`));
   }
@@ -1333,7 +1377,7 @@ function serveStatic(res, pathname, url) {
       res.end(data);
     });
   }
-  const rel = pathname === '/' ? 'index.html' : pathname === '/train' ? 'train.html' : pathname === '/overlay' ? 'overlay.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
+  const rel = pathname === '/' ? 'index.html' : pathname === '/train' ? 'train.html' : pathname === '/overlay' ? 'overlay.html' : pathname === '/slate' ? 'slate.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
   const file = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!file.startsWith(PUBLIC_DIR)) return sendJson(res, 403, { error: 'forbidden' });
   fs.readFile(file, (err, data) => {

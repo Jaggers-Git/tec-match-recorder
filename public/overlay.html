@@ -55,6 +55,40 @@
   #tt .tt-pips .pip.on { background: #FCE319; box-shadow: 0 0 8px rgba(252, 227, 25, .65); }
   #tt .tt-logo { position: absolute; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)); }
   #tt .tt-logo svg { width: 100%; height: 100%; }
+
+  /* Metroplex Major: the MM stream kit's scoreboard. Midnight name plates and Major Gold score cells,
+     skewed, the crown in the middle, the round on a gold band underneath, Tomorrow throughout.
+     The gem is MM's separator everywhere, so it is drawn, never typed as a dot. */
+  .mm-colors .piece .edge { background: #F0B40D; }
+  .mm-colors .piece .face, .mm-colors .piece.bridge .face, .mm-colors .seg.center { background: #11151A; }
+  .mm-colors .seg.badge { background: #F0B40D; color: #11151A; }
+  body.mm-colors, .mm-colors .text { font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; }
+  .mm-colors .pips .pip { background: #11151A; border-color: #F0B40D; }
+  .mm-colors .pips .pip.on { background: #F0B40D; }
+  #mm { position: absolute; inset: 0; font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; }
+  #mm-board { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: stretch; filter: drop-shadow(0 4px 10px rgba(0,0,0,.45)); }
+  #mm .seg { position: relative; display: flex; align-items: center; justify-content: center; transform: skewX(-8deg); overflow: hidden; }
+  #mm .seg > span, #mm-round > span { display: inline-block; transform: skewX(8deg); white-space: nowrap; line-height: 1; }
+  #mm .nm { background: #11151A; color: #fff; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+  #mm .pt { background: #F0B40D; color: #11151A; font-weight: 700; }
+  #mm .cr { background: #11151A; margin: 0 2px; }
+  #mm .cr svg { height: 64%; width: auto; transform: skewX(8deg); }
+  #mm-round { position: absolute; left: 50%; transform: translateX(-50%) skewX(-8deg); background: #F0B40D; color: #11151A; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; padding: 6px 18px; white-space: nowrap; filter: drop-shadow(0 3px 8px rgba(0,0,0,.4)); }
+  .mm-pips { position: absolute; display: none; gap: 12px; }
+  .mm-pips .gem-pip { width: 15px; height: 15px; transform: rotate(45deg); background: #11151A; border: 2px solid #F0B40D; box-shadow: 0 2px 4px rgba(0,0,0,.5); }
+  .mm-pips .gem-pip.on { background: #F0B40D; box-shadow: 0 0 10px rgba(240,180,13,.7); }
+  svg.gem { display: inline-block; width: .42em; height: .42em; vertical-align: middle; transform: translateY(-.05em); margin: 0 .5em; }
+  /* Corners: the rotating ticker bottom-left, the crown lockup bottom-right. */
+  #mm-corners { position: absolute; inset: 0; font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; color: #fff; text-transform: uppercase; }
+  #mm-ticker { position: absolute; left: 44px; bottom: 30px; max-width: 1180px; font-weight: 700; font-size: 20px; letter-spacing: .1em; line-height: 1; white-space: nowrap; filter: drop-shadow(0 3px 8px rgba(0,0,0,.7)); transition: opacity .6s ease; }
+  #mm-ticker::before { content: ''; position: absolute; left: -14px; top: -3px; bottom: -3px; width: 4px; background: #F0B40D; }
+  #mm-ticker svg.gem { color: #F0B40D; }
+  #mm-lockup { position: absolute; right: 30px; bottom: 24px; display: flex; align-items: center; gap: 16px; filter: drop-shadow(0 3px 8px rgba(0,0,0,.6)); }
+  #mm-lockup > svg { height: 56px; width: auto; }
+  #mm-lockup b { display: block; font-weight: 700; font-size: 22px; letter-spacing: .1em; line-height: 1; }
+  #mm-lockup small { display: block; margin-top: 6px; color: #F0B40D; font-weight: 700; font-size: 14px; letter-spacing: .14em; line-height: 1; }
+  #mm-lockup small:empty { display: none; }
+  #mm-lockup small svg.gem { margin: 0 .4em; }
 </style>
 </head>
 <body>
@@ -92,6 +126,26 @@
   <img id="tt-logo" class="tt-logo" alt="" hidden>
   <div id="tt-emblem" class="tt-logo" hidden><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="#1a0d10" stroke="#F2B53A" stroke-width="6"/><circle cx="50" cy="50" r="36" fill="#6D2E3F"/><text x="50" y="62" text-anchor="middle" font-family="Urban Constructed, Silkscreen, monospace" font-weight="700" font-size="32" fill="#FCE319">TT</text></svg></div>
 </div>
+<div id="mm" hidden>
+  <div id="mm-board">
+    <div id="mm-n1" class="seg nm"><span></span></div>
+    <div id="mm-s1" class="seg pt"><span></span></div>
+    <div id="mm-cr" class="seg cr"><svg viewBox="-6 -38 190 128" aria-hidden="true"><g fill="#F0B40D"><polygon points="0,9 9,0 22,0 50,28 78,0 89,-13 100,0 128,28 156,0 169,0 178,9 178,69 169,78 156,78 156,31 128,59 100,31 100,78 78,78 78,31 50,59 22,31 22,78 9,78 0,69"/><polygon points="15.5,-15 21.5,-9 15.5,-3 9.5,-9"/><polygon points="89,-32.5 96.5,-25 89,-17.5 81.5,-25"/><polygon points="162.5,-15 168.5,-9 162.5,-3 156.5,-9"/></g></svg></div>
+    <div id="mm-s2" class="seg pt"><span></span></div>
+    <div id="mm-n2" class="seg nm"><span></span></div>
+  </div>
+  <div id="mm-round"><span></span></div>
+  <div id="mm-w1" class="mm-pips"></div>
+  <div id="mm-w2" class="mm-pips"></div>
+</div>
+<div id="mm-corners" hidden>
+  <div id="mm-ticker"></div>
+  <div id="mm-lockup">
+    <svg viewBox="-6 -38 190 128" aria-hidden="true"><g fill="#F0B40D"><polygon points="0,9 9,0 22,0 50,28 78,0 89,-13 100,0 128,28 156,0 169,0 178,9 178,69 169,78 156,78 156,31 128,59 100,31 100,78 78,78 78,31 50,59 22,31 22,78 9,78 0,69"/><polygon points="15.5,-15 21.5,-9 15.5,-3 9.5,-9"/><polygon points="89,-32.5 96.5,-25 89,-17.5 81.5,-25"/><polygon points="162.5,-15 168.5,-9 162.5,-3 156.5,-9"/></g></svg>
+    <div><b>Metroplex Major</b><small id="mm-sub"></small></div>
+  </div>
+</div>
+<script src="/mm.js"></script>
 <script src="/overlay.js"></script>
 </body>
 </html>

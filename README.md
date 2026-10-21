@@ -225,8 +225,28 @@ TEC is **Tuesday Takedown** (TAMUSA Esports' Smash monthly):
   Without one, a plain TT badge stands in.
 - Picking the theme also ticks Smash Ultimate only, which can be unticked.
 
-Overlay geometry can be fine-tuned in `data/config.json` under `overlay.tt` (for example `"logo": 190` or
-`"plateW": 340`; the defaults are at the top of `public/overlay.js`).
+The other is **Metroplex Major**, TEC's flagship weekend (Feb 5-7, 2027, UNT Dallas), used to promote it at every
+event TEC runs beforehand and then on the weekend itself:
+
+- Dashboard in Major Gold on Midnight with Tomorrow display type, the crown in the header and, in promo mode, a
+  countdown under it ("108 days out").
+- Stream overlay from the MM stream kit: midnight name plates, gold score cells, the crown in the middle, the round
+  and set length on a gold band underneath, and a gold gem per game won under each name. Tekken 8 and SF6 keep
+  their notched shape in MM colors.
+- Bottom corners: a ticker that fades through one line every 7 seconds (bottom-left) and the crown lockup
+  (bottom-right). Off for Street Fighter 6, whose meters sit there, and switchable for the rest.
+- **Mode**: *Promo* for the weeks before (countdown, register link, bonuses, dates) or *Event* for the weekend
+  (site, venue). Each mode has default ticker lines; type your own in Settings to replace them. `◆` (or `<>`)
+  draws the gold gem, `{days}` is the countdown and drops off once the weekend starts, `{event}` is the tournament
+  loaded from start.gg.
+- **Slate**: http://localhost:8420/slate is a full-screen 1920x1080 MM screen for between sets, breaks and venue
+  TVs. Promo mode shows the countdown and the register QR; both modes show the set on the station ("Up next",
+  or "On now" while recording) and print the Nintendo notice and the license number. `?title=Starting%20Soon`
+  changes the headline.
+- The crown is TEC's own mark and ships with the app, so this theme needs no logo upload.
+
+Overlay geometry can be fine-tuned in `data/config.json` under `overlay.tt` or `overlay.mm` (for example
+`"logo": 190` or `"nameW": 420`; the defaults are at the top of `public/overlay.js`).
 
 ## License
 
