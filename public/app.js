@@ -163,11 +163,15 @@
     const c = S.config.scenes || {};
     const gameplay = c.gameplay || (S.config.overlay && S.config.overlay.scene) || '';
     const list = [gameplay ? ['Gameplay', gameplay] : null, ...((S.screenScenes || []).map((n) => [n.replace(/^MM /, ''), n]))].filter(Boolean);
-    const key = [S.sw.connected, ...list.flat()].join('|');
+    const preview = c.to !== 'program';
+    const key = [S.sw.connected, preview, ...list.flat()].join('|');
     if (key === sceneKey) return;
     sceneKey = key;
+    // Preview mode: the scene buttons load Preview and Transition takes it live; Program mode cuts at once.
     $('#scene-buttons').innerHTML = S.sw.connected
-      ? list.map(([label, name]) => `<button class="small" type="button" data-scene="${esc(name)}" title="Cut ${esc(S.sw.name)} to &quot;${esc(name)}&quot;">${esc(label)}</button>`).join('')
+      ? (preview ? '<span class="muted" style="align-self:center">To Preview:</span>' : '')
+        + list.map(([label, name]) => `<button class="small" type="button" data-scene="${esc(name)}" title="${preview ? 'Load' : 'Cut'} &quot;${esc(name)}&quot; ${preview ? `into ${esc(S.sw.name)}'s Preview` : `to ${esc(S.sw.name)}'s Program`}">${esc(label)}</button>`).join('')
+        + (preview ? '<button class="small primary" type="button" data-transition title="Take Preview live with the current transition">Transition ▶</button>' : '')
       : '';
   }
   let scrTimer = null;
@@ -185,9 +189,15 @@
   }
   for (const [sel] of SCR_FIELDS) $(sel).addEventListener('input', sendScreens);
   $('#scene-buttons').addEventListener('click', async (ev) => {
+    if (ev.target.closest('[data-transition]')) {
+      if (S.rec && S.rec.active && !confirm('A set is recording. Taking Preview live puts it in the VOD. Transition anyway?')) return;
+      try { await api('POST', '/api/scenes/transition'); } catch (e) { toast(e.message, { error: true }); }
+      return;
+    }
     const b = ev.target.closest('[data-scene]');
     if (!b) return;
-    if (S.rec && S.rec.active && !/gameplay/i.test(b.textContent) && !confirm(`A set is recording. Cutting to "${b.dataset.scene}" puts it in the VOD. Cut anyway?`)) return;
+    const program = (S.config.scenes || {}).to === 'program';
+    if (program && S.rec && S.rec.active && !/gameplay/i.test(b.textContent) && !confirm(`A set is recording. Cutting to "${b.dataset.scene}" puts it in the VOD. Cut anyway?`)) return;
     try { await api('POST', '/api/scenes/switch', { scene: b.dataset.scene }); } catch (e) { toast(e.message, { error: true }); }
   });
   // ---------- branding (picked in Settings; /theme.js applies it before the first paint) ----------
@@ -678,6 +688,7 @@
     set('detect.videosFolder', c.detect ? c.detect.videosFolder : '');
     loadSources(c.detect ? c.detect.source : '');
     set('scenes.autoSwitch', c.scenes && c.scenes.autoSwitch);
+    set('scenes.to', c.scenes && c.scenes.to === 'program' ? 'program' : 'preview');
     loadSceneChoices(c.scenes || {});
     set('overlay.center', c.overlay ? c.overlay.center : 'round');
     set('overlay.scores', !c.overlay || c.overlay.scores !== false);

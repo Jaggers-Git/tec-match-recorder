@@ -81,7 +81,9 @@ const DEFAULT_CONFIG = {
   // Stream screens (Starting Soon, BRB, Casters) and scene switching. With autoSwitch on, Start Recording
   // cuts to `gameplay` before recording and End & Save cuts to `after` once the recording has stopped,
   // so a between-sets screen never ends up in a VOD. Names are OBS scenes or vMix inputs.
-  scenes: { autoSwitch: false, gameplay: '', after: '' },
+  // `to`: 'preview' loads the scene into Preview (Studio Mode) and the operator takes it live with the
+  // transition; 'program' cuts Program straight away.
+  scenes: { autoSwitch: false, gameplay: '', after: '', to: 'preview' },
   // Stations that only ever record Ultimate hide the other games everywhere (picker, suffixes, import).
   smashOnly: false,
 };
@@ -529,6 +531,18 @@ class ObsClient {
     try { ms = Number((await this.request('GetCurrentSceneTransition')).transitionDuration) || 0; } catch { ms = 0; }
     await this.request('SetCurrentProgramScene', { sceneName: name });
     await sleep(Math.min(3000, ms) + 150);
+  }
+  // Studio Mode: load a scene into Preview and leave Program alone; the operator takes it live.
+  async setPreviewScene(name) {
+    const { studioModeEnabled } = await this.request('GetStudioModeEnabled');
+    if (!studioModeEnabled) throw new Error('Studio Mode is off in OBS, so there is no Preview. Turn it on (Studio Mode button under Controls), or set scene changes to cut straight to Program in Settings');
+    await this.request('SetCurrentPreviewScene', { sceneName: name });
+  }
+  // Preview to Program with OBS's current transition (the Transition button in Studio Mode).
+  async transition() {
+    const { studioModeEnabled } = await this.request('GetStudioModeEnabled');
+    if (!studioModeEnabled) throw new Error('Studio Mode is off in OBS, so there is nothing in Preview to take live');
+    await this.request('TriggerStudioModeTransition');
   }
 }
 
@@ -1292,7 +1306,7 @@ function updateConfig(body) {
   };
   next.smashOnly = !!next.smashOnly;
   const sc = next.scenes || {};
-  next.scenes = { autoSwitch: !!sc.autoSwitch, gameplay: String(sc.gameplay || '').trim(), after: String(sc.after || '').trim() };
+  next.scenes = { autoSwitch: !!sc.autoSwitch, gameplay: String(sc.gameplay || '').trim(), after: String(sc.after || '').trim(), to: sc.to === 'program' ? 'program' : 'preview' };
   const obsChanged = JSON.stringify(next.obs) !== JSON.stringify(cfg.obs);
   const vmixChanged = ['host', 'port', 'user', 'password'].some((k) => next.vmix[k] !== cfg.vmix[k]);
   // Turning Smash-only on drops any SF6/Tekken bracket on the next sync, so sync right away.
@@ -1680,9 +1694,19 @@ async function autoCut(which) {
   try {
     if (which === 'gameplay' && !target && sw === obs) target = gameplaySceneName((await obs.request('GetSceneList')).scenes.map((s) => s.sceneName));
     if (!target) return;
-    await sw.setProgramScene(target);
-    log(`Switched ${swName()} to "${target}"`);
+    await sendScene(target);
   } catch (e) { log(`Could not switch ${swName()} to "${target}": ${e.message}`); }
+}
+// A scene change from the recorder: into Preview (the default; the operator takes it live) or straight to Program.
+const scenesTo = () => (cfg.scenes && cfg.scenes.to === 'program' ? 'program' : 'preview');
+async function sendScene(name) {
+  if (scenesTo() === 'program') {
+    await sw.setProgramScene(name);
+    log(`Switched ${swName()} to "${name}"`);
+  } else {
+    await sw.setPreviewScene(name);
+    log(`"${name}" is in ${swName()}'s Preview, ready for the transition`);
+  }
 }
 // OBS reports the recordings folder while connected, vMix while it records; keep the last one so tools
 // work with the app closed.
@@ -1775,7 +1799,16 @@ async function handleDetectApi(route, req, res, url) {
       const body = await readBody(req);
       try {
         if (sw.status !== 'connected') throw new Error(`${swName()} is not connected`);
-        await sw.setProgramScene(String(body.scene || ''));
+        await sendScene(String(body.scene || ''));
+        sendJson(res, 200, { ok: true, to: scenesTo() });
+      } catch (e) { sendJson(res, 400, { error: e.message }); }
+      return true;
+    }
+    case 'POST /api/scenes/transition': {
+      try {
+        if (sw.status !== 'connected') throw new Error(`${swName()} is not connected`);
+        await sw.transition();
+        log(`Transition: ${swName()} Preview taken to Program`);
         sendJson(res, 200, { ok: true });
       } catch (e) { sendJson(res, 400, { error: e.message }); }
       return true;

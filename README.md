@@ -240,7 +240,13 @@ Three full-screen 1920x1080 scenes in the Metroplex Major look:
 
 The **Stream screens** panel under the current set holds the message and the two caster cards; what is typed there
 shows on the screens straight away. A card with no name is not drawn. When the production software is connected,
-the panel also has a button per scene (Gameplay, Starting Soon, BRB, Casters) to cut to it.
+the panel also has a button per scene (Gameplay, Starting Soon, BRB, Casters).
+
+**Preview or Program** (Settings, *Scene changes from the recorder go to*): by default every scene change from the
+recorder lands in **Preview** (OBS Studio Mode, vMix Preview) and nothing goes live until you take it with the
+transition, from OBS or vMix as usual or with the panel's **Transition ▶** button. Pick *Program* to have the
+buttons and the automatic switching cut straight away instead. With Studio Mode off, OBS has no Preview, so Preview
+mode reports that rather than cutting live.
 
 **Setup:** Settings, *Stream screens and scene switching*, **Add Metroplex Major scenes**.
 
@@ -253,10 +259,12 @@ the panel also has a button per scene (Gameplay, Starting Soon, BRB, Casters) to
   settings, **Layers**, and add the gameplay input (position 60, 168, size 1280x720) and the camera (1380, 168,
   480x270) as layers underneath the frame. This part is not automated for vMix.
 
-**Switch scenes for me** (off by default): Start Recording cuts Program to the gameplay scene, waits for the
-transition, then starts recording, so the VOD opens on the set. End & Save stops the recording first and then cuts
-to the between-sets scene (MM BRB unless another is picked), so a between-sets screen never ends up in a VOD. A set
-stopped from inside OBS or vMix is left alone, and a failed cut is logged without stopping the recording.
+**Switch scenes for me** (off by default): Start Recording sends the gameplay scene, End & Save stops the recording
+first and then sends the between-sets scene (MM BRB unless another is picked). In Preview mode they wait in Preview
+for your transition; a recording starts on whatever is live, so take Gameplay live before Start Recording to keep
+the between-sets screen out of the VOD. In Program mode Start Recording cuts to gameplay, waits for the transition,
+then records. A set stopped from inside OBS or vMix is left alone, and a failed switch is logged without stopping
+the recording.
 
 ## Branding and themes
 
