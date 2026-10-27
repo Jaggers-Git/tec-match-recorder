@@ -329,7 +329,16 @@
           <span id="scenes-status" class="muted"></span>
         </div>
         <div class="muted" style="margin-top:6px"><span class="sw-obs">Creates the scenes "MM Starting Soon", "MM BRB" and "MM Casters". Casters gets your gameplay capture and, when there is a second camera input, the camera, each placed in its window; otherwise drag the camera into the right-hand window yourself.</span><span class="sw-vmix">Adds "MM Starting Soon", "MM BRB" and "MM Casters" as Browser inputs. In vMix, add your gameplay and camera to MM Casters as layers (Input settings, Layers); the README has the positions.</span> Pages: <a href="/slate?scene=starting" target="_blank">Starting Soon</a>, <a href="/slate?scene=brb" target="_blank">BRB</a>, <a href="/casters" target="_blank">Casters</a>.</div>
-        <label class="check" style="margin-top:10px"><input type="checkbox" name="scenes.autoSwitch"> Switch scenes for me: Start Recording cuts to the gameplay scene first, End &amp; Save stops the recording and then cuts to the between-sets scene</label>
+        <div class="grid2" style="margin-top:10px">
+          <label>Scene changes from the recorder go to
+            <select name="scenes.to">
+              <option value="preview">Preview: I take them live with the transition (Studio Mode)</option>
+              <option value="program">Program: cut straight away</option>
+            </select>
+          </label>
+        </div>
+        <label class="check" style="margin-top:10px"><input type="checkbox" name="scenes.autoSwitch"> Switch scenes for me: Start Recording sends the gameplay scene, End &amp; Save stops the recording and then sends the between-sets scene</label>
+        <div class="muted">With Preview, a recording starts on whatever is live, so take Gameplay live before pressing Start Recording to keep the between-sets screen out of the VOD.</div>
         <div class="grid2">
           <label>Gameplay <span class="sw-obs">scene</span><span class="sw-vmix">input</span> <select name="scenes.gameplay"></select></label>
           <label>Between-sets <span class="sw-obs">scene</span><span class="sw-vmix">input</span> <select name="scenes.after"></select></label>
