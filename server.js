@@ -75,7 +75,13 @@ const DEFAULT_CONFIG = {
   // promo mode (the weeks before, at any event TEC hosts) or event mode (the weekend itself), the
   // ticker lines in the overlay's corner (blank = the defaults for the mode, see MM_TICKER) and
   // whether the corner pieces show at all.
-  branding: { theme: 'tec', label: 'Tuesday Takedown', mm: { mode: 'promo', ticker: '', corners: true } },
+  // Metroplex Major is the default look until the weekend is over (Feb 7, 2027), TEC after that. A
+  // station that has saved a theme keeps it.
+  branding: { theme: Date.now() < new Date(2027, 1, 8).getTime() ? 'mm' : 'tec', label: 'Tuesday Takedown', mm: { mode: 'promo', ticker: '', corners: true } },
+  // Stream screens (Starting Soon, BRB, Casters) and scene switching. With autoSwitch on, Start Recording
+  // cuts to `gameplay` before recording and End & Save cuts to `after` once the recording has stopped,
+  // so a between-sets screen never ends up in a VOD. Names are OBS scenes or vMix inputs.
+  scenes: { autoSwitch: false, gameplay: '', after: '' },
   // Stations that only ever record Ultimate hide the other games everywhere (picker, suffixes, import).
   smashOnly: false,
 };
@@ -251,12 +257,26 @@ const clampScore = (n) => Math.max(0, Math.min(99, Math.round(Number(n) || 0)));
 const clampWins = (n) => Math.max(0, Math.min(3, Math.round(Number(n) || 0)));
 const BEST_OF = [1, 3, 5];
 const savedState = readJson(STATE_PATH, {});
+// What the Starting Soon, BRB and Casters screens show besides the set: a line the operator types, and
+// one or two caster name cards (a card with no name is not drawn).
+function cleanScreens(s) {
+  const src = s && typeof s === 'object' ? s : {};
+  const casters = Array.isArray(src.casters) ? src.casters : [];
+  return {
+    message: String(src.message || '').trim().slice(0, 120),
+    casters: [0, 1].map((i) => ({
+      name: String((casters[i] && casters[i].name) || '').trim().slice(0, 40),
+      handle: String((casters[i] && casters[i].handle) || '').trim().slice(0, 40),
+    })),
+  };
+}
 const state = {
   current: { ...emptyCurrent(), ...(savedState.current || {}) },
   rec: savedState.rec || { active: false, startedAt: null, startedByApp: false },
   log: Array.isArray(savedState.log) ? savedState.log : [],
   recentPlayers: Array.isArray(savedState.recentPlayers) ? savedState.recentPlayers : [],
   recordedSetIds: Array.isArray(savedState.recordedSetIds) ? savedState.recordedSetIds : [],
+  screens: cleanScreens(savedState.screens),
 };
 let bracket = readJson(BRACKET_PATH, { slug: '', eventName: '', tournamentName: '', events: [], sets: [], updatedAt: null });
 if (!Array.isArray(bracket.events)) bracket.events = [];
@@ -272,7 +292,7 @@ function persistState() {
     try {
       writeJson(STATE_PATH, {
         current: state.current, rec: state.rec, log: state.log,
-        recentPlayers: state.recentPlayers, recordedSetIds: state.recordedSetIds,
+        recentPlayers: state.recentPlayers, recordedSetIds: state.recordedSetIds, screens: state.screens,
       });
     } catch (e) { log('Could not save state:', e.message); }
   }, 150);
@@ -502,6 +522,14 @@ class ObsClient {
     try { scenes = (await this.request('GetSceneList')).scenes.map((s) => s.sceneName); } catch { scenes = []; }
     return { inputs, scenes };
   }
+  // Cut Program to a scene through OBS's own transition, and wait for the transition to finish so a
+  // recording started right after begins on the new scene.
+  async setProgramScene(name) {
+    let ms = 0;
+    try { ms = Number((await this.request('GetCurrentSceneTransition')).transitionDuration) || 0; } catch { ms = 0; }
+    await this.request('SetCurrentProgramScene', { sceneName: name });
+    await sleep(Math.min(3000, ms) + 150);
+  }
 }
 
 // ---------- production software: OBS or vMix, whichever Settings picks ----------
@@ -599,6 +627,8 @@ async function startRecording() {
     broadcast();
     return;
   }
+  // Gameplay on Program before the recording starts, so the VOD opens on the set.
+  await autoCut('gameplay');
   await sw.startRecord();
   state.rec = { active: true, startedAt: Date.now(), startedByApp: true };
   persistState();
@@ -650,6 +680,9 @@ async function stopRecording({ externalPath = null } = {}) {
     persistState();
     broadcast();
     log(`Recording stopped → "${entry.title}"`);
+    // The recording has stopped, so the between-sets screen can go up. Not when the set was stopped from
+    // inside OBS or vMix: the operator is driving it there.
+    if (!externalPath) autoCut('after');
     finalizeEntry(entry);
     return entry;
   } finally {
@@ -1258,6 +1291,8 @@ function updateConfig(body) {
     },
   };
   next.smashOnly = !!next.smashOnly;
+  const sc = next.scenes || {};
+  next.scenes = { autoSwitch: !!sc.autoSwitch, gameplay: String(sc.gameplay || '').trim(), after: String(sc.after || '').trim() };
   const obsChanged = JSON.stringify(next.obs) !== JSON.stringify(cfg.obs);
   const vmixChanged = ['host', 'port', 'user', 'password'].some((k) => next.vmix[k] !== cfg.vmix[k]);
   // Turning Smash-only on drops any SF6/Tekken bracket on the next sync, so sync right away.
@@ -1329,6 +1364,9 @@ function snapshot() {
     network: { lan: !!(cfg.network && cfg.network.lan), pin: (cfg.network && cfg.network.pin) || '' },
     art: artStatus(),
     branding: brandingInfo(),
+    screens: state.screens,
+    screenLayout: CASTER_LAYOUT,
+    screenScenes: SCREENS.map((s) => s.scene),
     version: APP_VERSION,
     update: updater.status(),
     overlay: overlayCache,
@@ -1413,7 +1451,7 @@ function serveStatic(res, pathname, url) {
       res.end(data);
     });
   }
-  const rel = pathname === '/' ? 'index.html' : pathname === '/train' ? 'train.html' : pathname === '/overlay' ? 'overlay.html' : pathname === '/slate' ? 'slate.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
+  const rel = pathname === '/' ? 'index.html' : pathname === '/train' ? 'train.html' : pathname === '/overlay' ? 'overlay.html' : pathname === '/slate' ? 'slate.html' : pathname === '/casters' ? 'casters.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
   const file = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!file.startsWith(PUBLIC_DIR)) return sendJson(res, 403, { error: 'forbidden' });
   fs.readFile(file, (err, data) => {
@@ -1548,6 +1586,104 @@ async function installOverlay(sceneName) {
   refreshOverlayCache();
   return { ok: true, scene: target, url: overlayUrl(), currentScene, visibleNow: !currentScene || currentScene === target, canvas };
 }
+// ---------- stream screens: Starting Soon, BRB, Casters ----------
+// The Casters page draws the Metroplex Major frame with two transparent windows; the gameplay capture
+// and the camera sit underneath, placed into these boxes (1920x1080 coordinates, scaled to the canvas).
+const CASTER_LAYOUT = { game: { x: 60, y: 168, w: 1280, h: 720 }, cam: { x: 1380, y: 168, w: 480, h: 270 } };
+const SCREENS = [
+  { id: 'starting', scene: 'MM Starting Soon', input: 'MM Starting Soon Screen', path: '/slate?scene=starting' },
+  { id: 'brb', scene: 'MM BRB', input: 'MM BRB Screen', path: '/slate?scene=brb' },
+  { id: 'casters', scene: 'MM Casters', input: 'MM Casters Frame', path: '/casters' },
+];
+const screenUrl = (s) => `http://localhost:${cfg.port || 8420}${s.path}`;
+const NOT_VIDEO = /^(browser_source|text_|image_source|color_source|slideshow|wasapi_|coreaudio_|pulse_|alsa_|jack_|scene|group)/;
+const BROWSER_SETTINGS = (url) => ({ url, width: 1920, height: 1080, fps_custom: false, shutdown: false, restart_when_active: false, reroute_audio: false });
+// Adds (or refreshes) the three scenes in OBS. Casters also gets the gameplay capture (the detector's
+// source when it is an input, else the first video source in the gameplay scene) and, when there is a
+// second camera-type input, that camera.
+async function installScenes() {
+  if (obs.status !== 'connected') throw new Error('OBS is not connected');
+  let canvas = { w: 1920, h: 1080 };
+  try { const v = await obs.request('GetVideoSettings'); canvas = { w: v.baseWidth || 1920, h: v.baseHeight || 1080 }; } catch { /* assume 1080p */ }
+  const kx = canvas.w / 1920;
+  const ky = canvas.h / 1080;
+  const scenes = (await obs.request('GetSceneList')).scenes.map((s) => s.sceneName);
+  const inputs = (await obs.request('GetInputList')).inputs;
+  const gameplayScene = gameplaySceneName(scenes);
+  const items = async (sceneName) => ((await obs.request('GetSceneItemList', { sceneName })).sceneItems || []);
+  const place = (sceneName, sceneItemId, box) => obs.request('SetSceneItemTransform', {
+    sceneName, sceneItemId,
+    sceneItemTransform: box
+      ? { positionX: box.x * kx, positionY: box.y * ky, alignment: 5, boundsType: 'OBS_BOUNDS_SCALE_INNER', boundsAlignment: 0, boundsWidth: box.w * kx, boundsHeight: box.h * ky }
+      : { positionX: 0, positionY: 0, alignment: 5, boundsType: 'OBS_BOUNDS_NONE', scaleX: kx, scaleY: ky },
+  }).catch(() => {});
+  async function addItem(sceneName, sourceName, box) {
+    const have = (await items(sceneName)).find((i) => i.sourceName === sourceName);
+    const id = have ? have.sceneItemId : (await obs.request('CreateSceneItem', { sceneName, sourceName, sceneItemEnabled: true })).sceneItemId;
+    await place(sceneName, id, box);
+    return id;
+  }
+  // The capture source: the detector's input if one is set, else the bottom-most video source of the gameplay scene.
+  let game = inputs.find((i) => i.inputName === cfg.detect.source && !NOT_VIDEO.test(i.inputKind || '')) || null;
+  if (!game && gameplayScene) {
+    const it = (await items(gameplayScene)).find((i) => i.sourceType !== 'OBS_SOURCE_TYPE_SCENE' && !i.isGroup && !NOT_VIDEO.test(i.inputKind || '') && i.sourceName !== OVERLAY_INPUT);
+    if (it) game = { inputName: it.sourceName, inputKind: it.inputKind };
+  }
+  const cams = inputs.filter((i) => /dshow_input|av_capture_input|v4l2_input/.test(i.inputKind || '') && (!game || i.inputName !== game.inputName));
+  const cam = cams.find((i) => /cam|caster|face|desk/i.test(i.inputName)) || cams[0] || null;
+  const done = [];
+  for (const s of SCREENS) {
+    if (!scenes.includes(s.scene)) await obs.request('CreateScene', { sceneName: s.scene });
+    if (s.id === 'casters') {
+      if (game) await addItem(s.scene, game.inputName, CASTER_LAYOUT.game);
+      if (cam) await addItem(s.scene, cam.inputName, CASTER_LAYOUT.cam);
+    }
+    // The page itself, on top of everything in the scene.
+    if (inputs.some((i) => i.inputName === s.input)) {
+      await obs.request('SetInputSettings', { inputName: s.input, inputSettings: BROWSER_SETTINGS(screenUrl(s)) });
+      await addItem(s.scene, s.input, null);
+    } else {
+      const id = (await obs.request('CreateInput', { sceneName: s.scene, inputName: s.input, inputKind: 'browser_source', inputSettings: BROWSER_SETTINGS(screenUrl(s)), sceneItemEnabled: true })).sceneItemId;
+      await place(s.scene, id, null);
+    }
+    const list = await items(s.scene);
+    const top = list.find((i) => i.sourceName === s.input);
+    if (top) await obs.request('SetSceneItemIndex', { sceneName: s.scene, sceneItemId: top.sceneItemId, sceneItemIndex: Math.max(0, list.length - 1) }).catch(() => {});
+    done.push(s.scene);
+  }
+  if (!cfg.scenes.after) cfg.scenes.after = 'MM BRB';
+  if (!cfg.scenes.gameplay && gameplayScene) cfg.scenes.gameplay = gameplayScene;
+  writeJson(CONFIG_PATH, cfg);
+  log(`Scenes ready in OBS: ${done.join(', ')}${game ? `; Casters shows "${game.inputName}"` : ''}${cam ? ` and camera "${cam.inputName}"` : ''}`);
+  broadcast();
+  return { ok: true, scenes: done, game: game ? game.inputName : '', cam: cam ? cam.inputName : '' };
+}
+// vMix: the three pages as Browser inputs. The camera and gameplay go into Casters as layers in vMix
+// (Input settings, Layers), which the README walks through.
+async function installVmixScenes() {
+  if (vmix.status !== 'connected') throw new Error('vMix is not connected');
+  const done = [];
+  for (const s of SCREENS) { await vmix.installBrowserInput({ title: s.scene, url: screenUrl(s) }); done.push(s.scene); }
+  if (!cfg.scenes.after) cfg.scenes.after = 'MM BRB';
+  writeJson(CONFIG_PATH, cfg);
+  log(`Screens added to vMix as inputs: ${done.join(', ')}`);
+  broadcast();
+  return { ok: true, vmix: true, scenes: done };
+}
+function gameplaySceneName(scenes) {
+  return [cfg.scenes.gameplay, cfg.overlay.scene].find((n) => n && scenes.includes(n)) || scenes.find((n) => /gameplay|game/i.test(n)) || '';
+}
+// Auto-switch (Settings, Stream screens): a failed cut is logged and never blocks a recording.
+async function autoCut(which) {
+  if (!cfg.scenes.autoSwitch || sw.status !== 'connected') return;
+  let target = which === 'gameplay' ? cfg.scenes.gameplay : cfg.scenes.after;
+  try {
+    if (which === 'gameplay' && !target && sw === obs) target = gameplaySceneName((await obs.request('GetSceneList')).scenes.map((s) => s.sceneName));
+    if (!target) return;
+    await sw.setProgramScene(target);
+    log(`Switched ${swName()} to "${target}"`);
+  } catch (e) { log(`Could not switch ${swName()} to "${target}": ${e.message}`); }
+}
 // OBS reports the recordings folder while connected, vMix while it records; keep the last one so tools
 // work with the app closed.
 function recordDirectory() {
@@ -1628,6 +1764,27 @@ async function handleDetectApi(route, req, res, url) {
       const body = await readBody(req);
       try { sendJson(res, 200, sw === vmix ? await installVmixOverlay(body.channel) : await installOverlay(String(body.scene || ''))); }
       catch (e) { sendJson(res, 400, { error: e.message }); }
+      return true;
+    }
+    case 'POST /api/scenes/install': {
+      try { sendJson(res, 200, sw === vmix ? await installVmixScenes() : await installScenes()); }
+      catch (e) { sendJson(res, 400, { error: e.message }); }
+      return true;
+    }
+    case 'POST /api/scenes/switch': {
+      const body = await readBody(req);
+      try {
+        if (sw.status !== 'connected') throw new Error(`${swName()} is not connected`);
+        await sw.setProgramScene(String(body.scene || ''));
+        sendJson(res, 200, { ok: true });
+      } catch (e) { sendJson(res, 400, { error: e.message }); }
+      return true;
+    }
+    case 'PATCH /api/screens': {
+      state.screens = cleanScreens({ ...state.screens, ...(await readBody(req)) });
+      persistState();
+      broadcast();
+      sendJson(res, 200, { ok: true, screens: state.screens });
       return true;
     }
     case 'POST /api/overlay/remove': {

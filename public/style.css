@@ -131,6 +131,12 @@ button.primary { background: var(--brand-fill); color: var(--on-brand); border: 
 @keyframes blink { 50% { opacity: .2; } }
 
 .log-panel { margin: 0 16px 16px; }
+.screens-panel { margin: 0 16px 16px; }
+.screens-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.screens-grid label { font-size: 13px; color: var(--muted); }
+.screens-grid .msg { grid-column: 1 / -1; }
+@media (max-width: 900px) { .screens-grid { grid-template-columns: 1fr 1fr; } }
+#scene-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
