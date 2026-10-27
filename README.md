@@ -12,6 +12,30 @@ recording, renames the file to a proper VOD title, logs it, and is ready for the
 Internet is used when available (live bracket updates from start.gg) and never required: with no connection, the
 last-synced bracket and manual entry keep working, and sync resumes on its own.
 
+## Screenshots
+
+Captured from the recorder itself in the Metroplex Major theme, with made-up player and caster names. The labeled
+blue and grey areas are where OBS shows the gameplay capture and the camera.
+
+**Stream overlay** over the gameplay: names, score, round, games won, and the rotating promo line and crown in the
+corners.
+
+![Stream overlay](docs/screenshots/overlay.png)
+
+**Casters** scene: gameplay and camera windows, the set and score above, one or two name cards.
+
+![Casters scene](docs/screenshots/casters.png)
+
+**Starting Soon** and **BRB**: the up-next set, a message typed in the dashboard, the countdown and register link.
+
+![Starting Soon scene](docs/screenshots/starting_soon.png)
+
+![BRB scene](docs/screenshots/brb.png)
+
+The dashboard's **Stream screens** panel, where the message and the caster cards are typed:
+
+![Stream screens panel](docs/screenshots/dashboard_screens.png)
+
 ## Requirements
 
 - Windows PC with the capture card (any Windows 10/11 machine works).
@@ -203,6 +227,37 @@ Storage: `data/templates/` holds the learned name masks (plus a crop of each so 
   asks for the PIN once and remembers it. No internet is needed, just the local network.
 - OBS on a different PC than the recorder? Add `?pin=YOURPIN` to the overlay Browser Source URL.
 
+## Stream screens and scene switching
+
+Three full-screen 1920x1080 scenes in the Metroplex Major look:
+
+- **Starting Soon** (`/slate?scene=starting`) and **BRB** (`/slate?scene=brb`): the set picked on the station ("Up
+  next", or "On now" while recording), a message typed in the dashboard, and in promo mode the countdown and the
+  register QR. The Nintendo notice and license number sit at the bottom.
+- **Casters** (`/casters`): the gameplay capture in a large window, one camera in a smaller one with "On the mic"
+  above it, one or two caster name cards (name plus an optional handle) under the camera, and the set and score
+  above the gameplay.
+
+The **Stream screens** panel under the current set holds the message and the two caster cards; what is typed there
+shows on the screens straight away. A card with no name is not drawn. When the production software is connected,
+the panel also has a button per scene (Gameplay, Starting Soon, BRB, Casters) to cut to it.
+
+**Setup:** Settings, *Stream screens and scene switching*, **Add Metroplex Major scenes**.
+
+- **OBS**: creates the scenes "MM Starting Soon", "MM BRB" and "MM Casters". Casters gets the gameplay capture (the
+  detector's source if it is a video input, else the bottom-most video source of the gameplay scene) placed in the
+  big window, and, if OBS has a second camera-type input (one named like "cam", "caster" or "face" first), that
+  camera in the small one. Otherwise drag the camera into MM Casters and fit it to the small window: 480x270 at
+  1380, 168 on a 1920x1080 canvas. Pressing the button again refreshes everything without duplicating it.
+- **vMix**: adds "MM Starting Soon", "MM BRB" and "MM Casters" as Browser inputs. For Casters, open the input's
+  settings, **Layers**, and add the gameplay input (position 60, 168, size 1280x720) and the camera (1380, 168,
+  480x270) as layers underneath the frame. This part is not automated for vMix.
+
+**Switch scenes for me** (off by default): Start Recording cuts Program to the gameplay scene, waits for the
+transition, then starts recording, so the VOD opens on the set. End & Save stops the recording first and then cuts
+to the between-sets scene (MM BRB unless another is picked), so a between-sets screen never ends up in a VOD. A set
+stopped from inside OBS or vMix is left alone, and a failed cut is logged without stopping the recording.
+
 ## Branding and themes
 
 TEC colors (Ignite Red `#FF3D2E`, Scholastic Green `#1FC97B`) and the Urban Constructed display font, on the
@@ -226,7 +281,8 @@ TEC is **Tuesday Takedown** (TAMUSA Esports' Smash monthly):
 - Picking the theme also ticks Smash Ultimate only, which can be unticked.
 
 The other is **Metroplex Major**, TEC's flagship weekend (Feb 5-7, 2027, UNT Dallas), used to promote it at every
-event TEC runs beforehand and then on the weekend itself:
+event TEC runs beforehand and then on the weekend itself. It is the default theme for new installs until the weekend
+is over (TEC after Feb 7, 2027); a station that has saved a theme keeps it.
 
 - Dashboard in Major Gold on Midnight with Tomorrow display type, the crown in the header and, in promo mode, a
   countdown under it ("108 days out").

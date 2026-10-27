@@ -150,7 +150,46 @@
     renderRecent();
     renderBracket(false);
     renderSettingsStatus();
+    renderScreens();
   }
+  // ---------- stream screens (message, caster cards, scene buttons) ----------
+  const SCR_FIELDS = [['#scr-message', (s) => s.message], ['#scr-c1-name', (s) => s.casters[0].name], ['#scr-c1-handle', (s) => s.casters[0].handle], ['#scr-c2-name', (s) => s.casters[1].name], ['#scr-c2-handle', (s) => s.casters[1].handle]];
+  let sceneKey = '';
+  function renderScreens() {
+    const s = S.screens;
+    if (!s) return;
+    // Leave the box being typed in alone; the others follow the server (another device may be editing).
+    for (const [sel, get] of SCR_FIELDS) if (document.activeElement !== $(sel) && $(sel).value !== get(s)) $(sel).value = get(s);
+    const c = S.config.scenes || {};
+    const gameplay = c.gameplay || (S.config.overlay && S.config.overlay.scene) || '';
+    const list = [gameplay ? ['Gameplay', gameplay] : null, ...((S.screenScenes || []).map((n) => [n.replace(/^MM /, ''), n]))].filter(Boolean);
+    const key = [S.sw.connected, ...list.flat()].join('|');
+    if (key === sceneKey) return;
+    sceneKey = key;
+    $('#scene-buttons').innerHTML = S.sw.connected
+      ? list.map(([label, name]) => `<button class="small" type="button" data-scene="${esc(name)}" title="Cut ${esc(S.sw.name)} to &quot;${esc(name)}&quot;">${esc(label)}</button>`).join('')
+      : '';
+  }
+  let scrTimer = null;
+  function sendScreens() {
+    clearTimeout(scrTimer);
+    scrTimer = setTimeout(async () => {
+      const v = (sel) => $(sel).value;
+      try {
+        await api('PATCH', '/api/screens', {
+          message: v('#scr-message'),
+          casters: [{ name: v('#scr-c1-name'), handle: v('#scr-c1-handle') }, { name: v('#scr-c2-name'), handle: v('#scr-c2-handle') }],
+        });
+      } catch (e) { toast(e.message, { error: true }); }
+    }, 350);
+  }
+  for (const [sel] of SCR_FIELDS) $(sel).addEventListener('input', sendScreens);
+  $('#scene-buttons').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-scene]');
+    if (!b) return;
+    if (S.rec && S.rec.active && !/gameplay/i.test(b.textContent) && !confirm(`A set is recording. Cutting to "${b.dataset.scene}" puts it in the VOD. Cut anyway?`)) return;
+    try { await api('POST', '/api/scenes/switch', { scene: b.dataset.scene }); } catch (e) { toast(e.message, { error: true }); }
+  });
   // ---------- branding (picked in Settings; /theme.js applies it before the first paint) ----------
   const TEC_MARK = $('#brand-mark').innerHTML;
   const TEC_ICON = document.querySelector('link[rel="icon"]').href;
@@ -638,6 +677,8 @@
     set('detect.intervalMs', c.detect ? c.detect.intervalMs : 1000);
     set('detect.videosFolder', c.detect ? c.detect.videosFolder : '');
     loadSources(c.detect ? c.detect.source : '');
+    set('scenes.autoSwitch', c.scenes && c.scenes.autoSwitch);
+    loadSceneChoices(c.scenes || {});
     set('overlay.center', c.overlay ? c.overlay.center : 'round');
     set('overlay.scores', !c.overlay || c.overlay.scores !== false);
     set('network.lan', c.network && c.network.lan);
@@ -930,6 +971,31 @@
     if (selected && !opts.some((o) => o[0] === selected)) opts.push([selected, selected]);
     sel.innerHTML = opts.map(([v, label]) => `<option value="${esc(v)}"${v === selected ? ' selected' : ''}>${esc(label)}</option>`).join('');
   }
+  // Scene pickers for auto-switch: OBS scenes, or vMix inputs.
+  async function loadSceneChoices(sc) {
+    const f = $('#settings-form');
+    let data = { inputs: [], scenes: [] };
+    try { data = await api('GET', '/api/detect/sources'); } catch { /* app offline */ }
+    const names = isVmix() ? data.inputs.map((i) => i.name) : data.scenes;
+    for (const [field, blank] of [['gameplay', '(the overlay\'s scene)'], ['after', 'MM BRB']]) {
+      const sel = f.elements[`scenes.${field}`];
+      const cur = sc[field] || '';
+      const opts = [['', blank], ...names.map((n) => [n, n])];
+      if (cur && !names.includes(cur)) opts.push([cur, `${cur} (not found)`]);
+      sel.innerHTML = opts.map(([v, label]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(label)}</option>`).join('');
+    }
+  }
+  $('#btn-scenes-add').addEventListener('click', async () => {
+    const out = $('#scenes-status');
+    out.textContent = 'Adding…';
+    try {
+      const r = await api('POST', '/api/scenes/install');
+      out.textContent = r.vmix
+        ? `Added to vMix: ${r.scenes.join(', ')}. Put your gameplay and camera into MM Casters as layers.`
+        : `Ready in OBS: ${r.scenes.join(', ')}. ${r.game ? `Casters shows "${r.game}"` : 'No gameplay capture found for Casters: drag it into the big window'}${r.cam ? ` and the camera "${r.cam}".` : '; drag your camera into the small window.'}`;
+      loadSceneChoices(S.config.scenes || {});
+    } catch (e) { out.textContent = e.message; }
+  });
   $('#btn-settings').addEventListener('click', () => { if (S) openSettings(); });
   async function refreshOverlayStatus() {
     const out = $('#overlay-status');

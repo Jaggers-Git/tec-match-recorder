@@ -26,7 +26,7 @@ fs.mkdirSync(stage, { recursive: true });
 const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT }).toString('utf8').split('\0').filter(Boolean);
 let copied = 0;
 for (const rel of tracked) {
-  if (rel === '.gitignore' || rel === '.gitattributes') continue;
+  if (rel === '.gitignore' || rel === '.gitattributes' || rel.startsWith('docs/')) continue; // docs/ is README art only
   const dest = path.join(stage, rel);
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.copyFileSync(path.join(ROOT, rel), dest);

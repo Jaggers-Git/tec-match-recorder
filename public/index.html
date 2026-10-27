@@ -132,6 +132,24 @@
   </section>
 </main>
 
+<section class="panel screens-panel">
+  <div class="panel-head">
+    <h2>Stream screens</h2>
+    <span class="muted">Starting Soon, BRB and Casters. Typing here updates them live.</span>
+    <span class="spacer"></span>
+    <div class="actions" id="scene-buttons"></div>
+  </div>
+  <div class="screens-grid">
+    <label class="msg">Message on Starting Soon and BRB (blank for none)
+      <input id="scr-message" maxlength="120" placeholder="Top 8 starts at 6 PM" autocomplete="off">
+    </label>
+    <label>Caster 1 name <input id="scr-c1-name" maxlength="40" placeholder="(no card)" autocomplete="off"></label>
+    <label>Caster 1 handle <input id="scr-c1-handle" maxlength="40" placeholder="@handle (optional)" autocomplete="off"></label>
+    <label>Caster 2 name <input id="scr-c2-name" maxlength="40" placeholder="(no card)" autocomplete="off"></label>
+    <label>Caster 2 handle <input id="scr-c2-handle" maxlength="40" placeholder="@handle (optional)" autocomplete="off"></label>
+  </div>
+</section>
+
 <section class="panel log-panel">
   <div class="panel-head">
     <h2>Session log</h2>
@@ -303,6 +321,19 @@
           <span id="overlay-status" class="muted"></span>
         </div>
         <div class="muted" style="margin-top:6px">Artwork: save your overlay as <span class="mono">public\overlay\overlay.png</span> (1920x1080 or the same shape). Without it, plain plates are drawn. Preview: <a href="/overlay" target="_blank">/overlay</a> (transparent page, 1920x1080).</div>
+      </fieldset>
+      <fieldset>
+        <legend>Stream screens and scene switching</legend>
+        <div class="row" style="align-items:center;flex-wrap:wrap;gap:8px">
+          <button type="button" id="btn-scenes-add" class="small">Add Metroplex Major scenes to <span class="sw-name">OBS</span></button>
+          <span id="scenes-status" class="muted"></span>
+        </div>
+        <div class="muted" style="margin-top:6px"><span class="sw-obs">Creates the scenes "MM Starting Soon", "MM BRB" and "MM Casters". Casters gets your gameplay capture and, when there is a second camera input, the camera, each placed in its window; otherwise drag the camera into the right-hand window yourself.</span><span class="sw-vmix">Adds "MM Starting Soon", "MM BRB" and "MM Casters" as Browser inputs. In vMix, add your gameplay and camera to MM Casters as layers (Input settings, Layers); the README has the positions.</span> Pages: <a href="/slate?scene=starting" target="_blank">Starting Soon</a>, <a href="/slate?scene=brb" target="_blank">BRB</a>, <a href="/casters" target="_blank">Casters</a>.</div>
+        <label class="check" style="margin-top:10px"><input type="checkbox" name="scenes.autoSwitch"> Switch scenes for me: Start Recording cuts to the gameplay scene first, End &amp; Save stops the recording and then cuts to the between-sets scene</label>
+        <div class="grid2">
+          <label>Gameplay <span class="sw-obs">scene</span><span class="sw-vmix">input</span> <select name="scenes.gameplay"></select></label>
+          <label>Between-sets <span class="sw-obs">scene</span><span class="sw-vmix">input</span> <select name="scenes.after"></select></label>
+        </div>
       </fieldset>
       <fieldset>
         <legend>Character detection</legend>

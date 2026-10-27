@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TEC Match Recorder: Metroplex Major casters</title>
+<!-- Casters scene, 1920x1080. The frame is drawn around two transparent windows: the gameplay capture
+     and the camera sit underneath in OBS ("Add Metroplex Major scenes" places them; the boxes come from
+     the server's CASTER_LAYOUT). Above the gameplay: the current set and score. Under the camera: one or
+     two caster name cards typed in the dashboard. -->
+<style>
+  @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Bold.ttf') format('truetype'); font-weight: 700; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; }
+  body { position: relative; color: #fff; font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; text-transform: uppercase; }
+  [hidden] { display: none !important; }
+  svg.gem { display: inline-block; width: .42em; height: .42em; vertical-align: middle; transform: translateY(-.05em); margin: 0 .5em; }
+  #bg { position: absolute; inset: 0; }
+  .frame { position: absolute; border: 4px solid #F0B40D; box-shadow: 0 0 24px rgba(0,0,0,.6); pointer-events: none; }
+  .tag { position: absolute; background: #F0B40D; color: #11151A; font-size: 18px; letter-spacing: .14em; padding: 6px 14px; transform: skewX(-8deg); }
+  .tag > span { display: inline-block; transform: skewX(8deg); }
+  /* scoreboard over the gameplay window, as on the stream overlay */
+  #board { position: absolute; display: flex; height: 62px; transform: translateX(-50%); filter: drop-shadow(0 4px 10px rgba(0,0,0,.45)); }
+  #board .seg { display: flex; align-items: center; justify-content: center; transform: skewX(-8deg); overflow: hidden; }
+  #board .seg > span, #round > span { display: inline-block; transform: skewX(8deg); white-space: nowrap; line-height: 1; }
+  #board .nm { width: 330px; background: #1d232c; font-size: 26px; letter-spacing: .05em; }
+  #board .pt { width: 66px; background: #F0B40D; color: #11151A; font-size: 32px; }
+  #board .cr { width: 92px; background: #1d232c; margin: 0 2px; }
+  #board .cr svg { height: 64%; width: auto; transform: skewX(8deg); }
+  #round { position: absolute; transform: translateX(-50%) skewX(-8deg); background: #F0B40D; color: #11151A; font-size: 17px; letter-spacing: .12em; padding: 6px 18px; white-space: nowrap; }
+  #headline { position: absolute; transform: translateX(-50%); font-size: 46px; letter-spacing: .14em; white-space: nowrap; }
+  /* caster name cards under the camera */
+  .card { position: absolute; background: #1d232c; border-left: 8px solid #F0B40D; display: flex; flex-direction: column; justify-content: center; padding: 0 22px; box-sizing: border-box; box-shadow: 0 6px 16px rgba(0,0,0,.4); }
+  .card b { display: block; align-self: flex-start; font-size: 34px; letter-spacing: .06em; line-height: 1; white-space: nowrap; }
+  .card small { display: block; align-self: flex-start; margin-top: 8px; color: #F0B40D; font-size: 19px; letter-spacing: .1em; line-height: 1; text-transform: none; white-space: nowrap; }
+  #lockup { position: absolute; display: flex; align-items: center; gap: 16px; }
+  #lockup > svg { height: 60px; width: auto; }
+  #lockup b { display: block; font-size: 24px; letter-spacing: .1em; line-height: 1; }
+  #lockup small { display: block; margin-top: 6px; color: #F0B40D; font-size: 15px; letter-spacing: .14em; line-height: 1; }
+  #notice { position: absolute; left: 60px; width: 1280px; text-transform: none; color: #8e97a8; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 15px; line-height: 1.45; }
+  .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 84px; background: #F0B40D; color: #11151A; display: flex; align-items: center; justify-content: space-between; gap: 40px; padding: 0 52px; font-size: 25px; letter-spacing: .07em; }
+  #ticker { white-space: nowrap; overflow: hidden; transition: opacity .6s ease; }
+</style>
+</head>
+<body>
+  <!-- Midnight background with the two windows cut out of it -->
+  <svg id="bg" viewBox="0 0 1920 1080" aria-hidden="true">
+    <defs>
+      <radialGradient id="glow" cx="0.85" cy="0" r="0.8"><stop offset="0" stop-color="#F0B40D" stop-opacity=".10"/><stop offset="1" stop-color="#F0B40D" stop-opacity="0"/></radialGradient>
+      <mask id="holes"><rect width="1920" height="1080" fill="#fff"/><rect id="hole-game" fill="#000"/><rect id="hole-cam" fill="#000"/></mask>
+    </defs>
+    <g mask="url(#holes)">
+      <rect width="1920" height="1080" fill="#11151A"/>
+      <rect width="1920" height="1080" fill="url(#glow)"/>
+    </g>
+  </svg>
+  <div id="frame-game" class="frame"></div>
+  <div id="frame-cam" class="frame"></div>
+  <div id="board" hidden>
+    <div id="n1" class="seg nm"><span></span></div>
+    <div id="s1" class="seg pt"><span></span></div>
+    <div class="seg cr"><svg viewBox="-6 -38 190 128" aria-hidden="true"><g fill="#F0B40D"><polygon points="0,9 9,0 22,0 50,28 78,0 89,-13 100,0 128,28 156,0 169,0 178,9 178,69 169,78 156,78 156,31 128,59 100,31 100,78 78,78 78,31 50,59 22,31 22,78 9,78 0,69"/><polygon points="15.5,-15 21.5,-9 15.5,-3 9.5,-9"/><polygon points="89,-32.5 96.5,-25 89,-17.5 81.5,-25"/><polygon points="162.5,-15 168.5,-9 162.5,-3 156.5,-9"/></g></svg></div>
+    <div id="s2" class="seg pt"><span></span></div>
+    <div id="n2" class="seg nm"><span></span></div>
+  </div>
+  <div id="round" hidden><span></span></div>
+  <div id="headline" hidden>Metroplex Major</div>
+  <div id="cam-tag" class="tag"><span>On the mic</span></div>
+  <div id="card1" class="card" hidden><b></b><small></small></div>
+  <div id="card2" class="card" hidden><b></b><small></small></div>
+  <div id="lockup">
+    <svg viewBox="-6 -38 190 128" aria-hidden="true"><g fill="#F0B40D"><polygon points="0,9 9,0 22,0 50,28 78,0 89,-13 100,0 128,28 156,0 169,0 178,9 178,69 169,78 156,78 156,31 128,59 100,31 100,78 78,78 78,31 50,59 22,31 22,78 9,78 0,69"/><polygon points="15.5,-15 21.5,-9 15.5,-3 9.5,-9"/><polygon points="89,-32.5 96.5,-25 89,-17.5 81.5,-25"/><polygon points="162.5,-15 168.5,-9 162.5,-3 156.5,-9"/></g></svg>
+    <div><b>Metroplex Major</b><small id="lockup-sub"></small></div>
+  </div>
+  <div id="notice"></div>
+  <div class="bar"><span id="ticker"></span><span id="site"></span></div>
+<script src="/mm.js"></script>
+<script>
+(() => {
+  'use strict';
+  const $ = (sel) => document.querySelector(sel);
+  const px = (n) => `${Math.round(n)}px`;
+  let S = null;
+  let ticker = null;
+  const place = (el, b) => { el.style.left = px(b.x); el.style.top = px(b.y); el.style.width = px(b.w); el.style.height = px(b.h); };
+  const setRect = (el, b) => { for (const k of ['x', 'y']) el.setAttribute(k, b[k]); el.setAttribute('width', b.w); el.setAttribute('height', b.h); };
+  // Shrink until it fits, so long tags stay whole.
+  function fit(el, text, max, room) {
+    el.textContent = text || '';
+    let size = max;
+    el.style.fontSize = px(size);
+    while (size > 12 && el.scrollWidth > room) { size -= 1; el.style.fontSize = px(size); }
+  }
+  function render() {
+    if (!S) return;
+    const L = S.screenLayout || { game: { x: 60, y: 168, w: 1280, h: 720 }, cam: { x: 1380, y: 168, w: 480, h: 270 } };
+    const mm = (S.branding && S.branding.mm) || {};
+    const c = S.current || {};
+    setRect($('#hole-game'), L.game);
+    setRect($('#hole-cam'), L.cam);
+    place($('#frame-game'), { x: L.game.x - 4, y: L.game.y - 4, w: L.game.w, h: L.game.h });
+    place($('#frame-cam'), { x: L.cam.x - 4, y: L.cam.y - 4, w: L.cam.w, h: L.cam.h });
+    // Set and score above the gameplay window; the Major's name when no set is picked.
+    const cx = L.game.x + L.game.w / 2;
+    const live = !!(c.p1 && c.p2);
+    $('#board').hidden = !live;
+    $('#headline').hidden = live;
+    $('#board').style.left = px(cx);
+    $('#board').style.top = px(L.game.y - 62 - 56);
+    $('#headline').style.left = px(cx);
+    $('#headline').style.top = px(L.game.y - 100);
+    if (live) {
+      for (const side of [1, 2]) {
+        fit($(`#n${side} span`), c[`p${side}`], 26, 300);
+        $(`#s${side} span`).textContent = String(c[`score${side}`] || 0);
+      }
+      const bestOf = Number(c.bestOf) || 1;
+      const parts = [c.round || '', bestOf > 1 ? `Best of ${bestOf}` : ''].filter(Boolean);
+      $('#round').hidden = !parts.length;
+      $('#round').style.left = px(cx);
+      $('#round').style.top = px(L.game.y - 46);
+      $('#round span').innerHTML = window.MM.gems(parts.join(' ◆ '));
+    } else $('#round').hidden = true;
+    // "On the mic" above the camera, then the name cards under it.
+    const tag = $('#cam-tag');
+    tag.style.left = px(L.cam.x - 4);
+    tag.style.top = px(L.cam.y - 46);
+    const casters = ((S.screens && S.screens.casters) || []).filter((k) => k && k.name);
+    let y = L.cam.y + L.cam.h + 16;
+    for (const i of [0, 1]) {
+      const card = $(`#card${i + 1}`);
+      const k = casters[i];
+      card.hidden = !k;
+      if (!k) continue;
+      place(card, { x: L.cam.x - 4, y, w: L.cam.w, h: k.handle ? 96 : 76 });
+      fit(card.querySelector('b'), k.name, 34, L.cam.w - 60);
+      card.querySelector('small').textContent = k.handle || '';
+      card.querySelector('small').hidden = !k.handle;
+      y += (k.handle ? 96 : 76) + 14;
+    }
+    // Crown lockup at the foot of the right column, level with the bottom of the gameplay window.
+    const lock = $('#lockup');
+    lock.style.left = px(L.cam.x);
+    lock.style.top = px(L.game.y + L.game.h - 64);
+    $('#lockup-sub').innerHTML = window.MM.gems(mm.mode === 'event' ? 'UNT Dallas' : 'Feb 5-7, 2027 ◆ UNT Dallas');
+    $('#notice').style.top = px(L.game.y + L.game.h + 22);
+    $('#notice').innerHTML = window.MM.gems(`Nintendo is not a sponsor of or affiliated with this tournament. Terms for participating in and viewing Licensed Tournaments using Nintendo Games: https://en-americas-support.nintendo.com/app/answers/detail/a_id/63454 ◆ Tournament license ${mm.license || ''}`);
+    $('#site').innerHTML = window.MM.gems(`${mm.site || 'metroplexmajor.com'} ◆ #MetroplexMajor`);
+    if (!ticker) ticker = window.MM.ticker($('#ticker'), () => window.MM.lines(S).filter((l) => !/^metroplexmajor\.com/i.test(l)));
+  }
+  let loadedVersion = '';
+  const es = new EventSource('/api/events');
+  es.addEventListener('state', (ev) => {
+    S = JSON.parse(ev.data);
+    if (S.version && loadedVersion && S.version !== loadedVersion) { location.reload(); return; }
+    loadedVersion = loadedVersion || S.version || '';
+    render();
+  });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+})();
+</script>
+</body>
+</html>
