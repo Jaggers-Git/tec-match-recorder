@@ -10,6 +10,8 @@
 <style>
   @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Bold.ttf') format('truetype'); font-weight: 700; }
   html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; }
+  /* OBS gives every Browser Source "body { background-color: rgba(0,0,0,0) }", so the midnight lives on html. */
+  html { background: #11151A; }
   body { background: #11151A; color: #fff; font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; position: relative; text-transform: uppercase; }
   [hidden] { display: none !important; }
   svg.gem { display: inline-block; width: .42em; height: .42em; vertical-align: middle; transform: translateY(-.05em); margin: 0 .5em; }
