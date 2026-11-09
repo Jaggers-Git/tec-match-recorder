@@ -347,8 +347,9 @@ Three full-screen 1920x1080 scenes in the Metroplex Major look:
 
 The **Stream screens** panel (Broadcast mode) holds the message and the two caster cards; what is typed there shows
 on the screens straight away. A card with no name is not drawn. When the production software is connected, a button
-per scene (Gameplay, Starting Soon, BRB, Casters, and Replay once the replay scene exists) sits under the live
-output picture.
+per scene sits under the live output picture: Gameplay (the scene picked in Settings, else the overlay's scene,
+else one named like "Gameplay"), Starting Soon, BRB, Casters, and Replay, each shown only once that scene exists in
+OBS (or that input in vMix). Before the stream screens are added, a link there opens the button that adds them.
 
 **Preview or Program** (Settings, *Scene changes from the recorder go to*): by default every scene change from the
 recorder lands in **Preview** (OBS Studio Mode, vMix Preview) and nothing goes live until you take it with the

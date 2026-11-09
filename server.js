@@ -374,11 +374,12 @@ function buildLabel(current) {
 
 // ---------- OBS WebSocket (protocol v5) ----------
 const EVENT_SUB_GENERAL = 1;
-const EVENT_SUB_SCENES = 4;           // program and preview scene changes (the live picture, scene buttons)
+const EVENT_SUB_CONFIG = 2;           // scene collection switched (a new scene list)
+const EVENT_SUB_SCENES = 4;           // program and preview scene changes, scenes added or removed (scene buttons)
 const EVENT_SUB_OUTPUTS = 64;         // recording and replay buffer
 const EVENT_SUB_MEDIA_INPUTS = 256;   // the replay clip ending
 const EVENT_SUB_UI = 1024;            // Studio Mode on or off
-const EVENT_SUBS = EVENT_SUB_GENERAL | EVENT_SUB_SCENES | EVENT_SUB_OUTPUTS | EVENT_SUB_MEDIA_INPUTS | EVENT_SUB_UI;
+const EVENT_SUBS = EVENT_SUB_GENERAL | EVENT_SUB_CONFIG | EVENT_SUB_SCENES | EVENT_SUB_OUTPUTS | EVENT_SUB_MEDIA_INPUTS | EVENT_SUB_UI;
 const outputState = (s) => (s === 'OBS_WEBSOCKET_OUTPUT_STARTED' ? 'started' : s === 'OBS_WEBSOCKET_OUTPUT_STOPPED' ? 'stopped' : s);
 
 class ObsClient {
@@ -395,6 +396,7 @@ class ObsClient {
     this.preview = '';
     this.studioMode = false;
     this.canvas = { w: 1920, h: 1080 };
+    this.scenes = [];   // every scene in the current collection, so the dashboard only offers buttons for real ones
     this.pending = new Map();
     this.reconnectTimer = null;
     this.handlers = { event: [], status: [] };
@@ -512,12 +514,23 @@ class ObsClient {
       case 'MediaInputPlaybackEnded':
         this.emit('event', { type: 'media-ended', input: data.inputName || '' });
         break;
+      case 'SceneCreated':
+      case 'SceneRemoved':
+      case 'SceneNameChanged':
+      case 'SceneListChanged':
+      case 'CurrentSceneCollectionChanged':
+        // Several of these arrive together (a rename is also a list change): read the scenes once they settle.
+        clearTimeout(this.scenesTimer);
+        this.scenesTimer = setTimeout(() => this.refreshScenes().then(() => this.emit('event', { type: 'scene' })), 250);
+        break;
       default:
         break;
     }
   }
-  // Program, Preview, Studio Mode and the canvas size, read once on connect; the events keep them current.
+  // Program, Preview, Studio Mode, the scene list and the canvas size, read on connect and when the scene
+  // collection changes; the scene events keep Program and Preview current in between.
   async refreshScenes() {
+    try { this.scenes = (await this.request('GetSceneList')).scenes.map((s) => s.sceneName).reverse(); } catch { /* leave it */ }
     try { this.program = (await this.request('GetCurrentProgramScene')).currentProgramSceneName || ''; } catch { /* leave it */ }
     try { this.studioMode = !!(await this.request('GetStudioModeEnabled')).studioModeEnabled; } catch { this.studioMode = false; }
     this.preview = '';
@@ -859,12 +872,15 @@ function uniquePath(dir, base, ext) {
   while (fs.existsSync(candidate)) candidate = path.join(dir, `${base} -${n++}${ext}`);
   return candidate;
 }
+// OBS reports paths with forward slashes (D:/Videos/x.mp4) and path.join writes backslashes, so both sides
+// are normalized before comparing; otherwise a Hybrid MP4 recording looks like its own remuxed copy.
 function remuxedSibling(src) {
-  const base = path.basename(src, path.extname(src));
-  const dir = path.dirname(src);
+  const own = path.normalize(src);
+  const base = path.basename(own, path.extname(own));
+  const dir = path.dirname(own);
   for (const ext of ['.mp4', '.mov', '.mkv']) {
     const candidate = path.join(dir, base + ext);
-    if (candidate.toLowerCase() !== src.toLowerCase() && fs.existsSync(candidate)) return candidate;
+    if (candidate.toLowerCase() !== own.toLowerCase() && fs.existsSync(candidate)) return candidate;
   }
   return null;
 }
@@ -1445,6 +1461,8 @@ function snapshot() {
       recordDirectory: recordDirectory(), version: sw.version, lastError: sw.lastError, snapshots: sw.canSnapshot(),
       // What is live and what is cued: OBS scenes, or vMix inputs (vMix always has a Preview).
       program: sw.program || '', preview: sw.preview || '', studioMode: !!sw.studioMode,
+      // The OBS scenes (or vMix inputs) that exist, so scene buttons are only offered for those.
+      scenes: sw.status === 'connected' ? sw.scenes || [] : [],
     },
     mode: cfg.mode === 'broadcast' ? 'broadcast' : 'record',
     replay: replay.status(),

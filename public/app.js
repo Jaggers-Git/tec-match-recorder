@@ -419,13 +419,21 @@
     // Leave the box being typed in alone; the others follow the server (another device may be editing).
     for (const [sel, get] of SCR_FIELDS) if (document.activeElement !== $(sel) && $(sel).value !== get(s)) $(sel).value = get(s);
     const c = S.config.scenes || {};
-    const gameplay = c.gameplay || (S.config.overlay && S.config.overlay.scene) || '';
+    // Buttons only for scenes (vMix: inputs) that exist. Gameplay is found the way automatic switching finds it:
+    // the scene picked in Settings, else the overlay's scene, else (OBS) one named like "Gameplay".
+    const have = S.sw.scenes || [];
+    const exists = (n) => have.includes(n);
+    const gameplay = [c.gameplay, S.config.overlay && S.config.overlay.scene].find((n) => n && exists(n))
+      || (isVmix() ? '' : have.find((n) => /gameplay|game/i.test(n))) || '';
+    const screens = (S.screenScenes || []).filter(exists);
     const rs = S.replay && S.replay.scene;
-    const list = [gameplay ? ['Gameplay', gameplay] : null, ...((S.screenScenes || []).map((n) => [n.replace(/^MM /, ''), n])), rs && rs.installed ? ['Replay', rs.name] : null].filter(Boolean);
+    const list = [gameplay ? ['Gameplay', gameplay] : null, ...screens.map((n) => [n.replace(/^MM /, ''), n]), rs && rs.installed && exists(rs.name) ? ['Replay', rs.name] : null].filter(Boolean);
+    // None of the stream screens in OBS or vMix yet: point at the button that adds them.
+    const addScreens = !screens.length && (S.screenScenes || []).length;
     const preview = c.to !== 'program';
     const live = S.sw.program || '';
     const cued = S.sw.studioMode ? S.sw.preview || '' : '';
-    const key = [S.sw.connected, preview, live, cued, ...list.flat()].join('|');
+    const key = [S.sw.connected, preview, live, cued, addScreens, ...list.flat()].join('|');
     if (key === sceneKey) return;
     sceneKey = key;
     // Preview mode: the scene buttons load Preview and Transition takes it live; Program mode cuts at once.
@@ -436,6 +444,7 @@
       ? (preview ? '<span class="muted" style="align-self:center">To Preview:</span>' : '')
         + list.map(([label, name]) => `<button class="small${state(name)}" type="button" data-scene="${esc(name)}" title="${preview ? 'Load' : 'Cut'} &quot;${esc(name)}&quot; ${preview ? `into ${esc(S.sw.name)}'s Preview` : `to ${esc(S.sw.name)}'s Program`}${where(name)}">${esc(label)}</button>`).join('')
         + (preview ? '<button class="small primary" type="button" data-transition title="Take Preview live with the current transition">Transition ▶</button>' : '')
+        + (addScreens ? `<button class="linkish" type="button" data-add-screens style="align-self:center">Add Starting Soon, BRB and Casters to ${esc(S.sw.name)}…</button>` : '')
       : '';
   }
   let scrTimer = null;
@@ -453,6 +462,11 @@
   }
   for (const [sel] of SCR_FIELDS) $(sel).addEventListener('input', sendScreens);
   $('#scene-buttons').addEventListener('click', async (ev) => {
+    if (ev.target.closest('[data-add-screens]')) {
+      openSettings();
+      setTimeout(() => $('#btn-scenes-add').scrollIntoView({ block: 'center' }), 60);
+      return;
+    }
     if (ev.target.closest('[data-transition]')) {
       if (S.rec && S.rec.active && !confirm('A set is recording. Taking Preview live puts it in the VOD. Transition anyway?')) return;
       try { await api('POST', '/api/scenes/transition'); } catch (e) { toast(e.message, { error: true }); }
