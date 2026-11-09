@@ -20,6 +20,8 @@ const { Detector } = require('./lib/detector');
 const { Trainer } = require('./lib/trainer');
 const { VmixClient } = require('./lib/vmix');
 const { Updater } = require('./lib/updater');
+const { Replay, SCENE: REPLAY_SCENE, clampSpeed } = require('./lib/replay');
+const { LiveFeed } = require('./lib/live');
 const { supervise, underSupervisor, RESTART_CODE } = require('./lib/supervisor');
 const art = require('./lib/art');
 
@@ -86,6 +88,13 @@ const DEFAULT_CONFIG = {
   scenes: { autoSwitch: false, gameplay: '', after: '', to: 'preview' },
   // Stations that only ever record Ultimate hide the other games everywhere (picker, suffixes, import).
   smashOnly: false,
+  // Dashboard layout for every device on the station: 'record' (the VOD station) or 'broadcast' (the live
+  // output picture, scene buttons and instant replay up top).
+  mode: 'record',
+  // Instant replay (lib/replay.js). enabled keeps OBS's replay buffer (or vMix's replay recording) running;
+  // seconds is the clip length; speed the slow-motion speed in percent; autoReturn takes the scene that was
+  // live before back to air when a replay ends; audio lets a replay at 100% be heard (slowed ones never are).
+  replay: { enabled: true, seconds: 15, speed: 50, autoReturn: true, audio: false },
 };
 
 // ---------- utilities ----------
@@ -229,7 +238,7 @@ const themeParam = (url) => (THEMES[url.searchParams.get('theme')] ? url.searchP
 // Runs in the <head> of every page, before the stylesheet paints, so a themed station never flashes TEC red.
 function themeScript() {
   const b = brandingInfo();
-  return `document.documentElement.dataset.theme=${JSON.stringify(b.theme)};document.documentElement.classList.toggle('smash-only',${b.smashOnly});\n`;
+  return `document.documentElement.dataset.theme=${JSON.stringify(b.theme)};document.documentElement.dataset.mode=${JSON.stringify(cfg.mode === 'broadcast' ? 'broadcast' : 'record')};document.documentElement.classList.toggle('smash-only',${b.smashOnly});\n`;
 }
 function saveLogo(buffer, contentType, id = themeId()) {
   const ext = Object.keys(LOGO_TYPES).find((k) => LOGO_TYPES[k] === String(contentType || '').split(';')[0].trim().toLowerCase());
@@ -295,6 +304,7 @@ function persistState() {
       writeJson(STATE_PATH, {
         current: state.current, rec: state.rec, log: state.log,
         recentPlayers: state.recentPlayers, recordedSetIds: state.recordedSetIds, screens: state.screens,
+        replays: replay.events,
       });
     } catch (e) { log('Could not save state:', e.message); }
   }, 150);
@@ -364,7 +374,12 @@ function buildLabel(current) {
 
 // ---------- OBS WebSocket (protocol v5) ----------
 const EVENT_SUB_GENERAL = 1;
-const EVENT_SUB_OUTPUTS = 64;
+const EVENT_SUB_SCENES = 4;           // program and preview scene changes (the live picture, scene buttons)
+const EVENT_SUB_OUTPUTS = 64;         // recording and replay buffer
+const EVENT_SUB_MEDIA_INPUTS = 256;   // the replay clip ending
+const EVENT_SUB_UI = 1024;            // Studio Mode on or off
+const EVENT_SUBS = EVENT_SUB_GENERAL | EVENT_SUB_SCENES | EVENT_SUB_OUTPUTS | EVENT_SUB_MEDIA_INPUTS | EVENT_SUB_UI;
+const outputState = (s) => (s === 'OBS_WEBSOCKET_OUTPUT_STARTED' ? 'started' : s === 'OBS_WEBSOCKET_OUTPUT_STOPPED' ? 'stopped' : s);
 
 class ObsClient {
   constructor() {
@@ -375,6 +390,11 @@ class ObsClient {
     this.version = '';
     this.recording = false;
     this.recordDirectory = '';
+    // What OBS is showing, kept current by its scene events: the live picture and the scene buttons use it.
+    this.program = '';
+    this.preview = '';
+    this.studioMode = false;
+    this.canvas = { w: 1920, h: 1080 };
     this.pending = new Map();
     this.reconnectTimer = null;
     this.handlers = { event: [], status: [] };
@@ -443,17 +463,12 @@ class ObsClient {
         const secret = crypto.createHash('sha256').update(cfg.obs.password + salt).digest('base64');
         authentication = crypto.createHash('sha256').update(secret + challenge).digest('base64');
       }
-      this.send({ op: 1, d: { rpcVersion: 1, authentication, eventSubscriptions: EVENT_SUB_GENERAL | EVENT_SUB_OUTPUTS } });
+      this.send({ op: 1, d: { rpcVersion: 1, authentication, eventSubscriptions: EVENT_SUBS } });
     } else if (op === 2) { // Identified
       this.setStatus('connected');
       this.afterConnect().catch((e) => log('OBS post-connect error:', e.message));
     } else if (op === 5) { // Event
-      if (d.eventType === 'RecordStateChanged') {
-        const data = d.eventData || {};
-        this.recording = !!data.outputActive;
-        const state = data.outputState === 'OBS_WEBSOCKET_OUTPUT_STARTED' ? 'started' : data.outputState === 'OBS_WEBSOCKET_OUTPUT_STOPPED' ? 'stopped' : data.outputState;
-        this.emit('event', { type: 'record', state, active: !!data.outputActive, path: data.outputPath || null });
-      }
+      this.handleEvent(d.eventType, d.eventData || {});
     } else if (op === 7) { // RequestResponse
       const p = this.pending.get(d.requestId);
       if (!p) return;
@@ -461,8 +476,53 @@ class ObsClient {
       clearTimeout(p.timer);
       const st = d.requestStatus || {};
       if (st.result) p.resolve(d.responseData || {});
-      else p.reject(new Error(st.comment || `OBS refused ${d.requestType} (code ${st.code})`));
+      else {
+        const err = new Error(st.comment || `OBS refused ${d.requestType} (code ${st.code})`);
+        err.code = st.code;
+        p.reject(err);
+      }
     }
+  }
+  handleEvent(type, data) {
+    switch (type) {
+      case 'RecordStateChanged':
+        this.recording = !!data.outputActive;
+        this.emit('event', { type: 'record', state: outputState(data.outputState), active: !!data.outputActive, path: data.outputPath || null });
+        break;
+      case 'CurrentProgramSceneChanged':
+        this.program = data.sceneName || '';
+        this.emit('event', { type: 'scene' });
+        break;
+      case 'CurrentPreviewSceneChanged':
+        this.preview = data.sceneName || '';
+        this.emit('event', { type: 'scene' });
+        break;
+      case 'StudioModeStateChanged':
+        this.studioMode = !!data.studioModeEnabled;
+        if (!this.studioMode) this.preview = '';
+        else this.request('GetCurrentPreviewScene').then((p) => { this.preview = p.currentPreviewSceneName || ''; this.emit('event', { type: 'scene' }); }).catch(() => {});
+        this.emit('event', { type: 'scene' });
+        break;
+      case 'ReplayBufferStateChanged':
+        this.emit('event', { type: 'replay-state', state: outputState(data.outputState), active: !!data.outputActive });
+        break;
+      case 'ReplayBufferSaved':
+        this.emit('event', { type: 'replay-saved', path: data.savedReplayPath || '' });
+        break;
+      case 'MediaInputPlaybackEnded':
+        this.emit('event', { type: 'media-ended', input: data.inputName || '' });
+        break;
+      default:
+        break;
+    }
+  }
+  // Program, Preview, Studio Mode and the canvas size, read once on connect; the events keep them current.
+  async refreshScenes() {
+    try { this.program = (await this.request('GetCurrentProgramScene')).currentProgramSceneName || ''; } catch { /* leave it */ }
+    try { this.studioMode = !!(await this.request('GetStudioModeEnabled')).studioModeEnabled; } catch { this.studioMode = false; }
+    this.preview = '';
+    if (this.studioMode) { try { this.preview = (await this.request('GetCurrentPreviewScene')).currentPreviewSceneName || ''; } catch { /* leave it */ } }
+    try { const v = await this.request('GetVideoSettings'); this.canvas = { w: v.baseWidth || 1920, h: v.baseHeight || 1080 }; } catch { /* assume 1080p */ }
   }
   request(requestType, requestData = {}, timeoutMs = 15000) {
     return new Promise((resolve, reject) => {
@@ -487,6 +547,7 @@ class ObsClient {
         this.recordDirectory = d.recordDirectory || '';
         const s = await this.request('GetRecordStatus');
         this.recording = !!s.outputActive;
+        await this.refreshScenes();
         log(`Connected to OBS ${this.version}, recordings go to ${this.recordDirectory}`);
         this.emit('event', { type: 'ready', recording: this.recording, durationMs: s.outputDuration || 0 });
         return;
@@ -516,6 +577,15 @@ class ObsClient {
   async screenshot(sourceName, width, height) {
     const shot = await this.request('GetSourceScreenshot', { sourceName, imageFormat: 'png', imageWidth: width, imageHeight: height }, 8000);
     return Buffer.from(String(shot.imageData || '').replace(/^data:image\/png;base64,/, ''), 'base64');
+  }
+  // A small JPEG of a scene for the live picture. Height follows the canvas so 4:3 or 21:9 canvases keep their shape.
+  async liveFrame(which) {
+    const sceneName = which === 'preview' ? (this.studioMode ? this.preview : '') : this.program;
+    if (!sceneName) return null;
+    const width = 640;
+    const height = Math.max(8, Math.round((width * this.canvas.h) / (this.canvas.w || 1920) / 2) * 2);
+    const shot = await this.request('GetSourceScreenshot', { sourceName: sceneName, imageFormat: 'jpg', imageWidth: width, imageHeight: height, imageCompressionQuality: 70 }, 5000);
+    return { buf: Buffer.from(String(shot.imageData || '').replace(/^data:[^,]*,/, ''), 'base64'), type: 'image/jpeg' };
   }
   async listSources() {
     let inputs = [];
@@ -559,6 +629,7 @@ function useSwitcher() {
   sw.disconnect();
   sw = next;
   overlayCache = { installed: false, inScenes: [], scene: '', currentScene: '', checkedAt: null };
+  replay.reset();
   sw.connect();
   log(`Production software: ${swName()}`);
   return true;
@@ -578,6 +649,9 @@ function onSwitcherEvent(ev) {
     refreshOverlayCache();
     if (sw === obs) trainer.cleanupLeftovers();
     rememberRecordDirectory();
+    replay.onReady().catch((e) => log('Instant replay:', e.message));
+  } else if (['replay-state', 'replay-saved', 'media-ended'].includes(ev.type)) {
+    replay.onSwitcherEvent(ev);
   } else if (ev.type === 'record') {
     if (ev.state === 'started') {
       lastStopped = null;
@@ -1307,6 +1381,17 @@ function updateConfig(body) {
   next.smashOnly = !!next.smashOnly;
   const sc = next.scenes || {};
   next.scenes = { autoSwitch: !!sc.autoSwitch, gameplay: String(sc.gameplay || '').trim(), after: String(sc.after || '').trim(), to: sc.to === 'program' ? 'program' : 'preview' };
+  next.mode = next.mode === 'broadcast' ? 'broadcast' : 'record';
+  const rp = next.replay || {};
+  next.replay = {
+    enabled: rp.enabled !== false,
+    seconds: Math.min(60, Math.max(5, Math.round(Number(rp.seconds) || 15))),
+    speed: clampSpeed(rp.speed),
+    autoReturn: rp.autoReturn !== false,
+    audio: !!rp.audio,
+  };
+  const replayChanged = next.replay.enabled !== cfg.replay.enabled || next.replay.seconds !== cfg.replay.seconds;
+  const modeChanged = next.mode !== cfg.mode;
   const obsChanged = JSON.stringify(next.obs) !== JSON.stringify(cfg.obs);
   const vmixChanged = ['host', 'port', 'user', 'password'].some((k) => next.vmix[k] !== cfg.vmix[k]);
   // Turning Smash-only on drops any SF6/Tekken bracket on the next sync, so sync right away.
@@ -1329,6 +1414,8 @@ function updateConfig(body) {
     if (sw === vmix && vmixChanged) vmix.connect();
   }
   if (sgChanged) { schedulePoll(); syncStartgg(); } else broadcastBracket();
+  if (replayChanged) replay.configChanged();
+  if (modeChanged) log(`Dashboard mode: ${cfg.mode === 'broadcast' ? 'Broadcast' : 'Record'}`);
   broadcast();
   // A bare tournament link has no bracket of its own: with a token, swap it for the tournament's events as Add events does.
   if (cfg.startgg.token) {
@@ -1356,7 +1443,12 @@ function snapshot() {
       id: switcherId(), name: swName(),
       status: sw.status, connected: sw.status === 'connected', recording: sw.recording,
       recordDirectory: recordDirectory(), version: sw.version, lastError: sw.lastError, snapshots: sw.canSnapshot(),
+      // What is live and what is cued: OBS scenes, or vMix inputs (vMix always has a Preview).
+      program: sw.program || '', preview: sw.preview || '', studioMode: !!sw.studioMode,
     },
+    mode: cfg.mode === 'broadcast' ? 'broadcast' : 'record',
+    replay: replay.status(),
+    live: live.status(),
     rec: state.rec,
     startgg: {
       ...sg,
@@ -1437,7 +1529,30 @@ function readBody(req) {
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.ttf': 'font/ttf', '.woff': 'font/woff', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+  '.jpg': 'image/jpeg', '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.mkv': 'video/x-matroska', '.webm': 'video/webm',
 };
+// A video file with byte ranges, so the browser can seek in a replay clip and start playing before it has it all.
+function serveVideo(req, res, file) {
+  let size;
+  try { size = fs.statSync(file).size; } catch { return sendJson(res, 404, { error: 'not found' }); }
+  const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || '').trim());
+  if (!m || (!m[1] && !m[2])) {
+    res.writeHead(200, { 'Content-Type': type, 'Content-Length': size, 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-cache' });
+    if (req.method === 'HEAD') return res.end();
+    return fs.createReadStream(file).pipe(res);
+  }
+  let start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
+  let end = m[1] && m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
+  if (start >= size || start > end) {
+    res.writeHead(416, { 'Content-Range': `bytes */${size}` });
+    return res.end();
+  }
+  start = Math.max(0, start);
+  end = Math.max(start, end);
+  res.writeHead(206, { 'Content-Type': type, 'Content-Length': end - start + 1, 'Content-Range': `bytes ${start}-${end}/${size}`, 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-cache' });
+  fs.createReadStream(file, { start, end }).pipe(res);
+}
 function readRawBody(req, limit) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -1465,7 +1580,7 @@ function serveStatic(res, pathname, url) {
       res.end(data);
     });
   }
-  const rel = pathname === '/' ? 'index.html' : pathname === '/train' ? 'train.html' : pathname === '/overlay' ? 'overlay.html' : pathname === '/slate' ? 'slate.html' : pathname === '/casters' ? 'casters.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
+  const rel = pathname === '/' ? 'index.html' : pathname === '/train' ? 'train.html' : pathname === '/overlay' ? 'overlay.html' : pathname === '/slate' ? 'slate.html' : pathname === '/casters' ? 'casters.html' : pathname === '/replay' ? 'replay.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
   const file = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!file.startsWith(PUBLIC_DIR)) return sendJson(res, 403, { error: 'forbidden' });
   fs.readFile(file, (err, data) => {
@@ -1504,6 +1619,101 @@ const detector = new Detector({
   onReview: (item) => trainer.enqueue(item),
 });
 const trainer = new Trainer({ dataDir: DATA_DIR, obs, detector, getCfg: () => cfg, log, onChange: () => broadcastTrain() });
+// ---------- instant replay and the live output picture (Broadcast mode) ----------
+const replay = new Replay({
+  getCfg: () => cfg,
+  saveConfig: () => writeJson(CONFIG_PATH, cfg),
+  log,
+  onChange: () => { persistState(); broadcast(); },
+  obs, vmix, getSw: () => sw,
+  current: () => state.current,
+  eventName: () => eventDisplayName(),
+  recordDirectory: () => recordDirectory(),
+  files: { targetDirFor, sanitizeFilename, uniquePath, remuxedSibling, waitForStableFile },
+  sendScene: (name) => sendScene(name),
+  scenesTo: () => scenesTo(),
+  initial: savedState.replays,
+});
+// Milliseconds between frames: OBS answers a small JPEG quickly; vMix writes a full-size PNG to disk each time.
+const LIVE_MS = { obs: { program: 200, preview: 500 }, vmix: { program: 700, preview: 1500 } };
+const live = new LiveFeed({
+  log,
+  interval: (which) => LIVE_MS[switcherId()][which],
+  grab: async (which) => {
+    if (sw.status !== 'connected') return null;
+    if (sw === obs) return obs.liveFrame(which);
+    if (!vmix.canSnapshot()) return null;
+    if (which === 'preview') return vmix.preview ? { buf: await vmix.screenshot(vmix.preview), type: 'image/png' } : null;
+    return { buf: await vmix.screenshot(''), type: 'image/png' };
+  },
+});
+async function handleReplayApi(route, req, res, url) {
+  const fail = (e, code = 409) => sendJson(res, code, { error: e.message });
+  switch (route) {
+    case 'GET /api/live.jpg': {
+      // The newest frame; with ?after=<frame number the page already has>, 204 until a new one exists.
+      const which = url.searchParams.get('which') === 'preview' ? 'preview' : 'program';
+      const f = await live.frame(which);
+      const headers = { 'Cache-Control': 'no-store', 'X-Interval': String(LIVE_MS[switcherId()][which]) };
+      if (!f) { res.writeHead(204, { ...headers, 'X-Frame': '0' }); res.end(); return true; }
+      if (String(f.seq) === url.searchParams.get('after')) { res.writeHead(204, { ...headers, 'X-Frame': String(f.seq) }); res.end(); return true; }
+      res.writeHead(200, { ...headers, 'Content-Type': f.type, 'Content-Length': f.buf.length, 'X-Frame': String(f.seq) });
+      res.end(f.buf);
+      return true;
+    }
+    case 'POST /api/replay/save':
+      try { sendJson(res, 200, { ok: true, event: await replay.save() }); } catch (e) { fail(e); }
+      return true;
+    case 'POST /api/replay/play': {
+      const b = await readBody(req);
+      try { sendJson(res, 200, { ok: true, ...(await replay.play(b.id ? String(b.id) : '', b.speed)) }); } catch (e) { fail(e); }
+      return true;
+    }
+    case 'POST /api/replay/back':
+      try { sendJson(res, 200, { ok: true, scene: await replay.back() }); } catch (e) { fail(e); }
+      return true;
+    case 'POST /api/replay/speed': {
+      const b = await readBody(req);
+      sendJson(res, 200, { ok: true, speed: replay.setSpeed(b.speed) });
+      return true;
+    }
+    case 'POST /api/replay/star': {
+      const b = await readBody(req);
+      try { sendJson(res, 200, { ok: true, star: replay.star(String(b.id || '')) }); } catch (e) { fail(e, 404); }
+      return true;
+    }
+    case 'POST /api/replay/remove': {
+      const b = await readBody(req);
+      sendJson(res, 200, { ok: replay.remove(String(b.id || '')) });
+      return true;
+    }
+    case 'POST /api/replay/scene':
+      try { sendJson(res, 200, await replay.installScene()); } catch (e) { fail(e, 400); }
+      return true;
+    case 'POST /api/replay/buffer': {
+      const b = await readBody(req);
+      try { await replay.setBuffer(!!b.on); sendJson(res, 200, { ok: true, active: replay.active }); } catch (e) { fail(e); }
+      return true;
+    }
+    case 'GET /api/replay/clip': {
+      const file = replay.clipPath(String(url.searchParams.get('id') || ''));
+      if (!file) sendJson(res, 404, { error: 'That clip is not on this PC' });
+      else serveVideo(req, res, file);
+      return true;
+    }
+    case 'POST /api/replay/open-folder': {
+      const last = replay.events.find((e) => e.path && fs.existsSync(e.path));
+      const dir = last ? path.dirname(last.path) : replay.replayDir();
+      if (!dir) { sendJson(res, 409, { error: `${swName()} has not reported its recordings folder yet` }); return true; }
+      try { fs.mkdirSync(dir, { recursive: true }); } catch { /* opened below if it exists */ }
+      if (process.platform === 'win32') spawn('explorer.exe', [dir], { detached: true, stdio: 'ignore' }).unref();
+      sendJson(res, 200, { ok: true, dir });
+      return true;
+    }
+    default:
+      return false;
+  }
+}
 function broadcastTrain() {
   const payload = { train: trainer.status(), detect: detector.status() };
   for (const c of sseClients) sseSend(c, 'train', payload);
@@ -2100,6 +2310,9 @@ async function handleApi(req, res, url) {
         disk: snap.disk, detect: snap.detect, train: snap.train,
         art: { portraitFiles: snap.art.portrait.files, iconFiles: snap.art.icon.files },
         samples: samplesInfo, testRecording: testRec,
+        mode: snap.mode,
+        replay: { ...snap.replay, events: snap.replay.events.slice(0, 10) },
+        live: snap.live,
         recentRecordings: state.log.slice(0, 20).map((e) => ({ ts: e.ts, status: e.status, error: e.error, title: e.title, filename: e.filename, durationSec: e.durationSec })),
         log: logLines.slice(-300),
       };
@@ -2129,6 +2342,7 @@ async function handleApi(req, res, url) {
       removeLogo(themeParam(url));
       return sendJson(res, 200, { ok: true, branding: brandingInfo() });
     default:
+      if (await handleReplayApi(route, req, res, url)) return undefined;
       if (await handleDetectApi(route, req, res, url)) return undefined;
       return sendJson(res, 404, { error: `No route ${route}` });
   }

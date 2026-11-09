@@ -21,12 +21,70 @@
     <span id="chip-detect" class="chip">Detect</span>
     <span id="chip-overlay" class="chip" style="cursor:pointer" title="Stream overlay: click to open its settings">Overlay</span>
   </div>
+  <div class="mode-switch" role="group" aria-label="Dashboard mode" title="Record: the VOD station. Broadcast: the live output picture, scene buttons and instant replay. Every device on this station follows the choice.">
+    <button type="button" data-mode="record">Record</button>
+    <button type="button" data-mode="broadcast">Broadcast</button>
+  </div>
   <a class="small" href="/train" style="text-decoration:none">Train detector</a>
   <button id="btn-settings" class="small">⚙ Settings</button>
 </header>
 <div id="banner" class="banner" hidden></div>
 
 <main class="layout">
+  <section class="panel live-panel" id="live-panel">
+    <div class="panel-head">
+      <h2>Live output</h2>
+      <span id="live-status" class="muted"></span>
+      <span class="spacer"></span>
+      <label class="check small-check" title="Stops the picture on this device only (saves work for OBS on a busy PC, and data on a phone)"><input type="checkbox" id="live-hide"> Hide picture</label>
+    </div>
+    <div id="live-views" class="live-views">
+      <figure class="live-view program">
+        <img id="live-program" alt="Program output">
+        <figcaption><b>Program</b> <span id="live-program-name"></span></figcaption>
+        <div id="live-program-off" class="off" hidden></div>
+      </figure>
+      <figure class="live-view preview" id="live-preview-wrap">
+        <img id="live-preview" alt="Preview">
+        <figcaption><b>Preview</b> <span id="live-preview-name"></span></figcaption>
+        <div id="live-preview-off" class="off" hidden></div>
+      </figure>
+    </div>
+    <div class="actions live-scenes" id="scene-buttons"></div>
+  </section>
+
+  <section class="panel replay-panel" id="replay-panel">
+    <div class="panel-head">
+      <h2>Instant replay</h2>
+      <span id="replay-status" class="muted"></span>
+    </div>
+    <button id="btn-replay" class="replay-btn" type="button" disabled>Replay<small id="replay-btn-sub">save the last 15 seconds</small></button>
+    <div class="speed-row">
+      <span class="label">Speed</span>
+      <div id="replay-speeds" class="speeds">
+        <button type="button" class="small" data-speed="100">100%</button>
+        <button type="button" class="small" data-speed="75">75%</button>
+        <button type="button" class="small" data-speed="50">50%</button>
+        <button type="button" class="small" data-speed="25">25%</button>
+      </div>
+      <input type="range" id="replay-speed" min="10" max="100" step="5" value="50" aria-label="Replay speed">
+      <span id="replay-speed-num" class="speed-num">50%</span>
+    </div>
+    <div class="replay-actions">
+      <button id="btn-replay-air" type="button" class="primary" disabled>Play last on air</button>
+      <button id="btn-replay-back" type="button" class="small" hidden>Back to live</button>
+      <span class="spacer"></span>
+      <button id="btn-replay-buffer" type="button" class="small" hidden>Start buffer</button>
+      <button id="btn-replay-folder" type="button" class="small" title="Open the folder the clips are saved in">Folder</button>
+    </div>
+    <div id="replay-help" class="muted replay-help" hidden></div>
+    <div id="replay-player" class="replay-player" hidden>
+      <video id="replay-video" controls muted playsinline></video>
+      <div class="row player-row"><span id="replay-player-name" class="muted"></span><span class="spacer"></span><button id="btn-player-close" type="button" class="small">Close player</button></div>
+    </div>
+    <ul id="replay-list" class="replay-list"></ul>
+  </section>
+
   <section class="panel bracket-panel">
     <div class="panel-head">
       <div class="tabs">
@@ -127,17 +185,15 @@
     <div class="record-area">
       <button id="btn-record" class="record-btn" disabled>CONNECTING…</button>
       <div id="record-status" class="record-status"></div>
+      <button id="btn-clip" class="small clip-btn" type="button" hidden title="Saves the last few seconds as a clip in the event's Replays folder, from OBS's replay buffer">Save clip (last 15 s)</button>
       <button id="btn-howto" class="howto-btn" type="button"><span class="q">?</span> How to record a set</button>
     </div>
   </section>
-</main>
 
 <section class="panel screens-panel">
   <div class="panel-head">
     <h2>Stream screens</h2>
     <span class="muted">Starting Soon, BRB and Casters. Typing here updates them live.</span>
-    <span class="spacer"></span>
-    <div class="actions" id="scene-buttons"></div>
   </div>
   <div class="screens-grid">
     <label class="msg">Message on Starting Soon and BRB (blank for none)
@@ -150,12 +206,15 @@
   </div>
 </section>
 
-<section class="panel log-panel">
+<section class="panel log-panel" id="log-panel">
   <div class="panel-head">
     <h2>Session log</h2>
+    <span id="log-count" class="muted"></span>
+    <span class="spacer"></span>
     <div class="actions">
       <button id="btn-copy-all" class="small">Copy all worksheet rows</button>
       <button id="btn-open-folder" class="small">Open recordings folder</button>
+      <button id="btn-log-toggle" class="small log-toggle" type="button">Hide</button>
     </div>
   </div>
   <div class="table-wrap">
@@ -166,6 +225,7 @@
   </div>
   <div id="log-empty" class="muted">Nothing recorded yet this session.</div>
 </section>
+</main>
 
 <datalist id="recent-list"></datalist>
 <datalist id="round-list"></datalist>
@@ -345,6 +405,22 @@
         </div>
       </fieldset>
       <fieldset>
+        <legend>Instant replay</legend>
+        <div class="muted sw-obs">OBS keeps the last few seconds in memory with its Replay Buffer, using the recording encoder (no second encode). Turn it on once in OBS: Settings, Output, tick Enable Replay Buffer (in Advanced output mode it is the Replay Buffer tab), then OK. The recorder sets the length and keeps the buffer running. Recording format Hybrid MP4 (or MP4) is best: with MKV and "Automatically remux to mp4", OBS also remuxes every replay and opens its remux window.</div>
+        <div class="muted sw-vmix">Uses vMix's own Instant Replay (vMix 4K, Pro or MAX). Add a Replay input in vMix and set its camera to Output. REPLAY marks the last seconds as a vMix event and, when vMix runs on this PC, exports it into the Replays folder; Play sends the newest event to the output at the chosen speed. Not yet tested on a live vMix.</div>
+        <label class="check" style="margin-top:8px"><input type="checkbox" name="replay.enabled"> <span>Keep the <span class="sw-obs">replay buffer</span><span class="sw-vmix">replay recording</span> running while <span class="sw-name">OBS</span> is connected</span></label>
+        <div class="grid2">
+          <label>Clip length in seconds (5 to 60) <input name="replay.seconds" type="number" min="5" max="60" step="1"></label>
+        </div>
+        <label class="check sw-obs"><input type="checkbox" name="replay.autoReturn"> When a replay ends, take the scene that was live before it back to air</label>
+        <label class="check"><input type="checkbox" name="replay.audio"> Let a replay at 100% speed be heard (slowed replays are always muted: the sound plays pitch-shifted and includes the casters' mics)</label>
+        <div class="row sw-obs" style="align-items:center;flex-wrap:wrap;gap:8px">
+          <button type="button" id="btn-replay-scene" class="small">Add replay scene to OBS</button>
+          <span id="replay-scene-status" class="muted"></span>
+        </div>
+        <div class="muted sw-obs" style="margin-top:6px">Creates the scene "TEC Replay": a Media Source for the clip, with the REPLAY badge from <a href="/replay" target="_blank">/replay</a> on top. Replays go to Preview or Program like the scene buttons (the setting above). The first Play adds the scene if it is missing.</div>
+      </fieldset>
+      <fieldset>
         <legend>Character detection</legend>
         <label class="check"><input type="checkbox" name="detect.enabled"> Read fighter names from the VS screen and fill them in automatically</label>
         <div class="grid2">
@@ -471,6 +547,23 @@
           <li>Filling the stream worksheet? <b>Copy row</b> on the log line and paste it in.</li>
         </ol>
       </section>
+      <section>
+        <h4>Broadcast mode</h4>
+        <ol>
+          <li>Switch the header to <b>Broadcast</b>. Every device on the station follows.</li>
+          <li><b>Live output</b> shows what is on air (Program) and, with Studio Mode on, what is cued (Preview). The scene buttons load Preview; <b>Transition</b> takes it live.</li>
+          <li>Picture lagging the PC? Tick <b>Hide picture</b> on that device.</li>
+        </ol>
+      </section>
+      <section>
+        <h4>Instant replay</h4>
+        <ol>
+          <li>Big moment: press <b>REPLAY</b>. The last 15 seconds are saved and added to the list.</li>
+          <li>Pick a speed (<b>50%</b> is a good slow motion), then <b>Play last on air</b>, or <b>On air</b> on any clip in the list.</li>
+          <li>Want to find the moment first? <b>▶</b> plays the clip in the panel at that speed, off air.</li>
+          <li>When the clip ends, the scene that was live before goes back to air by itself.</li>
+        </ol>
+      </section>
       <section class="howto-wide">
         <h4>If something looks wrong</h4>
         <table class="howto-table">
@@ -483,6 +576,8 @@
           <tr><td>start.gg error</td><td>Token or URL problem. Recording still works; enter names by hand and tell the TO.</td></tr>
           <tr><td>Detect: off or untrained</td><td>Characters won't fill in by themselves. Tap them in with <b>Characters…</b>.</td></tr>
           <tr><td>Disk chip red</td><td>Under 25 GB left. Tell the TO before the next set.</td></tr>
+          <tr class="obs-only"><td>REPLAY is greyed out</td><td>OBS's replay buffer is off. In OBS: Settings, Output, tick <i>Enable Replay Buffer</i>, OK. Then <b>Start buffer</b> in the replay panel.</td></tr>
+          <tr class="vmix-only"><td>REPLAY is greyed out</td><td>vMix needs a Replay input (Add Input, Replay), which is in vMix 4K, Pro and MAX.</td></tr>
           <tr><td>Log row says error</td><td>Tap <b>Retry</b>. The video is safe in the <span class="sw-name">OBS</span> folder either way.</td></tr>
           <tr><td>Black window closed</td><td>Run <b>Start Recorder.bat</b> again. A recording in progress keeps going in <span class="sw-name">OBS</span>.</td></tr>
         </table>

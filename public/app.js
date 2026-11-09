@@ -123,7 +123,14 @@
   // ---------- live updates ----------
   function connect() {
     const es = new EventSource('/api/events');
-    es.addEventListener('state', (ev) => { S = JSON.parse(ev.data); appOnline = true; render(); });
+    es.addEventListener('state', (ev) => {
+      const wasOffline = !appOnline;
+      S = JSON.parse(ev.data);
+      appOnline = true;
+      // Back after a restart: the picture streams ended with the old process, so open them again.
+      if (wasOffline) restartLive();
+      render();
+    });
     es.addEventListener('bracket', (ev) => { B = JSON.parse(ev.data); renderBracket(true); });
     es.onerror = () => {
       appOnline = false;
@@ -138,6 +145,7 @@
     if (!S) return;
     applyBranding();
     applySwitcher();
+    applyMode();
     renderUpdate();
     if (!$('#settings').hidden) { renderNetworkStatus(); renderArtStatus(); renderMaintenance(); renderLogoStatus(); }
     if (!$('#setup').hidden) renderSetup();
@@ -151,7 +159,257 @@
     renderBracket(false);
     renderSettingsStatus();
     renderScreens();
+    renderLive();
+    renderReplay();
+    renderLogPanel();
   }
+  // Per-device conveniences (picture hidden, log folded); a private window simply forgets them.
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } },
+  };
+
+  // ---------- dashboard mode: Record or Broadcast (one choice for the whole station, saved in config) ----------
+  const modeNow = () => (S && S.mode === 'broadcast' ? 'broadcast' : 'record');
+  function applyMode() {
+    const mode = modeNow();
+    if (document.documentElement.dataset.mode !== mode) document.documentElement.dataset.mode = mode;
+    for (const b of document.querySelectorAll('.mode-switch [data-mode]')) b.classList.toggle('active', b.dataset.mode === mode);
+  }
+  document.querySelector('.mode-switch').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-mode]');
+    if (!b || !S || b.dataset.mode === modeNow()) return;
+    document.documentElement.dataset.mode = b.dataset.mode;
+    try { await api('PUT', '/api/config', { mode: b.dataset.mode }); } catch (e) { toast(e.message, { error: true }); applyMode(); }
+  });
+
+  // ---------- live output picture (Broadcast mode) ----------
+  // Each picture fetches the newest frame, waits the server's frame interval, and fetches again. Short
+  // requests, never a stream held open: a browser allows six connections to the recorder, and two
+  // dashboard tabs with open picture streams would leave none for the buttons. The loop only runs while
+  // Broadcast mode is showing on a visible tab, so OBS does no work for pages that are not looking.
+  const LIVE_HIDE_KEY = 'tec.liveHidden';
+  const liveLoop = { program: { on: false, busy: false, timer: null, seq: '', url: '' }, preview: { on: false, busy: false, timer: null, seq: '', url: '' } };
+  $('#live-hide').checked = store.get(LIVE_HIDE_KEY) === '1';
+  $('#live-hide').addEventListener('change', () => { store.set(LIVE_HIDE_KEY, $('#live-hide').checked ? '1' : '0'); renderLive(); });
+  document.addEventListener('visibilitychange', () => renderLive());
+  function setLive(which, on) {
+    const L = liveLoop[which];
+    if (on === L.on) return;
+    L.on = on;
+    clearTimeout(L.timer);
+    if (on) pullFrame(which);
+    else if (L.url) { $(`#live-${which}`).removeAttribute('src'); URL.revokeObjectURL(L.url); L.url = ''; L.seq = ''; }
+  }
+  async function pullFrame(which) {
+    const L = liveLoop[which];
+    if (!L.on || L.busy) return;
+    L.busy = true;
+    const started = Date.now();
+    let wait = 1000;
+    try {
+      const res = await fetch(`/api/live.jpg?which=${which}&after=${encodeURIComponent(L.seq)}`, { cache: 'no-store' });
+      wait = Number(res.headers.get('X-Interval')) || 500;
+      if (res.status === 200 && L.on) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const old = L.url;
+        L.url = url;
+        L.seq = res.headers.get('X-Frame') || '';
+        $(`#live-${which}`).src = url;
+        if (old) setTimeout(() => URL.revokeObjectURL(old), 1000);
+      } else if (res.status === 204 && res.headers.get('X-Frame') === '0') wait = 1000;
+    } catch { wait = 2000; }
+    L.busy = false;
+    if (L.on) L.timer = setTimeout(() => pullFrame(which), Math.max(40, wait - (Date.now() - started)));
+  }
+  // Back after a restart: frame numbers start again from 1, so forget the last one.
+  function restartLive() { for (const L of Object.values(liveLoop)) L.seq = ''; }
+  function renderLive() {
+    if (!S) return;
+    const o = S.sw;
+    const vm = isVmix();
+    const hidden = $('#live-hide').checked;
+    const canShow = o.connected && o.snapshots;
+    const hasPreview = vm ? !!o.preview : !!o.studioMode;
+    const want = modeNow() === 'broadcast' && !hidden && !document.hidden && canShow;
+    setLive('program', want);
+    setLive('preview', want && hasPreview);
+    $('#live-preview-wrap').hidden = !hasPreview;
+    $('#live-views').classList.toggle('single', !hasPreview);
+    $('#live-program-name').textContent = o.program || '';
+    $('#live-preview-name').textContent = o.preview || '';
+    const off = !o.connected ? `${o.name} is not connected` : !o.snapshots ? 'vMix runs on another PC, so its picture cannot be shown here' : hidden ? 'Picture hidden on this device' : '';
+    for (const w of ['program', 'preview']) { const el = $(`#live-${w}-off`); el.hidden = !off; el.textContent = off; }
+    const err = S.live && S.live.error;
+    const toPreview = (S.config.scenes || {}).to !== 'program';
+    $('#live-status').textContent = err ? `Picture: ${err}`
+      : !canShow ? ''
+        : !vm && !o.studioMode && toPreview ? 'Studio Mode is off in OBS, so the scene buttons have no Preview to load'
+          : vm ? 'About one frame a second, no sound' : 'About a quarter second behind, no sound';
+  }
+
+  // ---------- instant replay ----------
+  let replaySpeed = null;   // this device's pick until the server has it
+  let replayKey = '';
+  let checkId = '';         // the clip playing in the panel's own player
+  const speedNow = () => replaySpeed ?? ((S && S.replay && S.replay.speed) || 50);
+  function replayWho(e) { return e.p1 || e.p2 ? `${e.p1 || '?'} vs ${e.p2 || '?'}` : 'No set picked'; }
+  function replayItem(e, r) {
+    const d = new Date(e.ts);
+    const when = `${fmtClock(e.ts)}:${pad(d.getSeconds())}`;
+    // No length here: a clip starts on a keyframe, so it can run a few seconds off the setting.
+    const meta = [e.set ? `Set ${e.set}` : '', e.round].filter(Boolean).join(', ');
+    const note = e.status === 'saving' ? 'saving…' : e.status === 'error' ? e.error : e.exporting ? 'exporting from vMix…' : e.error || '';
+    const canCheck = e.status === 'saved' && !e.vmixOnly && !!e.filename;
+    const canAir = r.sw === 'obs' ? e.status === 'saved' : !!e.vmixLast;
+    const airTitle = canAir ? `Play on stream at the chosen speed (${r.sw === 'obs' ? 'to Preview or Program, as the scene buttons do' : 'vMix plays its newest event to the output'})` : r.sw === 'obs' ? 'Not ready yet' : 'Play older events from the Replay input in vMix';
+    const cls = [r.playing && r.playing.id === e.id ? 'playing' : '', checkId === e.id ? 'checking' : ''].filter(Boolean).join(' ');
+    return `<li class="${cls}">
+      <button type="button" class="star${e.star ? ' on' : ''}" data-replay-star="${esc(e.id)}" title="${e.star ? 'Unstar' : 'Star this clip'}">${e.star ? '★' : '☆'}</button>
+      <div class="info"><b>${esc(replayWho(e))}</b><span class="muted">${esc(when)}${meta ? `, ${esc(meta)}` : ''}</span>${note ? `<span class="${e.status === 'error' ? 'err' : 'muted'}">${esc(note)}</span>` : ''}</div>
+      <div class="acts">
+        ${canCheck ? `<button type="button" class="small" data-replay-check="${esc(e.id)}" title="Play it here at the chosen speed, off air">▶</button>` : ''}
+        <button type="button" class="small" data-replay-air="${esc(e.id)}"${canAir ? '' : ' disabled'} title="${esc(airTitle)}">On air</button>
+        <button type="button" class="small" data-replay-remove="${esc(e.id)}" title="Remove from the list (the file stays in the Replays folder)">✕</button>
+      </div>
+    </li>`;
+  }
+  function renderReplay() {
+    const r = S && S.replay;
+    if (!r) return;
+    const vm = r.sw === 'vmix';
+    if (replaySpeed != null && r.speed === replaySpeed) replaySpeed = null;
+    const ready = r.connected && r.available && r.active;
+    const btn = $('#btn-replay');
+    btn.disabled = !ready || r.saving;
+    btn.classList.toggle('saving', !!r.saving);
+    $('#replay-btn-sub').textContent = r.saving ? 'saving…' : `save the last ${r.seconds} seconds`;
+    let status;
+    if (!r.connected) status = `Waiting for ${S.sw.name}`;
+    else if (r.available === false) status = vm ? 'Not available in this vMix' : 'Replay buffer is off in OBS';
+    else if (r.available == null) status = 'Checking…';
+    else if (!r.active) status = vm ? 'vMix replay is not recording' : 'Replay buffer stopped';
+    else status = vm ? `vMix replay recording, ${r.seconds} s clips` : `Buffer running, last ${r.seconds} s`;
+    if (r.playing) status = `${r.playing.onAir ? 'On air' : 'Cued in Preview'} at ${r.playing.speed}%`;
+    $('#replay-status').textContent = status;
+    const help = !r.connected ? '' : r.available === false ? r.reason : r.lastError || '';
+    $('#replay-help').hidden = !help;
+    $('#replay-help').textContent = help;
+    const bb = $('#btn-replay-buffer');
+    bb.hidden = !(r.connected && r.available);
+    bb.textContent = r.active ? (vm ? 'Stop replay recording' : 'Stop buffer') : (vm ? 'Start replay recording' : 'Start buffer');
+    const sp = speedNow();
+    const slider = $('#replay-speed');
+    if (document.activeElement !== slider) slider.value = String(sp);
+    $('#replay-speed-num').textContent = `${sp}%`;
+    for (const b of document.querySelectorAll('#replay-speeds [data-speed]')) b.classList.toggle('active', Number(b.dataset.speed) === sp);
+    const newest = r.events.find((e) => (vm ? e.vmixLast : e.status === 'saved'));
+    $('#btn-replay-air').disabled = !r.connected || !newest;
+    const back = $('#btn-replay-back');
+    back.hidden = !(r.sw === 'obs' && r.returnTo && S.sw.program === r.scene.name);
+    back.textContent = `Back to ${r.returnTo || 'live'}`;
+    const key = JSON.stringify([r.events.map((e) => [e.id, e.status, e.star, e.filename, e.error, e.exporting, e.vmixLast, e.p1, e.p2]), r.playing && r.playing.id, checkId, r.sw]);
+    if (key !== replayKey) {
+      replayKey = key;
+      $('#replay-list').innerHTML = r.events.length
+        ? r.events.map((e) => replayItem(e, r)).join('')
+        : `<li class="empty muted">No replays yet. ${ready ? 'Press REPLAY after a big moment.' : ''}</li>`;
+    }
+  }
+  async function saveReplay() {
+    try {
+      const r = await api('POST', '/api/replay/save');
+      if (modeNow() === 'record') toast(`Clip saved: ${r.event.base}. It goes in the Replays folder next to the recordings.`);
+    } catch (e) { toast(e.message, { error: true }); }
+  }
+  $('#btn-replay').addEventListener('click', saveReplay);
+  $('#btn-clip').addEventListener('click', saveReplay);
+  async function setSpeed(n) {
+    replaySpeed = n;
+    renderReplay();
+    const v = $('#replay-video');
+    v.playbackRate = n / 100;
+    try { await api('POST', '/api/replay/speed', { speed: n }); } catch (e) { replaySpeed = null; toast(e.message, { error: true }); }
+  }
+  $('#replay-speeds').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-speed]');
+    if (b) setSpeed(Number(b.dataset.speed));
+  });
+  $('#replay-speed').addEventListener('input', () => {
+    const n = Number($('#replay-speed').value);
+    $('#replay-speed-num').textContent = `${n}%`;
+    $('#replay-video').playbackRate = n / 100;
+  });
+  $('#replay-speed').addEventListener('change', () => setSpeed(Number($('#replay-speed').value)));
+  async function playOnAir(id) {
+    try {
+      const r = await api('POST', '/api/replay/play', { id, speed: speedNow() });
+      if (r.to === 'preview') toast('The replay is in Preview. Press Transition to take it live; it starts from the top.');
+    } catch (e) { toast(e.message, { error: true }); }
+  }
+  $('#btn-replay-air').addEventListener('click', () => playOnAir(''));
+  $('#btn-replay-back').addEventListener('click', async () => {
+    try { await api('POST', '/api/replay/back'); } catch (e) { toast(e.message, { error: true }); }
+  });
+  $('#btn-replay-buffer').addEventListener('click', async () => {
+    try { await api('POST', '/api/replay/buffer', { on: !(S.replay && S.replay.active) }); } catch (e) { toast(e.message, { error: true }); }
+  });
+  $('#btn-replay-folder').addEventListener('click', async () => {
+    try { const r = await api('POST', '/api/replay/open-folder'); toast(`Opened ${r.dir}`); } catch (e) { toast(e.message, { error: true }); }
+  });
+  // The panel's own player: check a clip at the chosen speed without putting it on stream.
+  function checkClip(id) {
+    const e = ((S && S.replay && S.replay.events) || []).find((x) => x.id === id);
+    if (!e) return;
+    const v = $('#replay-video');
+    checkId = id;
+    $('#replay-player').hidden = false;
+    $('#replay-player-name').textContent = `${replayWho(e)}, ${speedNow()}%`;
+    v.src = `/api/replay/clip?id=${encodeURIComponent(id)}`;
+    v.defaultPlaybackRate = speedNow() / 100;
+    v.playbackRate = speedNow() / 100;
+    v.play().catch(() => {});
+    replayKey = '';
+    renderReplay();
+  }
+  $('#replay-video').addEventListener('loadedmetadata', () => { $('#replay-video').playbackRate = speedNow() / 100; });
+  $('#replay-video').addEventListener('error', () => {
+    if (!checkId) return;
+    toast('This browser cannot play that clip. MKV files often will not play in a browser; record in Hybrid MP4 in OBS (Settings, Output, Recording Format).', { error: true });
+  });
+  $('#btn-player-close').addEventListener('click', () => {
+    const v = $('#replay-video');
+    v.pause();
+    v.removeAttribute('src');
+    v.load();
+    checkId = '';
+    $('#replay-player').hidden = true;
+    replayKey = '';
+    renderReplay();
+  });
+  $('#replay-list').addEventListener('click', async (ev) => {
+    const star = ev.target.closest('[data-replay-star]');
+    if (star) { try { await api('POST', '/api/replay/star', { id: star.dataset.replayStar }); } catch (e) { toast(e.message, { error: true }); } return; }
+    const check = ev.target.closest('[data-replay-check]');
+    if (check) { checkClip(check.dataset.replayCheck); return; }
+    const air = ev.target.closest('[data-replay-air]');
+    if (air) { playOnAir(air.dataset.replayAir); return; }
+    const rm = ev.target.closest('[data-replay-remove]');
+    if (rm) { try { await api('POST', '/api/replay/remove', { id: rm.dataset.replayRemove }); } catch (e) { toast(e.message, { error: true }); } }
+  });
+
+  // ---------- session log: folded by default in Broadcast mode, remembered per device and mode ----------
+  const logKey = () => `tec.logHidden.${modeNow()}`;
+  function logHidden() { const v = store.get(logKey()); return v === null ? modeNow() === 'broadcast' : v === '1'; }
+  function renderLogPanel() {
+    const hidden = logHidden();
+    $('#log-panel').classList.toggle('collapsed', hidden);
+    $('#btn-log-toggle').textContent = hidden ? 'Show' : 'Hide';
+    const n = (S && S.log ? S.log.length : 0);
+    $('#log-count').textContent = hidden ? `${n} set${n === 1 ? '' : 's'} recorded` : '';
+  }
+  $('#btn-log-toggle').addEventListener('click', () => { store.set(logKey(), logHidden() ? '0' : '1'); renderLogPanel(); });
   // ---------- stream screens (message, caster cards, scene buttons) ----------
   const SCR_FIELDS = [['#scr-message', (s) => s.message], ['#scr-c1-name', (s) => s.casters[0].name], ['#scr-c1-handle', (s) => s.casters[0].handle], ['#scr-c2-name', (s) => s.casters[1].name], ['#scr-c2-handle', (s) => s.casters[1].handle]];
   let sceneKey = '';
@@ -162,15 +420,21 @@
     for (const [sel, get] of SCR_FIELDS) if (document.activeElement !== $(sel) && $(sel).value !== get(s)) $(sel).value = get(s);
     const c = S.config.scenes || {};
     const gameplay = c.gameplay || (S.config.overlay && S.config.overlay.scene) || '';
-    const list = [gameplay ? ['Gameplay', gameplay] : null, ...((S.screenScenes || []).map((n) => [n.replace(/^MM /, ''), n]))].filter(Boolean);
+    const rs = S.replay && S.replay.scene;
+    const list = [gameplay ? ['Gameplay', gameplay] : null, ...((S.screenScenes || []).map((n) => [n.replace(/^MM /, ''), n])), rs && rs.installed ? ['Replay', rs.name] : null].filter(Boolean);
     const preview = c.to !== 'program';
-    const key = [S.sw.connected, preview, ...list.flat()].join('|');
+    const live = S.sw.program || '';
+    const cued = S.sw.studioMode ? S.sw.preview || '' : '';
+    const key = [S.sw.connected, preview, live, cued, ...list.flat()].join('|');
     if (key === sceneKey) return;
     sceneKey = key;
     // Preview mode: the scene buttons load Preview and Transition takes it live; Program mode cuts at once.
+    // The scene on Program is outlined red and the one in Preview green, as in OBS.
+    const state = (name) => (name === live ? ' on-program' : name === cued ? ' on-preview' : '');
+    const where = (name) => (name === live ? ' (on air now)' : name === cued ? ' (in Preview now)' : '');
     $('#scene-buttons').innerHTML = S.sw.connected
       ? (preview ? '<span class="muted" style="align-self:center">To Preview:</span>' : '')
-        + list.map(([label, name]) => `<button class="small" type="button" data-scene="${esc(name)}" title="${preview ? 'Load' : 'Cut'} &quot;${esc(name)}&quot; ${preview ? `into ${esc(S.sw.name)}'s Preview` : `to ${esc(S.sw.name)}'s Program`}">${esc(label)}</button>`).join('')
+        + list.map(([label, name]) => `<button class="small${state(name)}" type="button" data-scene="${esc(name)}" title="${preview ? 'Load' : 'Cut'} &quot;${esc(name)}&quot; ${preview ? `into ${esc(S.sw.name)}'s Preview` : `to ${esc(S.sw.name)}'s Program`}${where(name)}">${esc(label)}</button>`).join('')
         + (preview ? '<button class="small primary" type="button" data-transition title="Take Preview live with the current transition">Transition ▶</button>' : '')
       : '';
   }
@@ -385,8 +649,14 @@
       btn.className = 'record-btn';
       btn.textContent = connected ? 'START RECORDING' : `${name.toUpperCase()} NOT CONNECTED`;
       btn.disabled = busy || !connected;
-      st.textContent = connected ? 'Pick a set or enter the players, then start. Names can still be fixed while recording.' : '';
+      st.textContent = connected ? (modeNow() === 'broadcast' ? 'Ready to record the set.' : 'Pick a set or enter the players, then start. Names can still be fixed while recording.') : '';
     }
+    // Record mode's highlight clip: the same save as REPLAY, without the on-air controls.
+    const r = S.replay;
+    const clip = $('#btn-clip');
+    clip.hidden = !(r && r.connected && r.available && r.active);
+    clip.disabled = !!(r && r.saving);
+    clip.textContent = r && r.saving ? 'Saving clip…' : `Save clip (last ${r ? r.seconds : 15} s)`;
   }
   function gameShort(id) {
     const g = ((S && S.config.gameList) || []).find((x) => x.id === id);
@@ -690,6 +960,12 @@
     set('scenes.autoSwitch', c.scenes && c.scenes.autoSwitch);
     set('scenes.to', c.scenes && c.scenes.to === 'program' ? 'program' : 'preview');
     loadSceneChoices(c.scenes || {});
+    const rp = c.replay || {};
+    set('replay.enabled', rp.enabled !== false);
+    set('replay.seconds', rp.seconds || 15);
+    set('replay.autoReturn', rp.autoReturn !== false);
+    set('replay.audio', !!rp.audio);
+    renderReplaySceneStatus();
     set('overlay.center', c.overlay ? c.overlay.center : 'round');
     set('overlay.scores', !c.overlay || c.overlay.scores !== false);
     set('network.lan', c.network && c.network.lan);
@@ -935,12 +1211,25 @@
         : S.overlay && S.overlay.installed
           ? { state: 'ok', title: 'Stream overlay', text: `In OBS scene ${S.overlay.inScenes.join(', ')} as the source "TEC Overlay".${S.overlay.currentScene && !S.overlay.inScenes.includes(S.overlay.currentScene) ? ` OBS is showing "${S.overlay.currentScene}" right now.` : ''}` }
           : { state: 'opt', title: 'Stream overlay (optional)', text: o.connected ? 'Player names, round and wins drawn over the gameplay scene. Adds a Browser Source called "TEC Overlay" to OBS.' : 'Player names, round and wins over the gameplay scene. Available once OBS is connected.', action: o.connected ? 'overlay' : undefined, label: 'Add to OBS' },
+      replaySetupItem(),
       t && t.ok
         ? { state: 'ok', title: 'Test recording', text: testRecText(t) }
         : t && !t.running && t.error
           ? { state: 'warn', title: 'Test recording', text: testRecText(t), action: 'test', label: 'Run again' }
           : { state: 'opt', title: 'Test recording', text: t && t.running ? testRecText(t) : `Records five seconds, checks the file, removes it. Needs ${o.name} connected.`, action: 'test', label: t && t.running ? 'Running...' : 'Run test' },
     ];
+  }
+  function replaySetupItem() {
+    const r = S.replay || {};
+    const vm = isVmix();
+    const title = 'Instant replay';
+    if (!S.sw.connected) return { state: 'opt', title: `${title} (optional)`, text: `Saves the last ${r.seconds || 15} seconds on a button press, for slow motion on stream or highlight clips. Available once ${S.sw.name} is connected.` };
+    if (r.available === false) return { state: 'opt', title: `${title} (optional)`, text: r.reason };
+    if (r.available == null) return { state: 'opt', title: `${title} (optional)`, text: `Asking ${S.sw.name}…` };
+    if (!r.active) return { state: 'warn', title, text: vm ? 'The vMix Replay input is not recording, so REPLAY has nothing to mark.' : 'The OBS replay buffer is stopped, so REPLAY has nothing to save.', action: 'replay-start', label: vm ? 'Start recording' : 'Start buffer' };
+    if (vm) return { state: 'ok', title, text: `vMix replay recording; REPLAY marks the last ${r.seconds} seconds.` };
+    if (!r.scene.installed) return { state: 'ok', title, text: `OBS replay buffer running, last ${r.seconds} seconds. The "TEC Replay" scene for slow motion on stream is added on the first Play, or now.`, action: 'replay-scene', label: 'Add replay scene' };
+    return { state: 'ok', title, text: `OBS replay buffer running, last ${r.seconds} seconds; scene "${r.scene.name}" ready.` };
   }
   function vmixOverlayItem() {
     const ov = S.overlay || {};
@@ -961,6 +1250,8 @@
     else if (b.dataset.setup === 'art') { try { await api('POST', '/api/art/download', { pack: 'portrait' }); toast('Downloading the portrait pack.'); } catch (e) { toast(e.message, { error: true }); } }
     else if (b.dataset.setup === 'test') runTestRecording();
     else if (b.dataset.setup === 'overlay') { try { const r = await api('POST', '/api/overlay/install', { scene: '' }); toast(overlayInstalledMessage(r), { sticky: true }); renderSetup(); } catch (e) { toast(e.message, { error: true }); } }
+    else if (b.dataset.setup === 'replay-start') { try { await api('POST', '/api/replay/buffer', { on: true }); } catch (e) { toast(e.message, { error: true }); } }
+    else if (b.dataset.setup === 'replay-scene') { try { await installReplayScene(); renderSetup(); } catch (e) { toast(e.message, { error: true }); } }
   });
   $('#setup-refresh').addEventListener('click', renderSetup);
   $('#setup-settings').addEventListener('click', () => { $('#setup').hidden = true; openSettings(); });
@@ -996,6 +1287,20 @@
       sel.innerHTML = opts.map(([v, label]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(label)}</option>`).join('');
     }
   }
+  function renderReplaySceneStatus() {
+    const r = S && S.replay;
+    if (!r) return;
+    $('#replay-scene-status').textContent = !S.sw.connected ? 'Connect OBS first.' : r.scene.installed ? `"${r.scene.name}" is in OBS.` : `Not in OBS yet.`;
+  }
+  async function installReplayScene() {
+    const r = await api('POST', '/api/replay/scene');
+    toast(`Scene "${r.scene}" ready in OBS. Play a replay to fill it.`);
+    renderReplaySceneStatus();
+  }
+  $('#btn-replay-scene').addEventListener('click', async () => {
+    $('#replay-scene-status').textContent = 'Adding…';
+    try { await installReplayScene(); } catch (e) { $('#replay-scene-status').textContent = e.message; }
+  });
   $('#btn-scenes-add').addEventListener('click', async () => {
     const out = $('#scenes-status');
     out.textContent = 'Adding…';
