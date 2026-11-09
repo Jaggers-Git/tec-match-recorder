@@ -12,10 +12,11 @@
    In pools, tap the pool chip first (A1, A2, ...): every pool has its own set A. The file name carries the pool too, like "A3-A".
 2. **Characters…** (optional). Tap the fighters in the order they were played. Type to search, Enter picks the top match.
    With the detector on, characters fill in by themselves when the VS screen shows (chips marked "auto"). Glance at them before End & Save.
-3. Keep score with **+1** / **-1** under each name as games finish (shows on the stream overlay). Optional; it resets with the next set.
-4. **START RECORDING** the moment the players sit down. You can still fix names and characters while it records.
-5. Set over? **END & SAVE**, then tap it again to confirm. Done. The form clears for the next set.
-6. Filling in the stream worksheet? Tap **Copy row** on the log line and paste it in.
+3. Stages fill in during each game (chips **G1**, **G2** under the round). Wrong? Pick the right one on the chip.
+4. Keep score with **+1** / **-1** under each name as games finish (shows on the stream overlay). Optional; it resets with the next set.
+5. **START RECORDING** the moment the players sit down. You can still fix names and characters while it records.
+6. Set over? **END & SAVE**, then tap it again to confirm. Done. The form clears for the next set.
+7. Filling in the stream worksheet? Tap **Copy row** on the log line and paste it in.
 
 **Broadcast mode** (header switch: Record | Broadcast; every device on the station follows)
 1. **Live output** shows what is on air (red, Program) and what is cued (green, Preview). It runs a moment behind, with no sound.

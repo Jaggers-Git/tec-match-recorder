@@ -23,6 +23,9 @@
   .tag { background: #FF3D2E; color: #fff; padding: 16px 46px 14px 64px; font-size: 76px; font-weight: 700; letter-spacing: .14em; box-shadow: 0 0 0 4px #fff; }
   .speed { margin-top: 10px; margin-left: 30px; background: #2a2626; color: #fff; padding: 10px 26px 9px 44px; font-size: 28px; font-weight: 700; letter-spacing: .14em; box-shadow: 0 0 0 3px #fff; }
   .speed b { color: #FF3D2E; }
+  /* The clip's name, when it has one: the same band, a step further in, never wider than a third of the screen. */
+  .speed.title { margin-left: 52px; max-width: 640px; text-transform: none; letter-spacing: .04em; }
+  .speed.title > span { overflow: hidden; text-overflow: ellipsis; max-width: 600px; }
 
   /* Tuesday Takedown: maroon plate in a black frame, belt gold and yellow */
   :root[data-theme="tt"] .tag { background: linear-gradient(180deg, #7c3749 0%, #6D2E3F 42%, #5f2636 100%); color: #FCE319; box-shadow: 0 0 0 5px #0a0a0a; text-shadow: 0 4px 0 rgba(0,0,0,.55); }
@@ -43,6 +46,7 @@
   <div id="badge">
     <div class="tag"><span>Replay</span></div>
     <div id="speed" class="speed" hidden><span id="speed-text"></span></div>
+    <div id="title" class="speed title" hidden><span id="title-text"></span></div>
   </div>
 <script src="/mm.js"></script>
 <script>
@@ -58,6 +62,10 @@
     const r = S.replay || {};
     const speed = Number((r.playing && r.playing.speed) || r.speed || 100);
     $('#speed').hidden = speed >= 100;
+    // A clip named in the dashboard carries its name on the badge.
+    const title = (r.playing && r.playing.title) || '';
+    $('#title').hidden = !title;
+    $('#title-text').textContent = title;
     const words = `Slow motion <b>${speed}%</b>`;
     $('#speed-text').innerHTML = theme === 'mm' && window.MM ? `${window.MM.gems('◆')}${words}` : words;
     // A new replay slides the badge in again.

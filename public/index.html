@@ -77,6 +77,18 @@
       <button id="btn-replay-buffer" type="button" class="small" hidden>Start buffer</button>
       <button id="btn-replay-folder" type="button" class="small" title="Open the folder the clips are saved in">Folder</button>
     </div>
+    <div id="replay-starred" class="replay-actions" hidden>
+      <span class="muted">Starred clips:</span>
+      <button id="btn-queue-starred" type="button" class="small" title="Add every starred clip to the on-air queue, oldest first">Add to queue</button>
+      <button id="btn-export-starred" type="button" class="small" title="Write a playlist (.m3u8) and a spreadsheet (.csv) of the starred clips into the Replays folder">Export list</button>
+    </div>
+    <div id="replay-queue" class="replay-queue" hidden>
+      <div class="queue-head"><b>On-air queue</b><span id="replay-queue-count" class="muted"></span><span class="spacer"></span>
+        <button id="btn-queue-play" type="button" class="small primary" title="Play the queued clips back to back at the chosen speed">Play queue on air</button>
+        <button id="btn-queue-clear" type="button" class="small">Clear</button>
+      </div>
+      <ol id="replay-queue-list" class="queue-list"></ol>
+    </div>
     <div id="replay-help" class="muted replay-help" hidden></div>
     <div id="replay-player" class="replay-player" hidden>
       <video id="replay-video" controls muted playsinline></video>
@@ -177,6 +189,11 @@
         <input id="setLetter" placeholder="C" maxlength="8" autocomplete="off">
       </div>
       <button id="btn-clear" class="small">Clear</button>
+    </div>
+    <div class="stages-row chars" id="stages-row">
+      <span class="label">Stages</span>
+      <div id="stage-list" class="stage-list"></div>
+      <select id="stage-add" class="game-select" title="Add a game the stage reader missed"><option value="">+ Add a game</option></select>
     </div>
     <div class="preview">
       <div class="label">Title</div><div id="preview-title" class="mono"></div>
@@ -306,6 +323,12 @@
           <label>API token <input name="startgg.token" type="password" autocomplete="off"></label>
           <label>Check for updates every (seconds) <input name="startgg.pollSeconds" type="number" min="15" step="5"></label>
         </div>
+        <div class="row" style="align-items:center;margin-top:2px;flex-wrap:wrap;gap:8px">
+          <a class="small token-link" href="https://www.start.gg/admin/profile/developer" target="_blank" rel="noopener">Get a token at start.gg</a>
+          <button type="button" id="btn-token-check" class="small">Check token</button>
+          <span id="token-status" class="muted"></span>
+        </div>
+        <div class="muted">The link opens start.gg's Developer Settings (sign in first): <i>Create new token</i>, any description, then copy it and paste it above. It is checked as soon as it is pasted.</div>
         <div class="row" style="align-items:flex-end;margin-top:4px">
           <label style="flex:1">Add a whole tournament (its Ultimate singles<span class="multi-game">, Street Fighter 6 and Tekken 8</span> brackets) <input id="import-url" placeholder="https://www.start.gg/tournament/…" autocomplete="off"></label>
           <button type="button" id="btn-import" class="small">Add events</button>
@@ -345,7 +368,7 @@
       <fieldset>
         <legend>Naming</legend>
         <label>Title template <input name="naming.titleTemplate"></label>
-        <div class="muted">Fields: {event} {round} {set} {p1} {p2} {chars1} {chars2} {suffix} {date} {time}</div>
+        <div class="muted">Fields: {event} {round} {set} {p1} {p2} {chars1} {chars2} {stages} {suffix} {date} {time}</div>
         <label class="check"><input type="checkbox" name="naming.filenamePrefix"> Start filenames with <input name="naming.filenamePrefixTemplate" class="inline"> (keeps files in bracket order)</label>
         <label class="check"><input type="checkbox" name="naming.stripPrefixes"> Strip sponsor prefixes from start.gg names (TSM | Leffen → Leffen)</label>
         <label class="check"><input type="checkbox" name="naming.eventSubfolder"> Save recordings into a per-event subfolder</label>
@@ -424,6 +447,7 @@
       <fieldset>
         <legend>Character detection</legend>
         <label class="check"><input type="checkbox" name="detect.enabled"> Read fighter names from the VS screen and fill them in automatically</label>
+        <label class="check"><input type="checkbox" name="detect.stages"> Recognize each game's stage (Smash Ultimate: Battlefield, Small Battlefield, Final Destination, Pokémon Stadium 2, Smashville, Town and City, Kalos Pokémon League, Hollow Bastion). Fixing a stage on the current set teaches it this station's look.</label>
         <div class="grid2">
           <label>Watch this <span class="sw-name">OBS</span> <span class="sw-obs">source</span><span class="sw-vmix">input</span> <select name="detect.source"></select></label>
           <label>Look every (ms) <input name="detect.intervalMs" type="number" min="300" step="100"></label>

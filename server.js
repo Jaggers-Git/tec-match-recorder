@@ -21,7 +21,9 @@ const { Trainer } = require('./lib/trainer');
 const { VmixClient } = require('./lib/vmix');
 const { Updater } = require('./lib/updater');
 const { Replay, SCENE: REPLAY_SCENE, clampSpeed } = require('./lib/replay');
+const { STAGES } = require('./lib/stages');
 const { LiveFeed } = require('./lib/live');
+const obsfind = require('./lib/obsfind');
 const { supervise, underSupervisor, RESTART_CODE } = require('./lib/supervisor');
 const art = require('./lib/art');
 
@@ -65,7 +67,7 @@ const DEFAULT_CONFIG = {
     stripPrefixes: true,
     eventSubfolder: true,
   },
-  detect: { enabled: true, source: '', intervalMs: 1000, minScore: 0.6, videosFolder: path.join(os.homedir(), 'Videos'), samplesMaxMb: 500 },
+  detect: { enabled: true, stages: true, source: '', intervalMs: 1000, minScore: 0.6, videosFolder: path.join(os.homedir(), 'Videos'), samplesMaxMb: 500 },
   // Stream overlay (Browser Source layer): what the small centre plate shows and where the text boxes sit.
   overlay: { center: 'round', scene: '', boxes: {} },
   // Who may open the dashboard: this PC only (localhost) unless lan is on, in which case a PIN is required.
@@ -264,7 +266,7 @@ if (cfg.event.suffix) {
   if (!(cfg.games.ssbu && cfg.games.ssbu.suffix)) cfg.games.ssbu = { ...(cfg.games.ssbu || {}), suffix: cfg.event.suffix };
   cfg.event.suffix = '';
 }
-const emptyCurrent = () => ({ setId: '', setLetter: '', round: '', p1: '', p2: '', chars1: [], chars2: [], auto1: [], auto2: [], costume1: -1, costume2: -1, score1: 0, score2: 0, wins1: 0, wins2: 0, bestOf: 1, source: 'manual', game: cfg.game || 'ssbu', eventName: '' });
+const emptyCurrent = () => ({ setId: '', setLetter: '', round: '', p1: '', p2: '', chars1: [], chars2: [], auto1: [], auto2: [], costume1: -1, costume2: -1, score1: 0, score2: 0, wins1: 0, wins2: 0, bestOf: 1, source: 'manual', game: cfg.game || 'ssbu', eventName: '', stages: [] });
 const clampScore = (n) => Math.max(0, Math.min(99, Math.round(Number(n) || 0)));
 // Game wins inside a set (the Bo3/Bo5 pips), separate from the score badge which crews use for stocks.
 const clampWins = (n) => Math.max(0, Math.min(3, Math.round(Number(n) || 0)));
@@ -306,7 +308,7 @@ function persistState() {
       writeJson(STATE_PATH, {
         current: state.current, rec: state.rec, log: state.log,
         recentPlayers: state.recentPlayers, recordedSetIds: state.recordedSetIds, screens: state.screens,
-        replays: replay.events,
+        replays: replay.events, replayQueue: replay.queue,
       });
     } catch (e) { log('Could not save state:', e.message); }
   }, 150);
@@ -364,6 +366,7 @@ function buildLabel(current) {
     chars1: (current.chars1 || []).join(', '),
     chars2: (current.chars2 || []).join(', '),
     score: `${current.score1 || 0}-${current.score2 || 0}`,
+    stages: (current.stages || []).map((g) => g.stage).filter(Boolean).join(', '),
     suffix: game.suffix || '',
     date: localDate(),
     time: localTime(),
@@ -653,6 +656,37 @@ for (const client of [obs, vmix]) {
   client.on('status', () => broadcast());
   client.on('event', (ev) => { if (client === sw) onSwitcherEvent(ev); });
 }
+// ---------- OBS's WebSocket settings, read from this PC (lib/obsfind.js) ----------
+// When OBS on this PC cannot be reached or turns the password down, the recorder reads the port and
+// password OBS saved and uses those, so nobody has to copy them out of OBS. Checked at most every 30 s.
+let obsAuto = { found: false, enabled: null, obsRunning: null, portable: false, applied: false, checkedAt: 0 };
+let obsAutoBusy = false;
+async function tryObsAutoConfig({ force = false } = {}) {
+  if (sw !== obs || obs.status === 'connected' || obsAutoBusy) return obsAuto;
+  const host = String(cfg.obs.host || '').trim().toLowerCase();
+  if (host && !['127.0.0.1', 'localhost', '::1'].includes(host)) return obsAuto;
+  if (!force && Date.now() - obsAuto.checkedAt < 30000) return obsAuto;
+  obsAutoBusy = true;
+  try {
+    const f = await obsfind.findWebsocket(cfg.obs.settingsFile || '');
+    if (f.file && f.file !== cfg.obs.settingsFile) { cfg.obs = { ...cfg.obs, settingsFile: f.file }; writeJson(CONFIG_PATH, cfg); }
+    obsAuto = { ...obsAuto, found: !!f.file, enabled: f.enabled, obsRunning: f.obsRunning, portable: f.portable, checkedAt: Date.now() };
+    if (f.file && f.enabled && (f.port !== Number(cfg.obs.port) || f.password !== String(cfg.obs.password || ''))) {
+      cfg.obs = { ...cfg.obs, host: cfg.obs.host || '127.0.0.1', port: f.port, password: f.password };
+      writeJson(CONFIG_PATH, cfg);
+      obsAuto.applied = true;
+      log(`OBS: using the WebSocket settings OBS saved on this PC (port ${f.port}, ${f.password ? 'with its password' : 'no password'})`);
+      obs.connect();
+    }
+  } catch (e) {
+    log('OBS settings lookup failed:', e.message);
+  } finally {
+    obsAutoBusy = false;
+    broadcast();
+  }
+  return obsAuto;
+}
+obs.on('status', (s) => { if (s === 'auth-failed' || s === 'disconnected') tryObsAutoConfig(); });
 function onSwitcherEvent(ev) {
   if (ev.type === 'ready') {
     if (ev.recording && !state.rec.active && !(testRec && testRec.running)) adoptRecording(Date.now() - (ev.durationMs || 0));
@@ -754,6 +788,7 @@ async function stopRecording({ externalPath = null } = {}) {
       costume1: state.current.costume1 ?? -1, costume2: state.current.costume2 ?? -1,
       score1: state.current.score1 || 0, score2: state.current.score2 || 0,
       wins1: state.current.wins1 || 0, wins2: state.current.wins2 || 0, bestOf: state.current.bestOf || 1,
+      stages: (state.current.stages || []).map((g) => g.stage).filter(Boolean),
       title: label.title, filenameBase: label.filenameBase,
       sourcePath: externalPath || '', path: '', filename: '',
       durationSec: Math.max(0, Math.round((Date.now() - (state.rec.startedAt || Date.now())) / 1000)),
@@ -940,7 +975,7 @@ async function moveRecording(sourcePath, entry) {
   throw new Error(`Gave up renaming ${path.basename(src)} (${why}). The file is still in ${path.dirname(src)}.`);
 }
 
-const CSV_HEADER = ['Player 1', 'Character(s)', 'Player 2', 'Character(s)', 'Round', 'Set', 'Date', 'Time', 'Duration', 'Title', 'Filename', 'Event', 'P1 Costume', 'P2 Costume', 'Game', 'Score', 'Games'];
+const CSV_HEADER = ['Player 1', 'Character(s)', 'Player 2', 'Character(s)', 'Round', 'Set', 'Date', 'Time', 'Duration', 'Title', 'Filename', 'Event', 'P1 Costume', 'P2 Costume', 'Game', 'Score', 'Games', 'Stages'];
 function csvCell(v) {
   const s = String(v ?? '');
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -961,6 +996,7 @@ async function appendCsv(dir, entry) {
     entry.game || '',
     `${entry.score1 || 0}-${entry.score2 || 0}`,
     (entry.bestOf || 1) > 1 ? `${entry.wins1 || 0}-${entry.wins2 || 0} (Bo${entry.bestOf})` : '',
+    (entry.stages || []).join(', '),
   ].map(csvCell).join(',');
   const fresh = !fs.existsSync(file);
   if (!fresh) await upgradeCsvHeader(file);
@@ -1027,6 +1063,7 @@ function selectSet(s) {
     round: roundForSet(s),
     p1: pickName(s, 1), p2: pickName(s, 2),
     chars1: same ? state.current.chars1 : [], chars2: same ? state.current.chars2 : [],
+    stages: same ? state.current.stages || [] : [],
     auto1: same ? state.current.auto1 || [] : [], auto2: same ? state.current.auto2 || [] : [],
     score1: same ? state.current.score1 || 0 : 0, score2: same ? state.current.score2 || 0 : 0,
     wins1: same ? state.current.wins1 || 0 : 0, wins2: same ? state.current.wins2 || 0 : 0,
@@ -1130,12 +1167,12 @@ async function importTournament(url) {
   return { tournament: t.name, added, skipped, eventUrls: urls };
 }
 
-async function gql(query, variables) {
+async function gql(query, variables, token = cfg.startgg.token) {
   let res;
   try {
     res = await fetch(cfg.startgg.apiUrl || STARTGG_API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.startgg.token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ query, variables }),
       signal: AbortSignal.timeout(20000),
     });
@@ -1143,6 +1180,12 @@ async function gql(query, variables) {
     throw Object.assign(new Error('No connection to start.gg'), { kind: 'network' });
   }
   if (res.status === 401 || res.status === 403) throw Object.assign(new Error('start.gg rejected the API token'), { kind: 'auth' });
+  // A token start.gg does not know comes back as HTTP 400 with "Invalid authentication token".
+  if (res.status === 400) {
+    const text = await res.text().catch(() => '');
+    if (/authentication token/i.test(text)) throw Object.assign(new Error('start.gg rejected the API token'), { kind: 'auth' });
+    throw Object.assign(new Error(`start.gg answered HTTP 400${text ? `: ${text.slice(0, 120)}` : ''}`), { kind: 'gql' });
+  }
   if (res.status === 429) throw Object.assign(new Error('start.gg rate limit hit, will retry'), { kind: 'network' });
   if (!res.ok) throw Object.assign(new Error(`start.gg answered HTTP ${res.status}`), { kind: 'network' });
   const body = await res.json();
@@ -1385,6 +1428,7 @@ function updateConfig(body) {
   if (next.network.lan && !next.network.pin) next.network.pin = String(crypto.randomInt(100000, 1000000));
   const lanChanged = !!next.network.lan !== !!(cfg.network && cfg.network.lan);
   next.detect.samplesMaxMb = Math.max(0, Math.round(Number(next.detect.samplesMaxMb) || 0));
+  next.detect.stages = next.detect.stages !== false;
   next.setup = { dismissed: !!(next.setup && next.setup.dismissed) };
   const mmIn = (next.branding && next.branding.mm) || {};
   next.branding = {
@@ -1483,6 +1527,8 @@ function coreSnapshot() {
       scenes: sw.status === 'connected' ? sw.scenes || [] : [],
     },
     mode: cfg.mode === 'broadcast' ? 'broadcast' : 'record',
+    // OBS's own WebSocket settings found on this PC (never the password itself).
+    obsAuto: { found: obsAuto.found, enabled: obsAuto.enabled, obsRunning: obsAuto.obsRunning, portable: obsAuto.portable, applied: obsAuto.applied },
     replay: replay.status({ events: false }),
     live: live.status(),
     rec: state.rec,
@@ -1508,6 +1554,7 @@ function coreSnapshot() {
     screens: state.screens,
     screenLayout: CASTER_LAYOUT,
     screenScenes: SCREENS.map((s) => s.scene),
+    stageList: STAGES,
     version: APP_VERSION,
     update: updater.status(),
     overlay: { ...overlayCache, checkedAt: undefined },
@@ -1673,6 +1720,22 @@ const detector = new Detector({
     log(`Auto-tagged P${side}: ${character}${costume >= 0 ? ` (costume ${costume + 1})` : ''} via ${kind} (${score.toFixed(2)})`);
   },
   onReview: (item) => trainer.enqueue(item),
+  knownCharacters: (side) => state.current[`chars${side}`] || [],
+  // One entry per game on the current set. A stage the operator set or corrected is never overwritten.
+  onStage: ({ gameId, stage, unsure = false }) => {
+    const list = state.current.stages || (state.current.stages = []);
+    const g = list.find((x) => x.gameId === gameId);
+    if (!g) {
+      list.push({ gameId, stage, auto: true, unsure });
+      log(stage ? `Stage: game ${list.length} on ${stage}` : `Stage: game ${list.length} not recognized (pick it on the set to teach the reader)`);
+    } else if (g.auto && g.stage !== stage) {
+      g.stage = stage;
+      g.unsure = unsure;
+      log(`Stage: game ${list.indexOf(g) + 1} is ${stage} after all`);
+    } else return;
+    persistState();
+    broadcast();
+  },
 });
 const trainer = new Trainer({ dataDir: DATA_DIR, obs, detector, getCfg: () => cfg, log, onChange: () => broadcastTrain() });
 // ---------- instant replay and the live output picture (Broadcast mode) ----------
@@ -1689,6 +1752,7 @@ const replay = new Replay({
   sendScene: (name) => sendScene(name),
   scenesTo: () => scenesTo(),
   initial: savedState.replays,
+  initialQueue: savedState.replayQueue,
 });
 // Milliseconds between frames: OBS answers a small JPEG quickly; vMix writes a full-size PNG to disk each time.
 const LIVE_MS = { obs: { program: 200, preview: 500 }, vmix: { program: 700, preview: 1500 } };
@@ -1725,6 +1789,28 @@ async function handleReplayApi(route, req, res, url) {
       try { sendJson(res, 200, { ok: true, ...(await replay.play(b.id ? String(b.id) : '', b.speed)) }); } catch (e) { fail(e); }
       return true;
     }
+    case 'POST /api/replay/title': {
+      const b = await readBody(req);
+      try { const ev = await replay.setTitle(String(b.id || ''), b.title); sendJson(res, 200, { ok: true, title: ev.title, filename: ev.filename, note: ev.renameNote || '' }); } catch (e) { fail(e, 404); }
+      return true;
+    }
+    case 'POST /api/replay/queue': {
+      const b = await readBody(req);
+      try { sendJson(res, 200, { ok: true, queue: replay.queueAction(String(b.action || ''), String(b.id || '')) }); } catch (e) { fail(e, 400); }
+      return true;
+    }
+    case 'POST /api/replay/queue/play': {
+      const b = await readBody(req);
+      try { sendJson(res, 200, { ok: true, ...(await replay.playQueue(b.speed)) }); } catch (e) { fail(e); }
+      return true;
+    }
+    case 'POST /api/replay/export':
+      try {
+        const r = await replay.exportStarred();
+        if (process.platform === 'win32') spawn('explorer.exe', [r.dir], { detached: true, stdio: 'ignore' }).unref();
+        sendJson(res, 200, { ok: true, ...r });
+      } catch (e) { fail(e); }
+      return true;
     case 'POST /api/replay/back':
       try { sendJson(res, 200, { ok: true, scene: await replay.back() }); } catch (e) { fail(e); }
       return true;
@@ -2096,6 +2182,32 @@ async function handleDetectApi(route, req, res, url) {
       sendJson(res, 200, { ok: true });
       return true;
     }
+    // Set, correct or remove a game's stage ({ gameId, stage }; stage '' removes), or add a game the
+    // reader missed ({ stage } without gameId). A correction teaches the reader this station's look.
+    case 'POST /api/current/stage': {
+      const b = await readBody(req);
+      const stage = String(b.stage || '');
+      if (stage && !STAGES.includes(stage)) { sendJson(res, 400, { error: 'Unknown stage' }); return true; }
+      const list = state.current.stages || (state.current.stages = []);
+      let learned = false;
+      if (b.gameId) {
+        const i = list.findIndex((x) => x.gameId === String(b.gameId));
+        if (i < 0) { sendJson(res, 404, { error: 'That game is no longer on the set' }); return true; }
+        if (!stage) list.splice(i, 1);
+        else {
+          const wasAuto = list[i].auto;
+          list[i] = { ...list[i], stage, auto: false, unsure: false };
+          learned = detector.learnStage(list[i].gameId, stage);
+          if (learned && wasAuto) log(`Stage: learned this station's ${stage} from game ${i + 1}`);
+        }
+      } else if (stage) {
+        list.push({ gameId: `m${Date.now().toString(36)}`, stage, auto: false });
+      }
+      persistState();
+      broadcast();
+      sendJson(res, 200, { ok: true, stages: list, learned });
+      return true;
+    }
     case 'POST /api/current/score': {
       // +1 / -1 on one side of the scoreboard (wins in the set).
       const { side, delta } = await readBody(req);
@@ -2157,6 +2269,31 @@ async function handleDetectApi(route, req, res, url) {
       if (!full || !fs.existsSync(full)) { sendJson(res, 404, { error: 'not found' }); return true; }
       res.writeHead(200, { 'Content-Type': 'image/png', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
       res.end(fs.readFileSync(full));
+      return true;
+    }
+    case 'POST /api/obs/enable-websocket':
+      try {
+        const r = await obsfind.enableWebsocket(cfg.obs.settingsFile || '');
+        log(`OBS: WebSocket server turned on in OBS's settings (port ${r.port}); it starts with OBS`);
+        await tryObsAutoConfig({ force: true });
+        sendJson(res, 200, { ok: true, port: r.port });
+      } catch (e) { sendJson(res, 409, { error: e.message }); }
+      return true;
+    case 'POST /api/obs/find': {
+      await tryObsAutoConfig({ force: true });
+      sendJson(res, 200, { ok: true, ...obsAuto });
+      return true;
+    }
+    // Checks a start.gg token (the one typed in Settings, or the saved one) and says whose it is.
+    case 'POST /api/startgg/check-token': {
+      const body = await readBody(req);
+      const token = String(body.token || '').trim() || cfg.startgg.token;
+      if (!token) { sendJson(res, 400, { error: 'Paste a token first' }); return true; }
+      try {
+        const data = await gql('query { currentUser { id slug player { gamerTag } } }', {}, token);
+        const u = data && data.currentUser;
+        sendJson(res, 200, { ok: true, gamerTag: (u && u.player && u.player.gamerTag) || (u && u.slug) || 'your account' });
+      } catch (e) { sendJson(res, 400, { error: e.kind === 'auth' ? 'start.gg turned that token down: copy it again, or make a new one' : e.message }); }
       return true;
     }
     case 'POST /api/startgg/import': {

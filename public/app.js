@@ -296,16 +296,35 @@
     const canCheck = e.status === 'saved' && !e.vmixOnly && !!e.filename;
     const canAir = r.sw === 'obs' ? e.status === 'saved' : !!e.vmixLast;
     const airTitle = canAir ? `Play on stream at the chosen speed (${r.sw === 'obs' ? 'to Preview or Program, as the scene buttons do' : 'vMix plays its newest event to the output'})` : r.sw === 'obs' ? 'Not ready yet' : 'Play older events from the Replay input in vMix';
+    const queued = (r.queue || []).includes(e.id);
+    const canQueue = r.sw === 'obs' && e.status === 'saved';
     const cls = [r.playing && r.playing.id === e.id ? 'playing' : '', checkId === e.id ? 'checking' : ''].filter(Boolean).join(' ');
+    // A named clip shows its name, with the players underneath; tap the name to rename it.
+    const detail = [e.title ? replayWho(e) : '', when, meta].filter(Boolean).join(', ');
     return `<li class="${cls}">
       <button type="button" class="star${e.star ? ' on' : ''}" data-replay-star="${esc(e.id)}" title="${e.star ? 'Unstar' : 'Star this clip'}">${e.star ? '★' : '☆'}</button>
-      <div class="info"><b>${esc(replayWho(e))}</b><span class="muted">${esc(when)}${meta ? `, ${esc(meta)}` : ''}</span>${note ? `<span class="${e.status === 'error' ? 'err' : 'muted'}">${esc(note)}</span>` : ''}</div>
+      <div class="info"><button type="button" class="clip-name" data-replay-title="${esc(e.id)}" title="Name this clip (shows on the REPLAY badge and renames the file)">${esc(e.title || replayWho(e))} <span class="pen">✎</span></button><span class="muted">${esc(detail)}</span>${note || e.renameNote ? `<span class="${e.status === 'error' ? 'err' : 'muted'}">${esc(note || e.renameNote)}</span>` : ''}</div>
       <div class="acts">
         ${canCheck ? `<button type="button" class="small" data-replay-check="${esc(e.id)}" title="Play it here at the chosen speed, off air">▶</button>` : ''}
+        ${canQueue ? `<button type="button" class="small${queued ? ' on' : ''}" data-replay-queue="${esc(e.id)}" title="${queued ? 'In the on-air queue: tap to take it out' : 'Add to the on-air queue'}">${queued ? '✓' : '+'}</button>` : ''}
         <button type="button" class="small" data-replay-air="${esc(e.id)}"${canAir ? '' : ' disabled'} title="${esc(airTitle)}">On air</button>
         <button type="button" class="small" data-replay-remove="${esc(e.id)}" title="Remove from the list (the file stays in the Replays folder)">✕</button>
       </div>
     </li>`;
+  }
+  function renderQueue(r) {
+    const byId = new Map(r.events.map((e) => [e.id, e]));
+    const items = (r.queue || []).map((id) => byId.get(id)).filter(Boolean);
+    $('#replay-queue').hidden = !items.length;
+    $('#replay-queue-count').textContent = items.length ? `${items.length} clip${items.length === 1 ? '' : 's'}` : '';
+    const pl = r.playlist;
+    $('#replay-queue-list').innerHTML = items.map((e, i) => `<li class="${pl && pl.index === i ? 'playing' : ''}">
+      <span class="q-name">${esc(e.title || replayWho(e))}</span>
+      <button type="button" class="small" data-queue-up="${esc(e.id)}"${i === 0 ? ' disabled' : ''} title="Earlier">↑</button>
+      <button type="button" class="small" data-queue-down="${esc(e.id)}"${i === items.length - 1 ? ' disabled' : ''} title="Later">↓</button>
+      <button type="button" class="small" data-queue-remove="${esc(e.id)}" title="Take it out of the queue">✕</button>
+    </li>`).join('');
+    $('#replay-starred').hidden = !r.events.some((e) => e.star);
   }
   function renderReplay() {
     const r = S && S.replay;
@@ -323,7 +342,7 @@
     else if (r.available == null) status = 'Checking…';
     else if (!r.active) status = vm ? 'vMix replay is not recording' : 'Replay buffer stopped';
     else status = vm ? `vMix replay recording, ${r.seconds} s clips` : `Buffer running, last ${r.seconds} s`;
-    if (r.playing) status = `${r.playing.onAir ? 'On air' : 'Cued in Preview'} at ${r.playing.speed}%`;
+    if (r.playing) status = `${r.playlist ? `Queue ${r.playlist.index + 1} of ${r.playlist.total}, ` : ''}${r.playing.onAir ? 'on air' : 'cued in Preview'} at ${r.playing.speed}%`.replace(/^./, (c) => c.toUpperCase());
     $('#replay-status').textContent = status;
     const help = !r.connected ? '' : r.available === false ? r.reason : r.lastError || '';
     $('#replay-help').hidden = !help;
@@ -341,8 +360,9 @@
     const back = $('#btn-replay-back');
     back.hidden = !(r.sw === 'obs' && r.returnTo && S.sw.program === r.scene.name);
     back.textContent = `Back to ${r.returnTo || 'live'}`;
-    const key = JSON.stringify([r.events.map((e) => [e.id, e.status, e.star, e.filename, e.error, e.exporting, e.vmixLast, e.p1, e.p2]), r.playing && r.playing.id, checkId, r.sw]);
+    const key = JSON.stringify([r.events.map((e) => [e.id, e.status, e.star, e.filename, e.error, e.exporting, e.vmixLast, e.p1, e.p2, e.title, e.renameNote]), r.playing && r.playing.id, checkId, r.sw, r.queue, r.playlist]);
     if (key !== replayKey) {
+      renderQueue(r);
       replayKey = key;
       $('#replay-list').innerHTML = r.events.length
         ? r.events.map((e) => replayItem(e, r)).join('')
@@ -420,7 +440,40 @@
     replayKey = '';
     renderReplay();
   });
+  const replayPost = async (path, body) => { try { return await api('POST', path, body); } catch (e) { toast(e.message, { error: true }); return null; } };
+  $('#replay-queue').addEventListener('click', async (ev) => {
+    for (const [attr, action] of [['queueUp', 'up'], ['queueDown', 'down'], ['queueRemove', 'remove']]) {
+      const b = ev.target.closest(`[data-${attr.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}]`);
+      if (b) { await replayPost('/api/replay/queue', { action, id: b.dataset[attr] }); return; }
+    }
+  });
+  $('#btn-queue-play').addEventListener('click', async () => {
+    const r = await replayPost('/api/replay/queue/play', { speed: speedNow() });
+    if (r && r.to === 'preview') toast('The first clip is in Preview. Press Transition to start the queue; the rest follow on their own.');
+  });
+  $('#btn-queue-clear').addEventListener('click', () => replayPost('/api/replay/queue', { action: 'clear' }));
+  $('#btn-queue-starred').addEventListener('click', () => replayPost('/api/replay/queue', { action: 'starred' }));
+  $('#btn-export-starred').addEventListener('click', async () => {
+    const r = await replayPost('/api/replay/export');
+    if (r) toast(`Exported ${r.count} starred clip${r.count === 1 ? '' : 's'}: a playlist and a spreadsheet in ${r.dir}`);
+  });
   $('#replay-list').addEventListener('click', async (ev) => {
+    const named = ev.target.closest('[data-replay-title]');
+    if (named) {
+      const e = ((S && S.replay && S.replay.events) || []).find((x) => x.id === named.dataset.replayTitle);
+      if (!e) return;
+      const title = prompt('Name this clip (blank to go back to the players\' names)', e.title || '');
+      if (title === null) return;
+      const r = await replayPost('/api/replay/title', { id: e.id, title });
+      if (r && r.note) toast(`${r.note}. The new name shows in the list and on the badge.`);
+      return;
+    }
+    const q = ev.target.closest('[data-replay-queue]');
+    if (q) {
+      const queued = ((S && S.replay && S.replay.queue) || []).includes(q.dataset.replayQueue);
+      await replayPost('/api/replay/queue', { action: queued ? 'remove' : 'add', id: q.dataset.replayQueue });
+      return;
+    }
     const star = ev.target.closest('[data-replay-star]');
     if (star) { try { await api('POST', '/api/replay/star', { id: star.dataset.replayStar }); } catch (e) { toast(e.message, { error: true }); } return; }
     const check = ev.target.closest('[data-replay-check]');
@@ -671,12 +724,43 @@
     for (const el of document.querySelectorAll('.chars')) el.hidden = !profile.characters;
     $('#current-source').textContent = c.source === 'startgg' && c.setId ? `from start.gg set ${c.setLetter || ''}${c.eventName ? ` · ${c.eventName}` : ''}` : 'manual entry';
     $('#btn-unmark').hidden = !(c.setId && (S.recordedSetIds || []).includes(c.setId));
+    renderStages(c);
     $('#preview-title').textContent = S.preview.title;
     // The real extension is whatever the app records to: show the last saved file's, else each app's default.
     const lastFile = ((S.log || []).find((e) => e.filename) || {}).filename || '';
     const ext = (/\.[a-z0-9]+$/i.exec(lastFile) || [isVmix() ? '.mp4' : '.mkv'])[0];
     $('#preview-file').textContent = `${S.preview.filenameBase}${ext}`;
   }
+  // One chip per game: the stage the reader found (dashed) or the operator set. Changing one corrects it
+  // and teaches the reader; "(remove)" drops a game that was not one.
+  let stageKey = '';
+  function renderStages(c) {
+    const list = S.stageList || [];
+    const games = c.stages || [];
+    const key = JSON.stringify([games, list.length]);
+    if (key === stageKey) return;
+    stageKey = key;
+    const opts = (sel) => list.map((s) => `<option value="${esc(s)}"${s === sel ? ' selected' : ''}>${esc(s)}</option>`).join('');
+    // A game the reader could not place shows a blank choice until the operator picks its stage.
+    const unknown = (g) => (g.stage ? '' : '<option value="" selected disabled>(not recognized: pick)</option>');
+    $('#stage-list').innerHTML = games.length
+      ? games.map((g, i) => `<label class="stage-chip${g.auto ? ' auto' : ''}${g.auto && g.unsure ? ' unsure' : ''}" title="${g.auto && g.unsure ? 'Battlefield and Small Battlefield share a backdrop: check for the top platform and pick the right one' : g.auto ? 'Recognized from the picture: change it if it is wrong' : 'Set by hand'}">G${i + 1}${g.auto && g.unsure ? '?' : ''}<select data-stage-game="${esc(g.gameId)}">${unknown(g)}${opts(g.stage)}<option value="-">(remove)</option></select></label>`).join('')
+      : '<span class="muted">Filled in during each game</span>';
+    $('#stage-add').innerHTML = `<option value="">+ Add a game</option>${opts('')}`;
+  }
+  $('#stage-list').addEventListener('change', async (ev) => {
+    const sel = ev.target.closest('[data-stage-game]');
+    if (!sel) return;
+    try {
+      const r = await api('POST', '/api/current/stage', { gameId: sel.dataset.stageGame, stage: sel.value === '-' ? '' : sel.value });
+      if (r.learned) toast('Stage fixed. The reader learned how this station shows it from that game.');
+    } catch (e) { toast(e.message, { error: true }); }
+  });
+  $('#stage-add').addEventListener('change', async () => {
+    const stage = $('#stage-add').value;
+    $('#stage-add').value = '';
+    if (stage) { try { await api('POST', '/api/current/stage', { stage }); } catch (e) { toast(e.message, { error: true }); } }
+  });
   function renderRecord() {
     if (!S) return;
     const btn = $('#btn-record');
@@ -984,7 +1068,7 @@
     set('obs.host', c.obs.host);
     set('obs.port', c.obs.port);
     set('obs.password', '');
-    f.elements['obs.password'].placeholder = c.obs.hasPassword ? '(saved, leave blank to keep)' : 'OBS → Tools → WebSocket Server Settings';
+    f.elements['obs.password'].placeholder = S.obsAuto && S.obsAuto.applied ? '(read from OBS on this PC)' : c.obs.hasPassword ? '(saved, leave blank to keep)' : '(read from OBS when it runs on this PC)';
     const vm = c.vmix || {};
     set('vmix.host', vm.host || '127.0.0.1');
     set('vmix.port', vm.port || 8088);
@@ -1000,6 +1084,7 @@
     set('naming.stripPrefixes', c.naming.stripPrefixes);
     set('naming.eventSubfolder', c.naming.eventSubfolder);
     set('detect.enabled', c.detect && c.detect.enabled);
+    set('detect.stages', !c.detect || c.detect.stages !== false);
     set('detect.intervalMs', c.detect ? c.detect.intervalMs : 1000);
     set('detect.videosFolder', c.detect ? c.detect.videosFolder : '');
     loadSources(c.detect ? c.detect.source : '');
@@ -1159,6 +1244,23 @@
       if (S) { S.samples = r; renderMaintenance(); }
     } catch (e) { toast(e.message, { error: true }); }
   });
+  // ---------- start.gg token: open the page that makes one, and check it the moment it is pasted ----------
+  async function checkToken() {
+    const out = $('#token-status');
+    const typed = $('#settings-form').elements['startgg.token'].value.trim();
+    if (!typed && !(S && S.config.startgg.hasToken)) { out.textContent = 'Paste the token from start.gg first.'; return; }
+    out.textContent = 'Checking with start.gg…';
+    try {
+      const r = await api('POST', '/api/startgg/check-token', { token: typed });
+      out.textContent = `Token works: start.gg account ${r.gamerTag}.${typed ? ' Press Save settings to keep it.' : ''}`;
+    } catch (e) { out.textContent = e.message; }
+  }
+  $('#btn-token-check').addEventListener('click', checkToken);
+  let tokenTimer = null;
+  $('#settings-form').elements['startgg.token'].addEventListener('input', () => {
+    clearTimeout(tokenTimer);
+    if ($('#settings-form').elements['startgg.token'].value.trim().length >= 20) tokenTimer = setTimeout(checkToken, 400);
+  });
   $('#btn-update-check').addEventListener('click', async () => {
     const out = $('#update-status');
     out.textContent = 'Checking...';
@@ -1244,7 +1346,7 @@
         ? { state: 'ok', title: `${o.name} connected${o.version ? ` (${o.version})` : ''}`, text: 'The recorder can start and stop recordings.' }
         : vm
           ? { state: 'warn', title: 'vMix not connected', text: 'In vMix open Settings, Web Controller, tick Enable (port 8088). Running vMix on another PC? Put its address in Settings, vMix. Using OBS instead? Switch Production software in Settings.', action: 'settings', label: 'Open Settings' }
-          : { state: 'warn', title: 'OBS not connected', text: 'In OBS open Tools, WebSocket Server Settings, tick Enable WebSocket server, then paste the password from Show Connect Info into Settings. Using vMix instead? Switch Production software in Settings.', action: 'settings', label: 'Open Settings' },
+          : obsSetupItem(),
       o.recordDirectory
         ? { state: S.disk && S.disk.low ? 'warn' : 'ok', title: 'Recording folder', text: `${o.recordDirectory}${gb ? `, ${gb}` : ''}${S.disk && S.disk.low ? '. Under 25 GB: make room before the event.' : ''}` }
         : { state: 'opt', title: 'Recording folder', text: vm ? 'Read from vMix on the first recording: run the test recording below. vMix picks the folder and format under Settings, Recording.' : 'Read from OBS once it connects (Settings, Output, Recording path in OBS).' },
@@ -1265,6 +1367,19 @@
           ? { state: 'warn', title: 'Test recording', text: testRecText(t), action: 'test', label: 'Run again' }
           : { state: 'opt', title: 'Test recording', text: t && t.running ? testRecText(t) : `Records five seconds, checks the file, removes it. Needs ${o.name} connected.`, action: 'test', label: t && t.running ? 'Running...' : 'Run test' },
     ];
+  }
+  // OBS not connected: what the recorder found in OBS's own settings on this PC decides the advice.
+  function obsSetupItem() {
+    const a = S.obsAuto || {};
+    const title = 'OBS not connected';
+    if (a.found && a.enabled === false) {
+      return a.obsRunning
+        ? { state: 'warn', title, text: 'OBS\'s WebSocket server is off. In OBS: Tools, WebSocket Server Settings, tick Enable WebSocket server, OK. The recorder reads the password from OBS by itself.' }
+        : { state: 'warn', title, text: 'OBS\'s WebSocket server is off. OBS is closed, so the recorder can turn it on in OBS\'s settings; then start OBS and it connects by itself.', action: 'obs-enable', label: 'Turn it on' };
+    }
+    if (a.found && a.enabled && a.obsRunning === false) return { state: 'warn', title, text: 'Start OBS. The recorder already has OBS\'s connection details from this PC and connects by itself.' };
+    if (a.found && a.enabled) return { state: 'warn', title, text: 'OBS is running with its WebSocket server on, and the recorder is using the details OBS saved on this PC. If it stays red, check Settings, OBS, and the Windows firewall.', action: 'settings', label: 'Open Settings' };
+    return { state: 'warn', title, text: 'In OBS open Tools, WebSocket Server Settings and tick Enable WebSocket server. The recorder finds the password itself when OBS runs on this PC; for OBS on another PC, paste it from Show Connect Info into Settings. Using vMix instead? Switch Production software in Settings.', action: 'settings', label: 'Open Settings' };
   }
   function replaySetupItem() {
     const r = S.replay || {};
@@ -1301,6 +1416,7 @@
     else if (b.dataset.setup === 'art') { try { await api('POST', '/api/art/download', { pack: 'portrait' }); toast('Downloading the portrait pack.'); } catch (e) { toast(e.message, { error: true }); } }
     else if (b.dataset.setup === 'test') runTestRecording();
     else if (b.dataset.setup === 'overlay') { try { const r = await api('POST', '/api/overlay/install', { scene: '' }); toast(overlayInstalledMessage(r), { sticky: true }); renderSetup(); } catch (e) { toast(e.message, { error: true }); } }
+    else if (b.dataset.setup === 'obs-enable') { try { await api('POST', '/api/obs/enable-websocket'); toast('OBS\'s WebSocket server is on. Start OBS: the recorder connects by itself.'); } catch (e) { toast(e.message, { error: true }); } }
     else if (b.dataset.setup === 'replay-start') { try { await api('POST', '/api/replay/buffer', { on: true }); } catch (e) { toast(e.message, { error: true }); } }
     else if (b.dataset.setup === 'replay-scene') { try { await installReplayScene(); renderSetup(); } catch (e) { toast(e.message, { error: true }); } }
   });

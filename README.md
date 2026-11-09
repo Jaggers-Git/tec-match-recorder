@@ -58,8 +58,11 @@ and it lives on under Settings, About and maintenance.
 
 ## First-time setup (5 minutes)
 
-1. **OBS: Tools, then WebSocket Server Settings.** Tick *Enable WebSocket server*, keep port 4455, click
-   *Show Connect Info* and copy the password.
+1. **OBS: Tools, then WebSocket Server Settings.** Tick *Enable WebSocket server*, keep port 4455, OK. When OBS runs
+   on the same PC as the recorder, the recorder reads the port and password OBS saved and connects by itself, so
+   there is nothing to copy. (It looks in OBS's settings folder, or beside a portable OBS that is running. If the
+   server is off and OBS is closed, the setup checklist offers **Turn it on**.) For OBS on another PC, click *Show
+   Connect Info* and copy the password into Settings.
 2. **OBS recording settings** (Settings, Output, Recording):
    - Recording format **MKV** or **Hybrid MP4**. Both survive a crash or power blip; avoid plain MP4.
      OBS's "Automatically remux to mp4" option is fine either way, the app waits for the remux to finish.
@@ -72,10 +75,12 @@ and it lives on under Settings, About and maintenance.
    http://localhost:8420. Windows Firewall may ask about Node.js: allow it if you want to control the recorder
    from a phone or tablet on the same Wi-Fi; otherwise it doesn't matter.
 4. In the dashboard click **Settings**:
-   - **OBS WebSocket**: paste the password. The OBS chip in the header turns green.
+   - **OBS WebSocket**: nothing to do for OBS on this PC (see step 1). The OBS chip in the header turns green.
    - **start.gg live sync** (optional): paste the event URL (the page that shows the bracket, e.g.
      `https://www.start.gg/tournament/san-japan-2026/event/ultimate-singles`) and an API token.
-     Get a token at start.gg: click your profile, then **Developer Settings**, then *Create new token*.
+     **Get a token at start.gg** opens start.gg's Developer Settings (sign in first): *Create new token*, any
+     description, copy it, paste it. The recorder checks it with start.gg as soon as it is pasted and shows whose
+     account it belongs to. start.gg only gives tokens to a signed-in person, so this one step stays by hand.
      The bracket appears within seconds and refreshes itself every 45 s while online.
    - **Event**: titles use the start.gg tournament name unless you type one here.
 
@@ -213,6 +218,19 @@ air**, or **On air** on any clip in the list.
 **Checking a clip first.** **▶** on a clip plays it inside the panel at the chosen speed, off air, so a one-monitor
 station can find the moment before putting it on stream.
 
+**Naming clips.** Tap a clip's name (✎) to give it a title, like "Liva's ledge read". The title shows in the list
+and on the REPLAY badge while that clip plays, and the file is renamed to match
+(`2026-11-08 C Liva's ledge read.mp4`) unless OBS has it open in the replay scene at that moment.
+
+**On-air queue.** **+** adds a clip to the queue (**✓** takes it out); **↑ ↓** reorder it. **Play queue on air**
+plays the queued clips back to back at the chosen speed in the TEC Replay scene: the first goes where single
+replays go (Preview or Program), each next one starts as the last ends, and after the last the scene that was live
+before goes back to air. Starred clips have their own row: **Add to queue** queues them all in the order they
+happened, and **Export list** writes `<date> starred clips.m3u8` (a playlist VLC, OBS's VLC source or an editor can
+open) and `<date> starred clips.csv` (time, set, round, players, title, file) next to the clips, for whoever cuts
+the highlights. The queue plays files as they are; joining them into one video file would need ffmpeg, which the
+recorder does not ship.
+
 **vMix (not yet tested on a live vMix).** The recorder drives vMix's own Instant Replay, which comes with vMix 4K (one
 camera), Pro and MAX (eight cameras) and not with Basic HD or HD. Add a Replay input in vMix and set its camera to
 Output, so it records what OBS's buffer would. Then:
@@ -230,7 +248,7 @@ Inside OBS's recording folder, in a subfolder named after the event (toggle in S
 
 - The renamed recordings.
 - `recordings.csv`, one row per set: Player 1, Character(s), Player 2, Character(s), Round, Set, Date, Time,
-  Duration, Title, Filename, Event. The first five columns match VGBootCamp's Stream Worksheet, so a whole day
+  Duration, Title, Filename, Event, costumes, Game, Score, Games and Stages. The first five columns match VGBootCamp's Stream Worksheet, so a whole day
   can be pasted in at once (**Copy all worksheet rows** in the dashboard does the same via the clipboard).
 
 ## Naming
@@ -241,7 +259,7 @@ Default title template (Settings, Naming), which mirrors the VGBootCamp VOD titl
 {event} {round} - {p1} ({chars1}) Vs. {p2} ({chars2}) {suffix}
 ```
 
-Fields: `{event} {round} {set} {p1} {p2} {chars1} {chars2} {suffix} {date} {time}`. Empty parentheses and dangling
+Fields: `{event} {round} {set} {p1} {p2} {chars1} {chars2} {stages} {suffix} {date} {time}` (`{stages}` is the stage of each game, comma-separated). Empty parentheses and dangling
 dashes are removed automatically, so a set without characters still produces a clean title. Filenames are the
 title with Windows-illegal characters stripped, prefixed by `{date} {set}` so they sort in bracket order (toggle).
 Sponsor prefixes (`TSM | Leffen`) are stripped from start.gg names by default; multiple characters per player are
@@ -312,6 +330,40 @@ Testing without hardware: add a **Browser Source** in OBS pointing at
 `http://localhost:8420/standin.html?v=<YouTube video id>&t=<start seconds>` (1920x1080) and put that scene on the
 program output; the detector treats it like a capture feed. Raw game-feed uploads work best; broadcast VODs with
 overlays or player cameras can cover the HUD panels the detector reads.
+
+### Stages
+
+Each game's stage is recognized too, for the eight competitive Ultimate stages: Battlefield, Small Battlefield,
+Final Destination, Pokémon Stadium 2, Smashville, Town and City, Kalos Pokémon League and Hollow Bastion. The
+current set shows one chip per game (**G1 Small Battlefield**, dashed while it is the reader's guess); the list goes
+into the log, the Stages column of `recordings.csv` and the `{stages}` title field.
+
+- **How:** while a game is on screen, each frame's backdrop (the middle band of the picture, clear of stream
+  overlays at the top and the damage display at the bottom) is fingerprinted by its colours and coarse layout and
+  compared with reference fingerprints of each stage; the game's stage is the vote of its frames, decided after
+  three that agree. It costs about a millisecond a frame. A frame that is not close to any reference does not
+  vote, so a look the recorder does not know leaves the game's chip blank ("not recognized: pick") instead of taking a
+  lookalike's name; picking the stage there teaches it.
+- **References** ship in `lib/stages-ref.json` (384 fingerprints, no pictures), built from ten public tournament and
+  gameplay videos. Tested by holding each game out in turn: Pokémon Stadium 2 (18 games), Hollow Bastion (5), Town and
+  City (3) and Final Destination (2) all came out right, and no game was ever given the wrong stage outside the
+  Battlefield pair. Smashville follows the console clock (day, sunset, night), so a time of day the references have
+  not seen comes out blank until it is taught once; Kalos had one video to learn from.
+- **Battlefield and Small Battlefield** share a backdrop and differ only by Battlefield's top platform, which the
+  fingerprint cannot see reliably, so a read of either shows as **G1?** in amber: glance for the top platform and pick
+  the right one on the chip.
+- **Fixing a stage** on the chip (or **(remove)**, or **+ Add a game** for one it missed) corrects the set, and a
+  correction teaches the reader how this station's capture shows that stage (`data/stages-own.json`). Stages the
+  shipped references do not cover yet are learned this way after one correction each.
+- Settings, Character detection, has the on/off switch.
+
+### Lighter on the PC
+
+While both characters are known and a game is on screen, the detector checks only those two portraits (about 5 ms
+each) and runs the full search of every portrait once every five frames, so a counterpick is still caught; with
+the "%" anchors learned it also looks every 2.5 seconds instead of every second until the game ends. Before a
+character is locked it tries the characters already on the set first. Review frames are saved at half size once the
+anchors are learned.
 
 Storage: `data/templates/` holds the learned name masks (plus a crop of each so you can see what was learned) and
 `data/samples/` holds frames waiting for review, which are deleted once reviewed.
@@ -470,6 +522,8 @@ with Nintendo, Bandai Namco, Capcom, OBS or start.gg.
 | Replay waits in Preview | Scene changes go to Preview: press **Transition ▶**. Or set them to Program in Settings. |
 | Live output picture is black | OBS is not connected, or *Hide picture* is ticked on that device. With vMix, the picture needs vMix on the same PC. |
 | "Port 8420 is already in use" | The recorder is already running (check the taskbar), or change `port` in `data/config.json`. |
+| A stage chip is wrong | Pick the right stage on the chip. The recorder fixes the set and learns how this station shows that stage. |
+| OBS not connected, OBS is running | The recorder reads OBS's WebSocket settings on this PC within 30 s. If OBS's WebSocket server is off, tick it in OBS (Tools, WebSocket Server Settings). OBS on another PC: copy the password into Settings. |
 | Wrong names saved | Fix the file name in Explorer (Open recordings folder) and the row in `recordings.csv`. |
 | Start over | Close the app and delete `data/state.json` (log and recent players) or `data/config.json` (settings). |
 
