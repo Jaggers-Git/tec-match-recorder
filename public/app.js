@@ -121,15 +121,48 @@
   }
 
   // ---------- live updates ----------
+  // The session log (with recent players and recorded marks) and the replay list arrive as their own
+  // events, only when they change; every state event gets them folded back in, so the rest of the page
+  // reads S.log and S.replay.events as before.
+  let LOG = { log: [], recentPlayers: [], recordedSetIds: [] };
+  let REPLAYS = [];
+  let loadedVersion = '';
+  function mergeSlices() {
+    if (!S) return;
+    Object.assign(S, LOG);
+    if (S.replay) S.replay.events = REPLAYS;
+  }
   function connect() {
-    const es = new EventSource('/api/events');
+    const es = new EventSource('/api/events?full=1');
     es.addEventListener('state', (ev) => {
       const wasOffline = !appOnline;
       S = JSON.parse(ev.data);
+      mergeSlices();
       appOnline = true;
-      // Back after a restart: the picture streams ended with the old process, so open them again.
+      // A newer version answered (updated from another device): load its page instead of mixing the two.
+      if (S.version && loadedVersion && S.version !== loadedVersion && !updateTarget) { location.reload(); return; }
+      loadedVersion = loadedVersion || S.version || '';
+      // Back after a restart: frame numbers start again, so the live picture forgets the last one.
       if (wasOffline) restartLive();
       render();
+      // On (re)connect the log came in before the first state, so draw it now.
+      if (wasOffline) { renderLog(); renderRecent(); }
+    });
+    es.addEventListener('log', (ev) => {
+      LOG = JSON.parse(ev.data);
+      if (!S) return;
+      mergeSlices();
+      renderLog();
+      renderRecent();
+      renderLogPanel();
+      renderCurrent();
+      renderBracket(false);
+    });
+    es.addEventListener('replays', (ev) => {
+      REPLAYS = JSON.parse(ev.data).events || [];
+      if (!S) return;
+      mergeSlices();
+      renderReplay();
     });
     es.addEventListener('bracket', (ev) => { B = JSON.parse(ev.data); renderBracket(true); });
     es.onerror = () => {
@@ -154,8 +187,7 @@
     renderBanner();
     renderCurrent();
     renderRecord();
-    renderLog();
-    renderRecent();
+    // The log table and recent players redraw on their own event, only when the log changes.
     renderBracket(false);
     renderSettingsStatus();
     renderScreens();
@@ -976,6 +1008,7 @@
     loadSceneChoices(c.scenes || {});
     const rp = c.replay || {};
     set('replay.enabled', rp.enabled !== false);
+    set('replay.inRecord', !!rp.inRecord);
     set('replay.seconds', rp.seconds || 15);
     set('replay.autoReturn', rp.autoReturn !== false);
     set('replay.audio', !!rp.audio);
@@ -1240,8 +1273,12 @@
     if (!S.sw.connected) return { state: 'opt', title: `${title} (optional)`, text: `Saves the last ${r.seconds || 15} seconds on a button press, for slow motion on stream or highlight clips. Available once ${S.sw.name} is connected.` };
     if (r.available === false) return { state: 'opt', title: `${title} (optional)`, text: r.reason };
     if (r.available == null) return { state: 'opt', title: `${title} (optional)`, text: `Asking ${S.sw.name}…` };
+    // A CPU (x264) recording encoder keeps working whenever the buffer runs, between sets included.
+    const cpu = !vm && r.cpuEncoder ? ` OBS records with x264, so the buffer keeps the CPU encoding between sets too (roughly a fifth of a core at 720p30, more at 1080p60); a hardware encoder (NVENC, AMF, QuickSync) in Settings, Output makes it nearly free.` : '';
+    if (!r.active && !r.wanted) return { state: 'opt', title: `${title} (optional)`, text: r.enabled ? `Ready: the ${vm ? 'replay recording' : 'replay buffer'} starts when you switch to Broadcast mode. For the Save clip button in Record mode, tick "Also in Record mode" in Settings, Instant replay.${cpu}` : 'Off in Settings, Instant replay.' };
     if (!r.active) return { state: 'warn', title, text: vm ? 'The vMix Replay input is not recording, so REPLAY has nothing to mark.' : 'The OBS replay buffer is stopped, so REPLAY has nothing to save.', action: 'replay-start', label: vm ? 'Start recording' : 'Start buffer' };
     if (vm) return { state: 'ok', title, text: `vMix replay recording; REPLAY marks the last ${r.seconds} seconds.` };
+    if (cpu) return { state: 'warn', title, text: `OBS replay buffer running, last ${r.seconds} seconds.${cpu}` };
     if (!r.scene.installed) return { state: 'ok', title, text: `OBS replay buffer running, last ${r.seconds} seconds. The "TEC Replay" scene for slow motion on stream is added on the first Play, or now.`, action: 'replay-scene', label: 'Add replay scene' };
     return { state: 'ok', title, text: `OBS replay buffer running, last ${r.seconds} seconds; scene "${r.scene.name}" ready.` };
   }

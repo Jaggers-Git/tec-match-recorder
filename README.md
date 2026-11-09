@@ -128,8 +128,9 @@ The **Record | Broadcast** switch in the header changes the dashboard on every d
 `data/config.json`). A station that updates opens in Record mode, laid out as before.
 
 - **Record mode** is the VOD station: the bracket, the current set with the big Start / End & Save button, and the
-  session log. While OBS's replay buffer runs, a small **Save clip (last 15 s)** button under the record button saves
-  a highlight clip into the Replays folder (see [Instant replay](#instant-replay)).
+  session log. With *Also in Record mode* ticked in Settings, *Instant replay*, the replay buffer keeps running here
+  too and a small **Save clip (last 15 s)** button under the record button saves a highlight clip into the Replays
+  folder (see [Instant replay](#instant-replay)).
 - **Broadcast mode** is for a station that also runs the stream. Along the top sit **Live output**, with the scene
   buttons and **Transition ▶** under it, and **Instant replay** beside it. Below them: a narrow bracket list, the
   current set as a compact scoreboard control with a slim record bar, the Stream screens panel, and the session log
@@ -161,9 +162,14 @@ Buffer** tab), then OK. OBS only builds the buffer when it applies its output se
 recorder cannot take for you. From then on:
 
 - The recorder sets the buffer to the clip length in Settings, *Instant replay* (15 seconds by default) and keeps it
-  running while OBS is connected. Untick *Keep the replay buffer running* to leave the buffer to OBS.
+  running in Broadcast mode while OBS is connected. Switching to Record mode stops a buffer the recorder started
+  (never one you started in OBS); tick *Also in Record mode* for the Save clip button there. Untick *Keep the replay
+  buffer running* to leave the buffer to OBS.
 - The buffer reuses the recording encoder, so it adds no second encode and runs alongside a recording. It holds the
-  last seconds in memory (about 30 MB for 15 seconds at 15 Mbps) and keeps the encoder working between sets.
+  last seconds in memory (about 30 MB for 15 seconds at 15 Mbps) and keeps the encoder working between sets. With
+  OBS's x264 (CPU) encoder that costs real CPU: about a fifth of a core at 720p30 in testing, several times that at
+  1080p60. A hardware encoder (NVENC, AMF, QuickSync) makes it nearly free, and the setup checklist says which
+  one OBS records with.
 - It is not available with Advanced output's *Custom Output (FFmpeg)* or Simple output's *Lossless* quality.
 - A clip starts on a keyframe, so its length lands within one keyframe interval of the setting. A 2 second keyframe
   interval on the recording encoder (Advanced output, Recording, Keyframe Interval) keeps clips within about 2 seconds

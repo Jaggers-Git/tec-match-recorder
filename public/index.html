@@ -408,7 +408,8 @@
         <legend>Instant replay</legend>
         <div class="muted sw-obs">OBS keeps the last few seconds in memory with its Replay Buffer, using the recording encoder (no second encode). Turn it on once in OBS: Settings, Output, tick Enable Replay Buffer (in Advanced output mode it is the Replay Buffer tab), then OK. The recorder sets the length and keeps the buffer running. Recording format Hybrid MP4 (or MP4) is best: with MKV and "Automatically remux to mp4", OBS also remuxes every replay and opens its remux window.</div>
         <div class="muted sw-vmix">Uses vMix's own Instant Replay (vMix 4K, Pro or MAX). Add a Replay input in vMix and set its camera to Output. REPLAY marks the last seconds as a vMix event and, when vMix runs on this PC, exports it into the Replays folder; Play sends the newest event to the output at the chosen speed. Not yet tested on a live vMix.</div>
-        <label class="check" style="margin-top:8px"><input type="checkbox" name="replay.enabled"> <span>Keep the <span class="sw-obs">replay buffer</span><span class="sw-vmix">replay recording</span> running while <span class="sw-name">OBS</span> is connected</span></label>
+        <label class="check" style="margin-top:8px"><input type="checkbox" name="replay.enabled"> <span>Keep the <span class="sw-obs">replay buffer</span><span class="sw-vmix">replay recording</span> running in Broadcast mode while <span class="sw-name">OBS</span> is connected</span></label>
+        <label class="check"><input type="checkbox" name="replay.inRecord"> <span>Also in Record mode, for the <b>Save clip</b> button (with OBS's x264 encoder this keeps it working between sets all day)</span></label>
         <div class="grid2">
           <label>Clip length in seconds (5 to 60) <input name="replay.seconds" type="number" min="5" max="60" step="1"></label>
         </div>

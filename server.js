@@ -91,10 +91,12 @@ const DEFAULT_CONFIG = {
   // Dashboard layout for every device on the station: 'record' (the VOD station) or 'broadcast' (the live
   // output picture, scene buttons and instant replay up top).
   mode: 'record',
-  // Instant replay (lib/replay.js). enabled keeps OBS's replay buffer (or vMix's replay recording) running;
-  // seconds is the clip length; speed the slow-motion speed in percent; autoReturn takes the scene that was
-  // live before back to air when a replay ends; audio lets a replay at 100% be heard (slowed ones never are).
-  replay: { enabled: true, seconds: 15, speed: 50, autoReturn: true, audio: false },
+  // Instant replay (lib/replay.js). enabled keeps OBS's replay buffer (or vMix's replay recording) running
+  // in Broadcast mode, and in Record mode too when inRecord is on (for Save clip; with x264 the buffer keeps
+  // a CPU encoder busy all day); seconds is the clip length; speed the slow-motion speed in percent;
+  // autoReturn takes the scene that was live before back to air when a replay ends; audio lets a replay
+  // at 100% be heard (slowed ones never are).
+  replay: { enabled: true, seconds: 15, speed: 50, autoReturn: true, audio: false, inRecord: false },
 };
 
 // ---------- utilities ----------
@@ -1405,9 +1407,11 @@ function updateConfig(body) {
     speed: clampSpeed(rp.speed),
     autoReturn: rp.autoReturn !== false,
     audio: !!rp.audio,
+    inRecord: !!rp.inRecord,
   };
-  const replayChanged = next.replay.enabled !== cfg.replay.enabled || next.replay.seconds !== cfg.replay.seconds;
   const modeChanged = next.mode !== cfg.mode;
+  // The buffer runs in Broadcast mode (and in Record mode only with inRecord), so a mode switch can start or stop it.
+  const replayChanged = modeChanged || ['enabled', 'seconds', 'inRecord'].some((k) => next.replay[k] !== cfg.replay[k]);
   const obsChanged = JSON.stringify(next.obs) !== JSON.stringify(cfg.obs);
   const vmixChanged = ['host', 'port', 'user', 'password'].some((k) => next.vmix[k] !== cfg.vmix[k]);
   // Turning Smash-only on drops any SF6/Tekken bracket on the next sync, so sync right away.
@@ -1452,7 +1456,21 @@ function lanUrls() {
   }
   return out;
 }
+// What every page gets on each change: about 5 KB. The session log and the replay list (most of the
+// weight late in a day: 170 KB and 45 KB with 400 sets) go out as their own events, only to the
+// dashboard and only when they change; OBS's Browser Sources never read them.
+function logPayload() {
+  return { log: state.log.slice(0, 200), recentPlayers: state.recentPlayers, recordedSetIds: state.recordedSetIds };
+}
+function replaysPayload() {
+  return { events: replay.eventList() };
+}
+// The whole picture in one object, for GET /api/state and diagnostics.
 function snapshot() {
+  const core = coreSnapshot();
+  return { ...core, ...logPayload(), replay: { ...core.replay, ...replaysPayload() } };
+}
+function coreSnapshot() {
   return {
     // The production software in use (OBS or vMix); `snapshots` says whether the detector can get frames.
     sw: {
@@ -1465,7 +1483,7 @@ function snapshot() {
       scenes: sw.status === 'connected' ? sw.scenes || [] : [],
     },
     mode: cfg.mode === 'broadcast' ? 'broadcast' : 'record',
-    replay: replay.status(),
+    replay: replay.status({ events: false }),
     live: live.status(),
     rec: state.rec,
     startgg: {
@@ -1476,11 +1494,10 @@ function snapshot() {
     },
     current: state.current,
     preview: buildLabel(state.current),
-    log: state.log.slice(0, 200),
-    recentPlayers: state.recentPlayers,
-    recordedSetIds: state.recordedSetIds,
-    disk,
-    detect: detector.status(),
+    // Free space to the nearest 50 MB, without the check time, so the 30-second disk check only sends
+    // an update when the number shown would change.
+    disk: { path: disk.path, low: disk.low, freeBytes: disk.freeBytes == null ? null : Math.round(disk.freeBytes / 5e7) * 5e7 },
+    detect: detectSummary(),
     train: trainer.status(),
     config: publicConfig(),
     eventDisplayName: eventDisplayName(),
@@ -1493,11 +1510,17 @@ function snapshot() {
     screenScenes: SCREENS.map((s) => s.scene),
     version: APP_VERSION,
     update: updater.status(),
-    overlay: overlayCache,
+    overlay: { ...overlayCache, checkedAt: undefined },
     overlayDemoUntil,
     testRec,
-    samples: samplesInfo,
+    samples: { ...samplesInfo, checkedAt: undefined },
   };
+}
+// The detector fields the pages show. The per-frame counters (frames, last frame time and score, the HUD
+// read-out) stay in /api/detect/status, so a running detector does not make every update look new.
+function detectSummary() {
+  const { lastFrameAt, frames, lastScore, hud, locked, lastVsAt, ...shown } = detector.status();
+  return shown;
 }
 function bracketPayload() {
   return {
@@ -1507,17 +1530,31 @@ function bracketPayload() {
   };
 }
 
+// Each client is the response of an open /api/events. `full` (the dashboard, ?full=1) also gets the log
+// and replay list; the OBS pages and the training page get the core state only.
 const sseClients = new Set();
 function sseSend(res, event, data) {
-  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  sseWrite(res, event, JSON.stringify(data));
+}
+function sseWrite(res, event, json) {
+  res.write(`event: ${event}\ndata: ${json}\n\n`);
 }
 let broadcastTimer = null;
+const lastSent = { state: '', log: '', replays: '' };
+// Debounced; each part goes out only when it differs from what was last sent, so a change that alters
+// nothing anyone can see sends nothing. The log and replays go first, so the dashboard has them when
+// the state event redraws it.
 function broadcast() {
   if (broadcastTimer) return;
   broadcastTimer = setTimeout(() => {
     broadcastTimer = null;
-    const snap = snapshot();
-    for (const c of sseClients) sseSend(c, 'state', snap);
+    const parts = { state: JSON.stringify(coreSnapshot()), log: JSON.stringify(logPayload()), replays: JSON.stringify(replaysPayload()) };
+    const changed = Object.keys(parts).filter((k) => parts[k] !== lastSent[k]);
+    if (!changed.length) return;
+    Object.assign(lastSent, parts);
+    for (const c of sseClients) {
+      for (const k of ['log', 'replays', 'state']) if (changed.includes(k) && (k === 'state' || c.full)) sseWrite(c, k, parts[k]);
+    }
   }, 30);
 }
 function broadcastBracket() {
@@ -1623,7 +1660,8 @@ const detector = new Detector({
   log,
   shouldRun: () => sw.status === 'connected' && sw.canSnapshot() && !!cfg.detect.enabled && !trainer.isScanning() && !!currentGame().characters,
   // Blank means the program output: OBS's current program scene, or vMix's output snapshot.
-  getSource: async () => cfg.detect.source || (sw === obs ? (await obs.request('GetCurrentProgramScene')).currentProgramSceneName : ''),
+  // The program scene is tracked from OBS's events, so there is no need to ask for it every frame.
+  getSource: async () => cfg.detect.source || (sw === obs ? obs.program || (await obs.request('GetCurrentProgramScene')).currentProgramSceneName : ''),
   onDetection: ({ side, character, score, costume = -1, kind = 'vs' }) => {
     const chars = state.current[`chars${side}`];
     if (costume >= 0) state.current[`costume${side}`] = costume;
@@ -2190,8 +2228,12 @@ async function installUpdate() {
 
 // ---------- character art packs (downloaded on demand, never shipped) ----------
 let artJob = null;
+// The file counts come from listing the pack folders (about 700 portraits), so they are read once and
+// again after a download, rather than on every state update.
+let artCounts = null;
 function artStatus() {
-  return { portrait: art.packStatus(DATA_DIR, 'portrait'), icon: art.packStatus(DATA_DIR, 'icon'), job: artJob, source: art.SOURCE_URL };
+  if (!artCounts) artCounts = { portrait: art.packStatus(DATA_DIR, 'portrait'), icon: art.packStatus(DATA_DIR, 'icon') };
+  return { ...artCounts, job: artJob, source: art.SOURCE_URL };
 }
 function startArtDownload(pack) {
   if (artJob && artJob.running) throw new Error('A download is already running');
@@ -2204,7 +2246,7 @@ function startArtDownload(pack) {
   })
     .then((r) => { Object.assign(artJob, r, { running: false }); const n = detector.reloadArt(); log(`Character art: ${r.done} files in ${r.dir} (${n} portraits loaded)`); })
     .catch((e) => { artJob.running = false; artJob.error = e.message; log('Character art download failed:', e.message); })
-    .finally(() => broadcast());
+    .finally(() => { artCounts = null; broadcast(); });
 }
 
 // ---------- dashboard access ----------
@@ -2245,7 +2287,9 @@ async function handleApi(req, res, url) {
     case 'GET /api/events': {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
       res.write(': connected\n\n');
-      sseSend(res, 'state', snapshot());
+      res.full = url.searchParams.get('full') === '1';
+      if (res.full) { sseSend(res, 'log', logPayload()); sseSend(res, 'replays', replaysPayload()); }
+      sseSend(res, 'state', coreSnapshot());
       sseSend(res, 'bracket', bracketPayload());
       sseClients.add(res);
       req.on('close', () => sseClients.delete(res));
