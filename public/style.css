@@ -92,8 +92,9 @@ input[type="checkbox"] { width: auto; }
   :root[data-mode="broadcast"] .layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "live" "replay" "match" "bracket" "screens" "log"; }
 }
 /* Broadcast mode: the current set becomes a compact scoreboard control with a slim record bar. */
-:root[data-mode="broadcast"] .match-panel .preview,
-:root[data-mode="broadcast"] .match-panel .howto-btn { display: none; }
+:root[data-mode="broadcast"] .match-panel .preview { display: none; }
+:root[data-mode="broadcast"] .howto-btn { width: auto; margin-top: 0; padding: 6px 12px; font-size: 12px; gap: 8px; border-width: 1px; border-radius: 8px; }
+:root[data-mode="broadcast"] .howto-btn .q { width: 22px; height: 22px; font-size: 14px; }
 :root[data-mode="broadcast"] .record-area { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
 :root[data-mode="broadcast"] .record-btn { width: auto; min-width: 220px; padding: 12px 18px; font-size: 17px; border-radius: 10px; }
 :root[data-mode="broadcast"] .record-status { margin: 0; text-align: left; flex: 1; min-width: 160px; font-size: 14px; }

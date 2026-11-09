@@ -36,10 +36,15 @@ The dashboard's **Stream screens** panel, where the message and the caster cards
 
 ![Stream screens panel](docs/screenshots/dashboard_screens.png)
 
+The dashboard in **Broadcast mode**: the live Program and Preview pictures with the scene buttons, and instant
+replay beside them (captured against a test pattern in OBS).
+
+![Broadcast mode](docs/screenshots/dashboard_broadcast.png)
+
 ## Requirements
 
 - Windows PC with the capture card (any Windows 10/11 machine works).
-- **OBS Studio 28 or newer** (the WebSocket server is built in; tested with OBS 32), **or vMix** with its Web
+- **OBS Studio 28 or newer** (the WebSocket server is built in; tested with OBS 32 and 33), **or vMix** with its Web
   Controller turned on (see [Using vMix instead of OBS](#using-vmix-instead-of-obs)).
 - **Node.js 22 or newer** (LTS download from https://nodejs.org). No other installs, no `npm install`.
 
@@ -97,6 +102,10 @@ noticed and the file is still labelled. Differences from OBS:
 - **Training scans** play old recordings through OBS, so they stay OBS-only. Reviewing frames works with vMix.
 - vMix versions that do not report the recording's file name still work: the recorder takes the newest video in the
   recording folder (learnt from the first recording, or typed into Settings, vMix).
+- **Live output picture** (Broadcast mode) comes from vMix snapshots, so it needs vMix on the same PC and shows 1 to 2
+  frames a second.
+- **Instant replay** uses vMix's own Instant Replay (4K, Pro and MAX editions); see
+  [Instant replay](#instant-replay). It has not been tested on a live vMix yet.
 
 ## Event day
 
@@ -112,6 +121,102 @@ The big **How to run the station** button under Start Recording opens the same g
 
 If someone stops the recording from inside OBS, the app notices and labels that file too. If the dashboard tab is
 closed or refreshed mid-set, nothing is lost: the recording state lives in the app, not the browser.
+
+## Record mode and Broadcast mode
+
+The **Record | Broadcast** switch in the header changes the dashboard on every device of the station (it is saved in
+`data/config.json`). A station that updates opens in Record mode, laid out as before.
+
+- **Record mode** is the VOD station: the bracket, the current set with the big Start / End & Save button, and the
+  session log. While OBS's replay buffer runs, a small **Save clip (last 15 s)** button under the record button saves
+  a highlight clip into the Replays folder (see [Instant replay](#instant-replay)).
+- **Broadcast mode** is for a station that also runs the stream. Along the top sit **Live output**, with the scene
+  buttons and **Transition ▶** under it, and **Instant replay** beside it. Below them: a narrow bracket list, the
+  current set as a compact scoreboard control with a slim record bar, the Stream screens panel, and the session log
+  folded (**Show** opens it, and each device remembers). Stream screens and the scene buttons appear in this mode
+  only.
+
+**Live output** shows what is on air (Program, red tag) and, while OBS Studio Mode is on, what is cued (Preview,
+green tag), so a one-monitor station can run the show from the dashboard. The scene button for what is on air is
+outlined red and the one in Preview green.
+
+- The recorder asks OBS for a small 640-wide JPEG of each scene, about 5 a second for Program and 2 for Preview, one
+  request at a time, and only while a dashboard in Broadcast mode is open and on screen. The picture runs about a
+  quarter second behind, with no sound.
+- **Hide picture** stops it on that device, for a busy PC or a phone on thin Wi-Fi. Each picture uses roughly
+  60 KB a second.
+- vMix has no image feed in its API, so with vMix the picture comes from snapshots: 1 to 2 frames a second, and only
+  when vMix runs on the recording PC.
+- With OBS Studio Mode's *Duplicate scene* option on, an edit made in Preview to the scene that is live can show in the
+  Program picture before it reaches air, because OBS draws the edited copy when asked for that scene.
+
+## Instant replay
+
+Press **REPLAY** after a big moment and the last 15 seconds are saved as a clip, ready to play on stream in slow
+motion. The recording side is OBS's Replay Buffer; the playback side borrows vMix Instant Replay's event list, speed
+presets and "play last event to output".
+
+**One-time OBS setup:** Settings, Output, tick **Enable Replay Buffer** (in Advanced output mode it is the **Replay
+Buffer** tab), then OK. OBS only builds the buffer when it applies its output settings, so this is the one step the
+recorder cannot take for you. From then on:
+
+- The recorder sets the buffer to the clip length in Settings, *Instant replay* (15 seconds by default) and keeps it
+  running while OBS is connected. Untick *Keep the replay buffer running* to leave the buffer to OBS.
+- The buffer reuses the recording encoder, so it adds no second encode and runs alongside a recording. It holds the
+  last seconds in memory (about 30 MB for 15 seconds at 15 Mbps) and keeps the encoder working between sets.
+- It is not available with Advanced output's *Custom Output (FFmpeg)* or Simple output's *Lossless* quality.
+- A clip starts on a keyframe, so its length lands within one keyframe interval of the setting. A 2 second keyframe
+  interval on the recording encoder (Advanced output, Recording, Keyframe Interval) keeps clips within about 2 seconds
+  of it; Simple output's *Same as stream* quality uses the stream's 2 second keyframes already. With x264's default of
+  250 frames (about 8 seconds at 30 fps) clips vary by several seconds.
+
+**Saving.** REPLAY saves the buffer, and so do OBS's own *Save Replay* hotkey and a Stream Deck button: every save
+lands in the replay list with the time, set and players, and is moved into a **Replays** folder inside the event
+folder.
+
+```
+San Japan 2026\Replays\2026-10-06 C Replay 2 - Liva vs Leffen.mp4
+```
+
+The button rests about a second between saves, since OBS names replays to the second and two saves in one second
+would overwrite each other. Star a clip to find it later; **✕** takes it off the list and leaves the file. The list
+survives a restart. **Folder** opens the Replays folder.
+
+Hybrid MP4 (or MP4) recording gives clips that play everywhere, the dashboard's own player included. With MKV and
+*Automatically remux to mp4*, OBS remuxes every replay too and opens its remux window each time; the recorder files the
+.mp4 once it is written.
+
+**Slow motion on stream.** Pick a speed (100, 75, 50 or 25 percent, or the slider down to 10), then **Play last on
+air**, or **On air** on any clip in the list.
+
+- The first time, the recorder adds the scene **TEC Replay** to OBS (or press *Add replay scene to OBS* in Settings,
+  *Instant replay*): a Media Source "TEC Replay Clip" fitted to the canvas and, on top, a Browser Source "TEC Replay
+  Badge" showing http://localhost:8420/replay, a REPLAY tag in the station's theme with "Slow motion 50%" under it.
+  The clip already carries the stream overlay, since the buffer records Program.
+- The replay goes where the scene buttons send scenes (Settings, *Scene changes from the recorder go to*). By default
+  that is **Preview**, where the clip plays so you can watch it, and it starts again from its first frame when
+  **Transition** takes it live. Set to Program, it cuts to air at once.
+- When the clip ends, the scene that was live before goes back to air and whatever you had cued in Preview is cued
+  again. Untick *When a replay ends, take the scene that was live before it back to air* to hold the last frame
+  instead; **Back to Gameplay** (named after the previous scene) in the panel takes it back by hand.
+- Replays play muted, because slowed audio plays pitch-shifted and the buffer also holds the casters' mics. Settings
+  can let a replay at 100% be heard.
+- A new speed means playing the clip again, since OBS reopens the file on any speed change.
+- A replay put on air during a recording ends up in that VOD, as it would in any broadcast.
+
+**Checking a clip first.** **▶** on a clip plays it inside the panel at the chosen speed, off air, so a one-monitor
+station can find the moment before putting it on stream.
+
+**vMix (not yet tested on a live vMix).** The recorder drives vMix's own Instant Replay, which comes with vMix 4K (one
+camera), Pro and MAX (eight cameras) and not with Basic HD or HD. Add a Replay input in vMix and set its camera to
+Output, so it records what OBS's buffer would. Then:
+
+- The recorder starts the replay recording once when it connects (untick *Keep the replay recording running* to leave
+  it alone).
+- REPLAY marks the last 15 seconds as a vMix event (`ReplayMarkInOutLive`) and, when vMix runs on the recording PC,
+  exports it into the Replays folder. vMix sends no signal when an export is done, so the recorder watches the folder.
+- **On air** sets the speed and plays the newest event to the output (`ReplayPlayLastEventToOutput`). Older events
+  play from the Replay input in vMix. Take the next input live in vMix when the replay ends.
 
 ## What gets written
 
@@ -226,6 +331,8 @@ Storage: `data/templates/` holds the learned name masks (plus a crop of each so 
   there. The console then also prints an address like `http://192.168.1.23:8420` to open on the other device, which
   asks for the PIN once and remembers it. No internet is needed, just the local network.
 - OBS on a different PC than the recorder? Add `?pin=YOURPIN` to the overlay Browser Source URL.
+- Broadcast mode works from a phone too: the live picture, scene buttons and REPLAY all run over the same PIN. Tick
+  *Hide picture* on the phone if the Wi-Fi is thin.
 
 ## Stream screens and scene switching
 
@@ -238,13 +345,14 @@ Three full-screen 1920x1080 scenes in the Metroplex Major look:
   above it, one or two caster name cards (name plus an optional handle) under the camera, and the set and score
   above the gameplay.
 
-The **Stream screens** panel under the current set holds the message and the two caster cards; what is typed there
-shows on the screens straight away. A card with no name is not drawn. When the production software is connected,
-the panel also has a button per scene (Gameplay, Starting Soon, BRB, Casters).
+The **Stream screens** panel (Broadcast mode) holds the message and the two caster cards; what is typed there shows
+on the screens straight away. A card with no name is not drawn. When the production software is connected, a button
+per scene (Gameplay, Starting Soon, BRB, Casters, and Replay once the replay scene exists) sits under the live
+output picture.
 
 **Preview or Program** (Settings, *Scene changes from the recorder go to*): by default every scene change from the
 recorder lands in **Preview** (OBS Studio Mode, vMix Preview) and nothing goes live until you take it with the
-transition, from OBS or vMix as usual or with the panel's **Transition ▶** button. Pick *Program* to have the
+transition, from OBS or vMix as usual or with **Transition ▶** under the live picture. Pick *Program* to have the
 buttons and the automatic switching cut straight away instead. With Studio Mode off, OBS has no Preview, so Preview
 mode reports that rather than cutting live.
 
@@ -348,6 +456,12 @@ with Nintendo, Bandai Namco, Capcom, OBS or start.gg.
 | Log row shows **error** | Click **Retry**. Common cause: OBS was still finalizing the file. The original is untouched in the OBS folder. |
 | **start.gg error: rejected the API token** | Create a fresh token in start.gg Developer Settings and paste it into Settings. |
 | **start.gg OFFLINE** | No internet. The cached bracket and manual entry keep working; sync resumes automatically. |
+| **REPLAY** greyed out, "Replay buffer is off in OBS" | In OBS: Settings, Output, tick *Enable Replay Buffer*, OK. Then **Start buffer** in the replay panel. |
+| "OBS did not save the replay" | A paused recording blocks replay saves in OBS. Resume it and press REPLAY again. |
+| Clips run shorter or longer than the setting | They start on a keyframe. Set a 2 second keyframe interval on the recording encoder. |
+| **▶** in the replay list shows an error | The browser cannot play that file, usually an MKV. Record in Hybrid MP4; the clip still plays on stream. |
+| Replay waits in Preview | Scene changes go to Preview: press **Transition ▶**. Or set them to Program in Settings. |
+| Live output picture is black | OBS is not connected, or *Hide picture* is ticked on that device. With vMix, the picture needs vMix on the same PC. |
 | "Port 8420 is already in use" | The recorder is already running (check the taskbar), or change `port` in `data/config.json`. |
 | Wrong names saved | Fix the file name in Explorer (Open recordings folder) and the row in `recordings.csv`. |
 | Start over | Close the app and delete `data/state.json` (log and recent players) or `data/config.json` (settings). |

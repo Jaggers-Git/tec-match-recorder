@@ -17,6 +17,14 @@
 5. Set over? **END & SAVE**, then tap it again to confirm. Done. The form clears for the next set.
 6. Filling in the stream worksheet? Tap **Copy row** on the log line and paste it in.
 
+**Broadcast mode** (header switch: Record | Broadcast; every device on the station follows)
+1. **Live output** shows what is on air (red, Program) and what is cued (green, Preview). It runs a moment behind, with no sound.
+2. Scene buttons load Preview; **Transition ▶** takes it live. The live scene's button is outlined red, the cued one green.
+3. Big moment? **REPLAY**. The last 15 seconds are saved and added to the list.
+4. Pick a speed (**50%** is a good slow motion), then **Play last on air**, or **On air** on any clip. It lands in Preview: **Transition ▶** to air it.
+5. When the clip ends, the scene that was live before goes back to air by itself. **Back to ...** does it sooner.
+6. Want to find the moment first? **▶** plays the clip in the panel, off air. Tap **☆** to star the good ones.
+
 **Rules of thumb**
 - One recording per *set* (the whole Bo3/Bo5), not per game.
 - The file is named from whatever is in the form at the moment you press End & Save.
@@ -33,5 +41,7 @@
 | **start.gg OFFLINE** (yellow) | Wi-Fi dropped. Keep going: the bracket you see is the last one downloaded. Tap **Sync now** when it's back. |
 | **start.gg error** | Token or URL problem. Recording still works; enter names by hand and tell the TO. |
 | Disk chip red | Under 25 GB left. Tell the TO before the next set. |
+| **REPLAY** greyed out | OBS's replay buffer is off. In OBS: Settings, Output, tick *Enable Replay Buffer*, OK. Then **Start buffer** in the replay panel. |
+| Live picture black on a phone or laptop | *Hide picture* is ticked on that device, or OBS is not connected. |
 | Log row says **error** | Tap **Retry**. The video is safe in the OBS or vMix recording folder either way. |
 | Black window closed by accident | Double-click **Start Recorder.bat** again. A recording in progress keeps running in OBS or vMix. |
