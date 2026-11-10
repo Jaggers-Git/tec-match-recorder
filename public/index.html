@@ -326,9 +326,11 @@
         <div class="row" style="align-items:center;margin-top:2px;flex-wrap:wrap;gap:8px">
           <a class="small token-link" href="https://www.start.gg/admin/profile/developer" target="_blank" rel="noopener">Get a token at start.gg</a>
           <button type="button" id="btn-token-check" class="small">Check token</button>
+          <button type="button" id="btn-token-forget" class="small" hidden>Forget token</button>
           <span id="token-status" class="muted"></span>
         </div>
-        <div class="muted">The link opens start.gg's Developer Settings (sign in first): <i>Create new token</i>, any description, then copy it and paste it above. It is checked as soon as it is pasted.</div>
+        <div id="token-saved" class="muted" style="margin-bottom:4px" hidden></div>
+        <div class="muted">The link opens start.gg's Developer Settings (sign in first): <i>Create new token</i>, any description, then copy it and paste it above. It is checked as soon as it is pasted. Saved once, it stays on this PC for every copy of the recorder, so a new release or a second station folder needs no token.</div>
         <div class="row" style="align-items:flex-end;margin-top:4px">
           <label style="flex:1">Add a whole tournament (its Ultimate singles<span class="multi-game">, Street Fighter 6 and Tekken 8</span> brackets) <input id="import-url" placeholder="https://www.start.gg/tournament/…" autocomplete="off"></label>
           <button type="button" id="btn-import" class="small">Add events</button>

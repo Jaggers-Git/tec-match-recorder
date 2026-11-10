@@ -24,6 +24,7 @@ const { Replay, SCENE: REPLAY_SCENE, clampSpeed } = require('./lib/replay');
 const { STAGES } = require('./lib/stages');
 const { LiveFeed } = require('./lib/live');
 const obsfind = require('./lib/obsfind');
+const pctoken = require('./lib/pctoken');
 const { supervise, underSupervisor, RESTART_CODE } = require('./lib/supervisor');
 const art = require('./lib/art');
 
@@ -148,6 +149,43 @@ async function waitUntil(test, maxMs, stepMs = 200) {
 
 // ---------- persistent state ----------
 let cfg = mergeConfig(DEFAULT_CONFIG, readJson(CONFIG_PATH, {}));
+// The start.gg token is saved once per PC (lib/pctoken.js), so every copy of the recorder here uses it:
+// a new release unzipped beside the old one, a second station folder, a reinstall. While the PC file
+// holds the token in use (tokenOnPc), config.json is written without it. A copy that saved its own
+// token before this version hands it to the PC file; when the PC already has a different one, the PC's
+// wins and this copy's is kept for the run as a spare (recoverToken) in case start.gg turns the PC's down.
+let tokenOnPc = false;
+let tokenSavedAt = null;
+let spareToken = '';
+{
+  const own = String(cfg.startgg.token || '').trim();
+  const pc = pctoken.read();
+  if (pc) {
+    tokenOnPc = true;
+    tokenSavedAt = pc.savedAt;
+    cfg.startgg.token = pc.token;
+    if (own && own !== pc.token) spareToken = own;
+    log(own && own !== pc.token ? 'start.gg: using the token saved on this PC (this copy had a different one, kept as a spare)' : 'start.gg: using the token saved on this PC');
+  } else if (own) {
+    rememberToken(own, null);
+  }
+  if (own && tokenOnPc) saveConfig();
+}
+// Keeps the token in the PC file. When the folder cannot be written it stays in config.json as before.
+function rememberToken(token, savedAt = nowIso()) {
+  try {
+    pctoken.write(token, savedAt);
+    tokenOnPc = true;
+    tokenSavedAt = savedAt;
+    log(`start.gg: token saved on this PC for every copy of the recorder (${pctoken.file()})`);
+  } catch (e) {
+    tokenOnPc = false;
+    log(`start.gg: could not save the token on this PC (${e.message}), so it stays in this copy's settings`);
+  }
+}
+function saveConfig() {
+  writeJson(CONFIG_PATH, tokenOnPc ? { ...cfg, startgg: { ...cfg.startgg, token: '' } } : cfg);
+}
 
 // ---------- games ----------
 // One profile per game the station records. `videogameIds` are start.gg's ids, used to work out which
@@ -669,11 +707,11 @@ async function tryObsAutoConfig({ force = false } = {}) {
   obsAutoBusy = true;
   try {
     const f = await obsfind.findWebsocket(cfg.obs.settingsFile || '');
-    if (f.file && f.file !== cfg.obs.settingsFile) { cfg.obs = { ...cfg.obs, settingsFile: f.file }; writeJson(CONFIG_PATH, cfg); }
+    if (f.file && f.file !== cfg.obs.settingsFile) { cfg.obs = { ...cfg.obs, settingsFile: f.file }; saveConfig(); }
     obsAuto = { ...obsAuto, found: !!f.file, enabled: f.enabled, obsRunning: f.obsRunning, portable: f.portable, checkedAt: Date.now() };
     if (f.file && f.enabled && (f.port !== Number(cfg.obs.port) || f.password !== String(cfg.obs.password || ''))) {
       cfg.obs = { ...cfg.obs, host: cfg.obs.host || '127.0.0.1', port: f.port, password: f.password };
-      writeJson(CONFIG_PATH, cfg);
+      saveConfig();
       obsAuto.applied = true;
       log(`OBS: using the WebSocket settings OBS saved on this PC (port ${f.port}, ${f.password ? 'with its password' : 'no password'})`);
       obs.connect();
@@ -725,7 +763,7 @@ function rememberRecordDirectory() {
   if (sw === obs && cfg.lastRecordDirectory !== dir) cfg.lastRecordDirectory = dir;
   else if (sw === vmix && cfg.vmix.recordDirectory !== dir) cfg.vmix.recordDirectory = dir;
   else return;
-  writeJson(CONFIG_PATH, cfg);
+  saveConfig();
   checkDisk();
 }
 function adoptRecording(startedAt) {
@@ -1033,7 +1071,7 @@ function patchCurrent(body) {
   if (b.bestOf !== undefined && BEST_OF.includes(Number(b.bestOf))) state.current.bestOf = Number(b.bestOf);
   if (typeof b.game === 'string' && GAMES[b.game] && stationGames().includes(b.game)) {
     state.current.game = b.game;
-    if (cfg.game !== b.game) { cfg.game = b.game; writeJson(CONFIG_PATH, cfg); }
+    if (cfg.game !== b.game) { cfg.game = b.game; saveConfig(); }
     if (!gameProfile(b.game).characters) { state.current.chars1 = []; state.current.chars2 = []; state.current.auto1 = []; state.current.auto2 = []; }
   }
   for (const k of ['chars1', 'chars2']) {
@@ -1335,9 +1373,30 @@ async function syncStartgg() {
     sg.lastError = e.message;
     sg.status = e.kind === 'auth' || e.kind === 'gql' ? 'error' : 'offline';
     log(`start.gg sync failed: ${e.message}`);
+    if (e.kind === 'auth') recoverToken();
   } finally {
     sg.syncing = false;
     broadcast();
+  }
+}
+// start.gg turned the token down. Another copy on this PC may have saved a newer one since this copy
+// started, or this copy's own older token (spareToken) may still work: try those before anyone has to
+// paste again. At most once a minute.
+let recoverAt = 0;
+async function recoverToken() {
+  if (Date.now() - recoverAt < 60000) return;
+  recoverAt = Date.now();
+  const pc = pctoken.read();
+  const tries = [...new Set([pc && pc.token, spareToken])].filter((t) => t && t !== cfg.startgg.token);
+  for (const t of tries) {
+    try { await gql('query { currentUser { id } }', {}, t); } catch { continue; }
+    cfg.startgg.token = t;
+    if (pc && pc.token === t) { tokenOnPc = true; tokenSavedAt = pc.savedAt; } else rememberToken(t, null);
+    spareToken = '';
+    saveConfig();
+    log(`start.gg: switched to ${pc && pc.token === t ? 'the newer token saved on this PC' : "this copy's earlier token"}, which start.gg accepts`);
+    syncStartgg();
+    return;
   }
 }
 let pollTimer = null;
@@ -1369,7 +1428,12 @@ function publicConfig() {
     ...cfg,
     obs: { ...cfg.obs, password: '', hasPassword: !!cfg.obs.password },
     vmix: { ...cfg.vmix, password: '', hasPassword: !!cfg.vmix.password },
-    startgg: { ...cfg.startgg, token: '', hasToken: !!cfg.startgg.token, eventSlug: eventSlugs()[0] || '', eventSlugs: eventSlugs() },
+    startgg: {
+      ...cfg.startgg, token: '', hasToken: !!cfg.startgg.token,
+      // Saved for every copy on this PC (lib/pctoken.js), and when it was pasted (null if copied from an older config).
+      tokenOnPc: tokenOnPc && !!cfg.startgg.token, tokenSavedAt: tokenOnPc ? tokenSavedAt : null,
+      eventSlug: eventSlugs()[0] || '', eventSlugs: eventSlugs(),
+    },
     gameList: stationGames().map(gameSummary),
     // Every game, for the title-suffix fields in Settings (hidden ones keep their values in Smash-only mode).
     gameListAll: Object.keys(GAMES).map(gameSummary),
@@ -1381,7 +1445,9 @@ function gameSummary(id) {
 }
 function updateConfig(body) {
   const incoming = body && typeof body === 'object' ? body : {};
+  if (incoming.startgg && incoming.startgg.token) incoming.startgg.token = String(incoming.startgg.token).trim();
   if (incoming.startgg && !incoming.startgg.token) delete incoming.startgg.token;
+  const tokenPasted = !!(incoming.startgg && incoming.startgg.token && (incoming.startgg.token !== cfg.startgg.token || !tokenOnPc));
   if (incoming.obs && !incoming.obs.password) delete incoming.obs.password;
   if (incoming.vmix && !incoming.vmix.password) delete incoming.vmix.password;
   if (incoming.startgg && typeof incoming.startgg.eventUrls === 'string') {
@@ -1472,7 +1538,8 @@ function updateConfig(body) {
     fetchStartggLogo().catch((e) => log(`Branding: no logo from start.gg (${e.message})`));
   }
   if (lanChanged) setTimeout(rebindServer, 200);
-  writeJson(CONFIG_PATH, cfg);
+  if (tokenPasted) { rememberToken(cfg.startgg.token); spareToken = ''; }
+  saveConfig();
   if (!useSwitcher()) {
     if (sw === obs && obsChanged) obs.connect();
     if (sw === vmix && vmixChanged) vmix.connect();
@@ -1741,7 +1808,7 @@ const trainer = new Trainer({ dataDir: DATA_DIR, obs, detector, getCfg: () => cf
 // ---------- instant replay and the live output picture (Broadcast mode) ----------
 const replay = new Replay({
   getCfg: () => cfg,
-  saveConfig: () => writeJson(CONFIG_PATH, cfg),
+  saveConfig,
   log,
   onChange: () => { persistState(); broadcast(); },
   obs, vmix, getSw: () => sw,
@@ -1943,7 +2010,7 @@ async function installOverlay(sceneName) {
   const scaleY = canvas && canvas.h ? canvas.h / 1080 : 1;
   await obs.request('SetSceneItemTransform', { sceneName: target, sceneItemId, sceneItemTransform: { positionX: 0, positionY: 0, scaleX, scaleY } }).catch(() => {});
   cfg.overlay.scene = target;
-  writeJson(CONFIG_PATH, cfg);
+  saveConfig();
   let currentScene = '';
   try { currentScene = (await obs.request('GetCurrentProgramScene')).currentProgramSceneName; } catch { /* unknown */ }
   // Show sample names for half a minute so the new layer is visible in OBS even before a set is picked.
@@ -2019,7 +2086,7 @@ async function installScenes() {
   }
   if (!cfg.scenes.after) cfg.scenes.after = 'MM BRB';
   if (!cfg.scenes.gameplay && gameplayScene) cfg.scenes.gameplay = gameplayScene;
-  writeJson(CONFIG_PATH, cfg);
+  saveConfig();
   log(`Scenes ready in OBS: ${done.join(', ')}${game ? `; Casters shows "${game.inputName}"` : ''}${cam ? ` and camera "${cam.inputName}"` : ''}`);
   broadcast();
   return { ok: true, scenes: done, game: game ? game.inputName : '', cam: cam ? cam.inputName : '' };
@@ -2031,7 +2098,7 @@ async function installVmixScenes() {
   const done = [];
   for (const s of SCREENS) { await vmix.installBrowserInput({ title: s.scene, url: screenUrl(s) }); done.push(s.scene); }
   if (!cfg.scenes.after) cfg.scenes.after = 'MM BRB';
-  writeJson(CONFIG_PATH, cfg);
+  saveConfig();
   log(`Screens added to vMix as inputs: ${done.join(', ')}`);
   broadcast();
   return { ok: true, vmix: true, scenes: done };
@@ -2294,6 +2361,21 @@ async function handleDetectApi(route, req, res, url) {
         const u = data && data.currentUser;
         sendJson(res, 200, { ok: true, gamerTag: (u && u.player && u.player.gamerTag) || (u && u.slug) || 'your account' });
       } catch (e) { sendJson(res, 400, { error: e.kind === 'auth' ? 'start.gg turned that token down: copy it again, or make a new one' : e.message }); }
+      return true;
+    }
+    // Removes the token from this PC (for a borrowed PC, or before handing a station on). Other copies
+    // that are open keep theirs in memory until they close.
+    case 'POST /api/startgg/forget-token': {
+      try { pctoken.clear(); } catch (e) { sendJson(res, 500, { error: `Could not remove the saved token: ${e.message}` }); return true; }
+      cfg.startgg.token = '';
+      spareToken = '';
+      tokenOnPc = false;
+      tokenSavedAt = null;
+      saveConfig();
+      log('start.gg: token removed from this PC');
+      syncStartgg();
+      broadcast();
+      sendJson(res, 200, { ok: true });
       return true;
     }
     case 'POST /api/startgg/import': {

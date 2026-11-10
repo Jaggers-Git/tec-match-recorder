@@ -84,7 +84,12 @@ and it lives on under Settings, About and maintenance.
      The bracket appears within seconds and refreshes itself every 45 s while online.
    - **Event**: titles use the start.gg tournament name unless you type one here.
 
-Settings live in `data/config.json` on this PC only. The token never leaves the machine.
+Settings live in `data/config.json` on this PC only. The start.gg token is saved once per PC, in
+`%APPDATA%\TEC Match Recorder\startgg.json`, so every copy of the recorder on that PC uses it: a new release
+unzipped beside the old one, a second station folder, or a fresh install all find it without anyone pasting it
+again. A copy that saved its own token in an older version moves it there on first start. **Forget token** in
+Settings removes it from the PC (for a borrowed PC, or before handing a station on). The token never leaves the
+machine.
 
 ## Using vMix instead of OBS
 
@@ -513,7 +518,7 @@ with Nintendo, Bandai Namco, Capcom, OBS or start.gg.
 | **vMix did not start recording** | vMix refused: check its Settings, Recording (the folder must exist). |
 | **vMix did not report where it saved** | Older vMix. Type its recording folder into Settings, vMix, then press **Retry** on the log row. |
 | Log row shows **error** | Click **Retry**. Common cause: OBS was still finalizing the file. The original is untouched in the OBS folder. |
-| **start.gg error: rejected the API token** | Create a fresh token in start.gg Developer Settings and paste it into Settings. |
+| **start.gg error: rejected the API token** | Tokens last a year. Create a fresh one in start.gg Developer Settings and paste it into Settings; every copy of the recorder on this PC picks it up. |
 | **start.gg OFFLINE** | No internet. The cached bracket and manual entry keep working; sync resumes automatically. |
 | **REPLAY** greyed out, "Replay buffer is off in OBS" | In OBS: Settings, Output, tick *Enable Replay Buffer*, OK. Then **Start buffer** in the replay panel. |
 | "OBS did not save the replay" | A paused recording blocks replay saves in OBS. Resume it and press REPLAY again. |

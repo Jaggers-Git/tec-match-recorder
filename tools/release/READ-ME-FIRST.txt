@@ -22,7 +22,7 @@ FIRST START (5 minutes)
    to run the dashboard from a phone later; otherwise it does not matter.
 4. A setup checklist appears. Optional: in Settings, "Get a token at start.gg" opens the page that
    makes an API token; paste it with your event URL to pick sets from the live bracket (the token is
-   checked as you paste it). Download the character art for automatic character tags. Press
+   checked as you paste it, and saved once for this PC, so newer versions of the recorder find it). Download the character art for automatic character tags. Press
    "Test recording" once to prove the chain works.
 5. Read OPERATOR-CHEATSHEET.md (one page) with whoever runs the station on the day.
 

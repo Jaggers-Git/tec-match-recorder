@@ -1062,7 +1062,9 @@
     for (const g of c.gameListAll || c.gameList || []) set(`games.${g.id}.suffix`, g.suffix);
     set('startgg.eventUrls', (c.startgg.eventUrls || []).join('\n'));
     set('startgg.token', '');
-    f.elements['startgg.token'].placeholder = c.startgg.hasToken ? '(saved, leave blank to keep)' : 'paste your start.gg API token';
+    f.elements['startgg.token'].placeholder = c.startgg.hasToken ? `(saved${c.startgg.tokenOnPc ? ' on this PC' : ''}, leave blank to keep)` : 'paste your start.gg API token';
+    renderTokenSaved();
+    $('#token-status').textContent = '';
     set('startgg.pollSeconds', c.startgg.pollSeconds);
     set('switcher', c.switcher || 'obs');
     set('obs.host', c.obs.host);
@@ -1252,10 +1254,36 @@
     out.textContent = 'Checking with start.gg…';
     try {
       const r = await api('POST', '/api/startgg/check-token', { token: typed });
-      out.textContent = `Token works: start.gg account ${r.gamerTag}.${typed ? ' Press Save settings to keep it.' : ''}`;
+      out.textContent = `Token works: start.gg account ${r.gamerTag}.${typed ? ' Press Save settings to keep it on this PC.' : ''}`;
     } catch (e) { out.textContent = e.message; }
   }
+  // Where the saved token lives: on this PC for every copy (lib/pctoken.js), or in this copy only when
+  // the PC's settings folder could not be written.
+  function renderTokenSaved() {
+    const sg = S.config.startgg;
+    const out = $('#token-saved');
+    out.hidden = !sg.hasToken;
+    $('#btn-token-forget').hidden = !sg.hasToken;
+    if (!sg.hasToken) return;
+    const when = sg.tokenSavedAt ? ` on ${new Date(sg.tokenSavedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}` : '';
+    out.textContent = sg.tokenOnPc
+      ? `Token saved on this PC${when}. Every copy of the recorder here uses it.`
+      : 'Token saved in this copy only: the recorder could not write to this PC\'s settings folder.';
+  }
   $('#btn-token-check').addEventListener('click', checkToken);
+  $('#btn-token-forget').addEventListener('click', async () => {
+    if (!confirm('Remove the start.gg token from this PC? Every copy of the recorder here loses it, and the bracket stops updating until a token is pasted again. Recording still works.')) return;
+    try {
+      const r = await api('POST', '/api/startgg/forget-token');
+      if (r && r.ok) {
+        S.config.startgg.hasToken = false;
+        S.config.startgg.tokenOnPc = false;
+        $('#settings-form').elements['startgg.token'].placeholder = 'paste your start.gg API token';
+        renderTokenSaved();
+        $('#token-status').textContent = 'Token removed from this PC.';
+      }
+    } catch (e) { toast(e.message, { error: true }); }
+  });
   let tokenTimer = null;
   $('#settings-form').elements['startgg.token'].addEventListener('input', () => {
     clearTimeout(tokenTimer);
