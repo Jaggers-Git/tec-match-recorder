@@ -14,13 +14,19 @@ last-synced bracket and manual entry keep working, and sync resumes on its own.
 
 ## Screenshots
 
-Captured from the recorder itself in the Metroplex Major theme, with made-up player and caster names. The labeled
-blue and grey areas are where OBS shows the gameplay capture and the camera.
+Rendered by OBS from the recorder's own scenes in the Metroplex Major theme, over Smash Ultimate gameplay, with
+made-up player and caster names (the in-game name tags are blurred). The grey CAMERA box is where OBS shows the
+casters' camera.
 
 **Stream overlay** over the gameplay: names, score, round, games won, and the rotating promo line and crown in the
 corners.
 
 ![Stream overlay](docs/screenshots/overlay.png)
+
+**Instant replay** on air at 50%: the REPLAY badge with the speed and the clip's name, a bar under the tag that
+counts down the replay, and the clip itself a little faded so viewers can tell it already happened.
+
+![Instant replay](docs/screenshots/replay.png)
 
 **Casters** scene: gameplay and camera windows, the set and score above, one or two name cards.
 
