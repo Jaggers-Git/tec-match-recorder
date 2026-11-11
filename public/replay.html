@@ -39,12 +39,25 @@
   :root[data-theme="mm"] .tag { background: #F0B40D; color: #11151A; box-shadow: none; letter-spacing: .16em; }
   :root[data-theme="mm"] .speed { background: #11151A; color: #fff; box-shadow: 0 0 0 2px #F0B40D; }
   :root[data-theme="mm"] .speed b { color: #F0B40D; }
+
+  /* Countdown: a bar under the tag, as wide as it, that drains while the clip plays and is empty as the
+     replay ends. Fed by /api/replay/progress (OBS's own position in the clip). */
+  .head { display: flex; flex-direction: column; align-items: stretch; }
+  .bar { height: 12px; margin-top: 9px; background: #2a2626; box-shadow: 0 0 0 3px #fff; transform: skewX(-12deg); overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: #FF3D2E; transform-origin: left center; transform: scaleX(1); }
+  :root[data-theme="tt"] .bar { background: #0a0a0a; box-shadow: 0 0 0 3px #F2B53A; }
+  :root[data-theme="tt"] .bar > i { background: #FCE319; }
+  :root[data-theme="mm"] .bar { background: #11151A; box-shadow: 0 0 0 2px #F0B40D; transform: skewX(-8deg); height: 10px; }
+  :root[data-theme="mm"] .bar > i { background: #F0B40D; }
 </style>
 <script src="/theme.js"></script>
 </head>
 <body>
   <div id="badge">
-    <div class="tag"><span>Replay</span></div>
+    <div class="head">
+      <div class="tag"><span>Replay</span></div>
+      <div id="bar" class="bar" hidden><i id="bar-fill"></i></div>
+    </div>
     <div id="speed" class="speed" hidden><span id="speed-text"></span></div>
     <div id="title" class="speed title" hidden><span id="title-text"></span></div>
   </div>
@@ -77,7 +90,41 @@
       b.classList.add('in');
     }
     lastPlay = play;
+    // Ask OBS where the clip is only while a replay plays.
+    if (r.playing && !pollTimer) { poll(); pollTimer = setInterval(poll, 400); }
+    if (!r.playing && pollTimer) { clearInterval(pollTimer); pollTimer = null; prog = null; }
   }
+
+  // ---------- countdown bar ----------
+  // Each poll gives OBS's position in the clip; between polls the bar moves on at the rate the cursor has
+  // been moving (the replay speed until two polls have been seen), so it drains smoothly. A clip taken
+  // live from Preview starts again from the top, and the bar fills up again with it.
+  let pollTimer = null;
+  let prog = null;
+  async function poll() {
+    let r;
+    try { r = await (await fetch('/api/replay/progress', { cache: 'no-store' })).json(); } catch { return; }
+    const now = performance.now();
+    if (!r.playing) { prog = null; return; }
+    if (!(r.duration > 0) || typeof r.cursor !== 'number') return;
+    const key = `${r.id}|${r.at}`;
+    let rate = (Number(r.speed) || 100) / 100;
+    if (prog && prog.key === key && r.state === 'playing' && prog.state === 'playing' && r.cursor > prog.cursor) {
+      const seen = (r.cursor - prog.cursor) / (now - prog.t);
+      rate = seen > 0.02 && seen < 2 ? (prog.rate + seen) / 2 : prog.rate;
+    }
+    prog = { key, cursor: r.cursor, duration: r.duration, t: now, rate, state: r.state };
+  }
+  function frame() {
+    requestAnimationFrame(frame);
+    const bar = $('#bar');
+    if (!prog) { bar.hidden = true; return; }
+    const ahead = prog.state === 'playing' ? Math.min(1500, performance.now() - prog.t) * prog.rate : 0;
+    const left = prog.state === 'ended' ? 0 : Math.max(0, Math.min(1, 1 - (prog.cursor + ahead) / prog.duration));
+    bar.hidden = false;
+    $('#bar-fill').style.transform = `scaleX(${left.toFixed(4)})`;
+  }
+  requestAnimationFrame(frame);
   let loadedVersion = '';
   const es = new EventSource('/api/events');
   es.addEventListener('state', (ev) => {

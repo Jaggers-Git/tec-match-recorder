@@ -99,7 +99,8 @@ const DEFAULT_CONFIG = {
   // a CPU encoder busy all day); seconds is the clip length; speed the slow-motion speed in percent;
   // autoReturn takes the scene that was live before back to air when a replay ends; audio lets a replay
   // at 100% be heard (slowed ones never are).
-  replay: { enabled: true, seconds: 15, speed: 50, autoReturn: true, audio: false, inRecord: false },
+  // fade takes a little colour out of the clip on air, so viewers can tell the moment already happened.
+  replay: { enabled: true, seconds: 15, speed: 50, autoReturn: true, audio: false, inRecord: false, fade: true },
 };
 
 // ---------- utilities ----------
@@ -1518,10 +1519,11 @@ function updateConfig(body) {
     autoReturn: rp.autoReturn !== false,
     audio: !!rp.audio,
     inRecord: !!rp.inRecord,
+    fade: rp.fade !== false,
   };
   const modeChanged = next.mode !== cfg.mode;
   // The buffer runs in Broadcast mode (and in Record mode only with inRecord), so a mode switch can start or stop it.
-  const replayChanged = modeChanged || ['enabled', 'seconds', 'inRecord'].some((k) => next.replay[k] !== cfg.replay[k]);
+  const replayChanged = modeChanged || ['enabled', 'seconds', 'inRecord', 'fade'].some((k) => next.replay[k] !== cfg.replay[k]);
   const obsChanged = JSON.stringify(next.obs) !== JSON.stringify(cfg.obs);
   const vmixChanged = ['host', 'port', 'user', 'password'].some((k) => next.vmix[k] !== cfg.vmix[k]);
   // Turning Smash-only on drops any SF6/Tekken bracket on the next sync, so sync right away.
@@ -1848,6 +1850,10 @@ async function handleReplayApi(route, req, res, url) {
       res.end(f.buf);
       return true;
     }
+    // Where the replay on air is, for the countdown bar on the REPLAY badge.
+    case 'GET /api/replay/progress':
+      sendJson(res, 200, await replay.progress());
+      return true;
     case 'POST /api/replay/save':
       try { sendJson(res, 200, { ok: true, event: await replay.save() }); } catch (e) { fail(e); }
       return true;

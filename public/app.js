@@ -1099,6 +1099,7 @@
     set('replay.seconds', rp.seconds || 15);
     set('replay.autoReturn', rp.autoReturn !== false);
     set('replay.audio', !!rp.audio);
+    set('replay.fade', rp.fade !== false);
     renderReplaySceneStatus();
     set('overlay.center', c.overlay ? c.overlay.center : 'round');
     set('overlay.scores', !c.overlay || c.overlay.scores !== false);

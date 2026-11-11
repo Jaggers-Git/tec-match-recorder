@@ -209,6 +209,13 @@ air**, or **On air** on any clip in the list.
   *Instant replay*): a Media Source "TEC Replay Clip" fitted to the canvas and, on top, a Browser Source "TEC Replay
   Badge" showing http://localhost:8420/replay, a REPLAY tag in the station's theme with "Slow motion 50%" under it.
   The clip already carries the stream overlay, since the buffer records Program.
+- A bar under the REPLAY tag counts down the replay: it drains as the clip plays and is empty as it ends, following
+  OBS's own position in the clip, so it keeps pace at any speed and fills again when a clip waiting in Preview is
+  taken live.
+- The clip plays with a little less colour, so viewers can tell the moment already happened. It is OBS's own Color
+  Correction filter, "TEC Replay Fade", on the TEC Replay Clip source (saturation -0.4, contrast -0.05); untick
+  *Fade the colours of replays* in Settings, *Instant replay*, to play clips at full colour. Amounts changed by hand
+  on the filter in OBS are kept.
 - The replay goes where the scene buttons send scenes (Settings, *Scene changes from the recorder go to*). By default
   that is **Preview**, where the clip plays so you can watch it, and it starts again from its first frame when
   **Transition** takes it live. Set to Program, it cuts to air at once.
