@@ -10,7 +10,9 @@
   //  notched: two deep name plates above the health bars joined by a thin bridge across the
   //           top-centre, leaving the timer and round-win markers uncovered (Tekken 8, SF6).
   const LAYOUTS = {
-    ssbu: { type: 'bar', bar: { x: 300, y: 4, w: 1320, h: 54 }, badge: 56, centerW: 340, endSlant: 22 },
+    // ticker: Ultimate's HUD fills the bottom from x 380 to 1470 in a 1v1, so the Metroplex Major ticker
+    // wraps inside the free corner left of player 1's panel (x 44-364) instead of running over it.
+    ssbu: { type: 'bar', bar: { x: 300, y: 4, w: 1320, h: 54 }, badge: 56, centerW: 340, endSlant: 22, ticker: { w: 320, size: 16 } },
     tekken8: {
       type: 'notched',
       plate1: { x: 212, y: 0, w: 490, h: 62 }, plate2: { x: 1218, y: 0, w: 490, h: 62 },
@@ -273,12 +275,28 @@
   }
   // Ticker and crown lockup in the bottom corners, for every game whose HUD leaves the corners free.
   let mmTicker = null;
+  // In a narrow corner each short part between the gems stays on one line, so a line breaks at the gems
+  // ("Feb 5-7, 2027" never splits); a part too long for one line still wraps.
+  function tickerHtml(line) {
+    if (!G.ticker) return window.MM.gems(line);
+    return String(line).split(/\s*(?:◆|<>)\s*/)
+      .map((part) => (part.length <= 26 ? `<span class="nb">${window.MM.gems(part)}</span>` : window.MM.gems(part)))
+      .join(window.MM.GEM);
+  }
   function renderMMCorners(show) {
     $('#mm-corners').hidden = !show;
     if (!show) return;
     const mm = S.branding.mm || {};
     $('#mm-sub').innerHTML = mm.mode === 'event' ? '' : window.MM.gems('Feb 5-7, 2027 ◆ UNT Dallas');
-    if (!mmTicker) mmTicker = window.MM.ticker($('#mm-ticker'), () => window.MM.lines(S));
+    // A game with a narrow free corner (G.ticker) gets the ticker wrapped to that width.
+    const t = $('#mm-ticker');
+    const tk = G.ticker || null;
+    t.style.maxWidth = tk ? px(tk.w) : '';
+    t.style.whiteSpace = tk ? 'normal' : '';
+    t.style.fontSize = tk ? px(tk.size || 16) : '';
+    t.style.letterSpacing = tk ? '.05em' : '';
+    t.style.lineHeight = tk ? '1.3' : '';
+    if (!mmTicker) mmTicker = window.MM.ticker($('#mm-ticker'), () => window.MM.lines(S), 7000, tickerHtml);
     else mmTicker.refresh();
   }
   // Right after "Add overlay to OBS" the server opens a short window in which sample names are shown,
@@ -310,7 +328,10 @@
     $('#tt').hidden = !useTT;
     $('#mm').hidden = !useMM;
     $('#tec').hidden = useTT || useMM;
-    renderMMCorners(mm && G.corners !== false && (S.branding.mm || {}).corners !== false);
+    // Ultimate doubles shows four HUD panels across the whole bottom, so the corners stay off. Doubles
+    // teams arrive as "A & B" (entrantNames on the server); crews are titled by the crew's name.
+    const doubles = game === 'ssbu' && [S.current.p1, S.current.p2].some((n) => / & /.test(n || ''));
+    renderMMCorners(mm && G.corners !== false && !doubles && (S.branding.mm || {}).corners !== false);
     if (useTT) { renderTT(ov, demoActive()); return; }
     if (useMM) { renderMM(ov, demoActive()); return; }
     const sizes = G.type === 'notched' ? layoutNotched() : layoutBar();

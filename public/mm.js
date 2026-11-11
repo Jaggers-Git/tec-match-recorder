@@ -30,7 +30,8 @@
   }
   // Fades through the lines one at a time. `get` is called at every step, so edits in Settings show up
   // at the next turn without restarting the rotation.
-  function ticker(el, get, everyMs = 7000) {
+  // `html` turns a line into markup (the overlay passes one that keeps parts together in a narrow corner).
+  function ticker(el, get, everyMs = 7000, html = gems) {
     let i = -1;
     let shown = '';
     function step() {
@@ -40,7 +41,7 @@
       const next = list[i];
       if (next === shown) return;
       el.style.opacity = '0';
-      setTimeout(() => { el.innerHTML = gems(next); shown = next; el.style.opacity = '1'; }, shown ? 600 : 0);
+      setTimeout(() => { el.innerHTML = html(next); shown = next; el.style.opacity = '1'; }, shown ? 600 : 0);
     }
     step();
     setInterval(step, everyMs);
