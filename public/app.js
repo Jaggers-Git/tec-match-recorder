@@ -303,7 +303,7 @@
     const detail = [e.title ? replayWho(e) : '', when, meta].filter(Boolean).join(', ');
     return `<li class="${cls}">
       <button type="button" class="star${e.star ? ' on' : ''}" data-replay-star="${esc(e.id)}" title="${e.star ? 'Unstar' : 'Star this clip'}">${e.star ? '★' : '☆'}</button>
-      <div class="info"><button type="button" class="clip-name" data-replay-title="${esc(e.id)}" title="Name this clip (shows on the REPLAY badge and renames the file)">${esc(e.title || replayWho(e))} <span class="pen">✎</span></button><span class="muted">${esc(detail)}</span>${note || e.renameNote ? `<span class="${e.status === 'error' ? 'err' : 'muted'}">${esc(note || e.renameNote)}</span>` : ''}</div>
+      <div class="info"><button type="button" class="clip-name" data-replay-title="${esc(e.id)}" title="Name this clip (renames the file; it is not shown on air)">${esc(e.title || replayWho(e))} <span class="pen">✎</span></button><span class="muted">${esc(detail)}</span>${note || e.renameNote ? `<span class="${e.status === 'error' ? 'err' : 'muted'}">${esc(note || e.renameNote)}</span>` : ''}</div>
       <div class="acts">
         ${canCheck ? `<button type="button" class="small" data-replay-check="${esc(e.id)}" title="Play it here at the chosen speed, off air">▶</button>` : ''}
         ${canQueue ? `<button type="button" class="small${queued ? ' on' : ''}" data-replay-queue="${esc(e.id)}" title="${queued ? 'In the on-air queue: tap to take it out' : 'Add to the on-air queue'}">${queued ? '✓' : '+'}</button>` : ''}
@@ -465,7 +465,7 @@
       const title = prompt('Name this clip (blank to go back to the players\' names)', e.title || '');
       if (title === null) return;
       const r = await replayPost('/api/replay/title', { id: e.id, title });
-      if (r && r.note) toast(`${r.note}. The new name shows in the list and on the badge.`);
+      if (r && r.note) toast(`${r.note}. The new name shows in the list.`);
       return;
     }
     const q = ev.target.closest('[data-replay-queue]');

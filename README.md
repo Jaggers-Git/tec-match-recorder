@@ -23,8 +23,8 @@ corners.
 
 ![Stream overlay](docs/screenshots/overlay.png)
 
-**Instant replay** on air at 50%: the REPLAY badge with the speed and the clip's name, a bar under the tag that
-counts down the replay, and the clip itself a little faded so viewers can tell it already happened.
+**Instant replay** on air: the REPLAY badge with a bar under it that counts down the replay, and the clip itself a
+little faded so viewers can tell it already happened.
 
 ![Instant replay](docs/screenshots/replay.png)
 
@@ -213,8 +213,9 @@ air**, or **On air** on any clip in the list.
 
 - The first time, the recorder adds the scene **TEC Replay** to OBS (or press *Add replay scene to OBS* in Settings,
   *Instant replay*): a Media Source "TEC Replay Clip" fitted to the canvas and, on top, a Browser Source "TEC Replay
-  Badge" showing http://localhost:8420/replay, a REPLAY tag in the station's theme with "Slow motion 50%" under it.
-  The clip already carries the stream overlay, since the buffer records Program.
+  Badge" showing http://localhost:8420/replay, a REPLAY tag in the station's theme. The speed and the clip's name
+  stay in the dashboard; the broadcast only shows that it is a replay. The clip already carries the stream overlay,
+  since the buffer records Program.
 - A bar under the REPLAY tag counts down the replay: it drains as the clip plays and is empty as it ends, following
   OBS's own position in the clip, so it keeps pace at any speed and fills again when a clip waiting in Preview is
   taken live.
@@ -237,7 +238,7 @@ air**, or **On air** on any clip in the list.
 station can find the moment before putting it on stream.
 
 **Naming clips.** Tap a clip's name (✎) to give it a title, like "Liva's ledge read". The title shows in the list
-and on the REPLAY badge while that clip plays, and the file is renamed to match
+and the starred-clips export, and the file is renamed to match
 (`2026-11-08 C Liva's ledge read.mp4`) unless OBS has it open in the replay scene at that moment.
 
 **On-air queue.** **+** adds a clip to the queue (**✓** takes it out); **↑ ↓** reorder it. **Play queue on air**

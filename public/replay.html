@@ -5,44 +5,32 @@
 <title>TEC Match Recorder: replay badge</title>
 <!-- The REPLAY badge over the clip in OBS's "TEC Replay" scene (Settings, Instant replay, Add replay scene
      to OBS). Transparent 1920x1080 Browser Source. It sits on the left edge below the scoreboard, since the
-     clip already carries the stream overlay, and shows the slow-motion speed of the replay that is playing. -->
+     clip already carries the stream overlay: the REPLAY tag and a bar under it that counts the replay down.
+     The speed and the clip's name stay in the dashboard; the broadcast shows only that it is a replay. -->
 <style>
   @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Bold.ttf') format('truetype'); font-weight: 700; }
   @font-face { font-family: 'Urban Constructed'; src: url('/fonts/UrbanConstructed-Regular.ttf') format('truetype'); font-weight: 100 900; }
   html, body { margin: 0; padding: 0; background: transparent; width: 1920px; height: 1080px; overflow: hidden; }
   body { position: relative; font-family: 'Urban Constructed', 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; text-transform: uppercase; }
   [hidden] { display: none !important; }
-  svg.gem { display: inline-block; width: .5em; height: .5em; vertical-align: middle; transform: translateY(-.06em); margin-right: .5em; }
 
-  /* TEC: Ignite Red tag on the overlay's white-edged dark band */
-  #badge { position: absolute; left: -24px; top: 180px; display: flex; flex-direction: column; align-items: flex-start; filter: drop-shadow(0 4px 10px rgba(0,0,0,.45)); }
+  /* TEC: Ignite Red tag with a white edge */
+  #badge { position: absolute; left: -24px; top: 180px; display: flex; flex-direction: column; align-items: stretch; filter: drop-shadow(0 4px 10px rgba(0,0,0,.45)); }
   #badge.in { animation: slide .45s cubic-bezier(.2,.9,.25,1) both; }
   @keyframes slide { from { transform: translateX(-110%); } to { transform: translateX(0); } }
-  .tag, .speed { transform: skewX(-12deg); }
-  .tag > span, .speed > span { display: inline-block; transform: skewX(12deg); white-space: nowrap; line-height: 1; }
-  .tag { background: #FF3D2E; color: #fff; padding: 16px 46px 14px 64px; font-size: 76px; font-weight: 700; letter-spacing: .14em; box-shadow: 0 0 0 4px #fff; }
-  .speed { margin-top: 10px; margin-left: 30px; background: #2a2626; color: #fff; padding: 10px 26px 9px 44px; font-size: 28px; font-weight: 700; letter-spacing: .14em; box-shadow: 0 0 0 3px #fff; }
-  .speed b { color: #FF3D2E; }
-  /* The clip's name, when it has one: the same band, a step further in, never wider than a third of the screen. */
-  .speed.title { margin-left: 52px; max-width: 640px; text-transform: none; letter-spacing: .04em; }
-  .speed.title > span { overflow: hidden; text-overflow: ellipsis; max-width: 600px; }
+  .tag { transform: skewX(-12deg); background: #FF3D2E; color: #fff; padding: 16px 46px 14px 64px; font-size: 76px; font-weight: 700; letter-spacing: .14em; box-shadow: 0 0 0 4px #fff; }
+  .tag > span { display: inline-block; transform: skewX(12deg); white-space: nowrap; line-height: 1; }
 
-  /* Tuesday Takedown: maroon plate in a black frame, belt gold and yellow */
+  /* Tuesday Takedown: maroon plate in a black frame, belt yellow */
   :root[data-theme="tt"] .tag { background: linear-gradient(180deg, #7c3749 0%, #6D2E3F 42%, #5f2636 100%); color: #FCE319; box-shadow: 0 0 0 5px #0a0a0a; text-shadow: 0 4px 0 rgba(0,0,0,.55); }
-  :root[data-theme="tt"] .speed { background: #0a0a0a; color: #ece4e6; box-shadow: 0 0 0 3px #F2B53A; }
-  :root[data-theme="tt"] .speed b { color: #FCE319; }
 
-  /* Metroplex Major: Major Gold on Midnight, Tomorrow, the gem as the mark */
+  /* Metroplex Major: Major Gold on Midnight, Tomorrow */
   :root[data-theme="mm"] body { font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; }
-  :root[data-theme="mm"] .tag, :root[data-theme="mm"] .speed { transform: skewX(-8deg); }
-  :root[data-theme="mm"] .tag > span, :root[data-theme="mm"] .speed > span { transform: skewX(8deg); }
-  :root[data-theme="mm"] .tag { background: #F0B40D; color: #11151A; box-shadow: none; letter-spacing: .16em; }
-  :root[data-theme="mm"] .speed { background: #11151A; color: #fff; box-shadow: 0 0 0 2px #F0B40D; }
-  :root[data-theme="mm"] .speed b { color: #F0B40D; }
+  :root[data-theme="mm"] .tag { transform: skewX(-8deg); background: #F0B40D; color: #11151A; box-shadow: none; letter-spacing: .16em; }
+  :root[data-theme="mm"] .tag > span { transform: skewX(8deg); }
 
   /* Countdown: a bar under the tag, as wide as it, that drains while the clip plays and is empty as the
      replay ends. Fed by /api/replay/progress (OBS's own position in the clip). */
-  .head { display: flex; flex-direction: column; align-items: stretch; }
   .bar { height: 12px; margin-top: 9px; background: #2a2626; box-shadow: 0 0 0 3px #fff; transform: skewX(-12deg); overflow: hidden; }
   .bar > i { display: block; height: 100%; background: #FF3D2E; transform-origin: left center; transform: scaleX(1); }
   :root[data-theme="tt"] .bar { background: #0a0a0a; box-shadow: 0 0 0 3px #F2B53A; }
@@ -54,14 +42,9 @@
 </head>
 <body>
   <div id="badge">
-    <div class="head">
-      <div class="tag"><span>Replay</span></div>
-      <div id="bar" class="bar" hidden><i id="bar-fill"></i></div>
-    </div>
-    <div id="speed" class="speed" hidden><span id="speed-text"></span></div>
-    <div id="title" class="speed title" hidden><span id="title-text"></span></div>
+    <div class="tag"><span>Replay</span></div>
+    <div id="bar" class="bar" hidden><i id="bar-fill"></i></div>
   </div>
-<script src="/mm.js"></script>
 <script>
 (() => {
   'use strict';
@@ -73,14 +56,6 @@
     const theme = (S.branding && S.branding.theme) || 'tec';
     if (document.documentElement.dataset.theme !== theme) document.documentElement.dataset.theme = theme;
     const r = S.replay || {};
-    const speed = Number((r.playing && r.playing.speed) || r.speed || 100);
-    $('#speed').hidden = speed >= 100;
-    // A clip named in the dashboard carries its name on the badge.
-    const title = (r.playing && r.playing.title) || '';
-    $('#title').hidden = !title;
-    $('#title-text').textContent = title;
-    const words = `Slow motion <b>${speed}%</b>`;
-    $('#speed-text').innerHTML = theme === 'mm' && window.MM ? `${window.MM.gems('◆')}${words}` : words;
     // A new replay slides the badge in again.
     const play = r.playing ? `${r.playing.id}|${r.playing.at}` : '';
     if (play && play !== lastPlay) {
