@@ -6,7 +6,7 @@
 <!-- Casters scene, 1920x1080. The frame is drawn around two transparent windows: the gameplay capture
      and the camera sit underneath in OBS ("Add Metroplex Major scenes" places them; the boxes come from
      the server's CASTER_LAYOUT). Above the gameplay: the current set and score. Under the camera: one or
-     two caster name cards typed in the dashboard. -->
+     two caster name cards typed in the dashboard, then the player cam's window when the player cam is on. -->
 <style>
   @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Bold.ttf') format('truetype'); font-weight: 700; }
   html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; }
@@ -45,7 +45,7 @@
   <svg id="bg" viewBox="0 0 1920 1080" aria-hidden="true">
     <defs>
       <radialGradient id="glow" cx="0.85" cy="0" r="0.8"><stop offset="0" stop-color="#F0B40D" stop-opacity=".10"/><stop offset="1" stop-color="#F0B40D" stop-opacity="0"/></radialGradient>
-      <mask id="holes"><rect width="1920" height="1080" fill="#fff"/><rect id="hole-game" fill="#000"/><rect id="hole-cam" fill="#000"/></mask>
+      <mask id="holes"><rect width="1920" height="1080" fill="#fff"/><rect id="hole-game" fill="#000"/><rect id="hole-cam" fill="#000"/><rect id="hole-player" fill="#000" width="0" height="0"/></mask>
     </defs>
     <g mask="url(#holes)">
       <rect width="1920" height="1080" fill="#11151A"/>
@@ -54,6 +54,7 @@
   </svg>
   <div id="frame-game" class="frame"></div>
   <div id="frame-cam" class="frame"></div>
+  <div id="frame-player" class="frame" hidden></div>
   <div id="board" hidden>
     <div id="n1" class="seg nm"><span></span></div>
     <div id="s1" class="seg pt"><span></span></div>
@@ -64,6 +65,7 @@
   <div id="round" hidden><span></span></div>
   <div id="headline" hidden>Metroplex Major</div>
   <div id="cam-tag" class="tag"><span>On the mic</span></div>
+  <div id="player-tag" class="tag" hidden><span>Players</span></div>
   <div id="card1" class="card" hidden><b></b><small></small></div>
   <div id="card2" class="card" hidden><b></b><small></small></div>
   <div id="lockup">
@@ -135,6 +137,19 @@
       card.querySelector('small').textContent = k.handle || '';
       card.querySelector('small').hidden = !k.handle;
       y += (k.handle ? 96 : 76) + 14;
+    }
+    // Player cam (Settings, Player cam): a third window under the caster cards, with its own tag. It takes
+    // the crown lockup's place; the gold band below still carries the Major's name.
+    const pl = L.player;
+    const pcOn = !!(pl && S.playerCam && S.playerCam.enabled);
+    $('#frame-player').hidden = !pcOn;
+    $('#player-tag').hidden = !pcOn;
+    $('#lockup').hidden = pcOn;
+    setRect($('#hole-player'), pcOn ? pl : { x: 0, y: 0, w: 0, h: 0 });
+    if (pcOn) {
+      place($('#frame-player'), { x: pl.x - 4, y: pl.y - 4, w: pl.w, h: pl.h });
+      $('#player-tag').style.left = px(pl.x - 4);
+      $('#player-tag').style.top = px(pl.y - 44);
     }
     // Crown lockup at the foot of the right column, level with the bottom of the gameplay window.
     const lock = $('#lockup');

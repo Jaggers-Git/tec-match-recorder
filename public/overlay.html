@@ -90,6 +90,12 @@
   #mm-lockup small { display: block; margin-top: 6px; color: #F0B40D; font-weight: 700; font-size: 14px; letter-spacing: .14em; line-height: 1; }
   #mm-lockup small:empty { display: none; }
   #mm-lockup small svg.gem { margin: 0 .4em; }
+
+  /* Player cam: a frame around the camera's window (the camera itself sits under the overlay in OBS).
+     TEC red with a white edge; Tuesday Takedown gold in black; Metroplex Major gold. */
+  #pcam { position: absolute; box-sizing: content-box; border: 4px solid #FF3D2E; box-shadow: 0 0 0 2px #fff, 0 6px 18px rgba(0,0,0,.5); pointer-events: none; }
+  .tt-colors #pcam { border-color: #F2B53A; box-shadow: 0 0 0 3px #0a0a0a, 0 6px 18px rgba(0,0,0,.5); }
+  .mm-colors #pcam { border-color: #F0B40D; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
 </style>
 </head>
 <body>
@@ -139,6 +145,7 @@
   <div id="mm-w1" class="mm-pips"></div>
   <div id="mm-w2" class="mm-pips"></div>
 </div>
+<div id="pcam" hidden></div>
 <div id="mm-corners" hidden>
   <div id="mm-ticker"></div>
   <div id="mm-lockup">

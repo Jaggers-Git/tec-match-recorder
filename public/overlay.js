@@ -275,10 +275,11 @@
   }
   // Ticker and crown lockup in the bottom corners, for every game whose HUD leaves the corners free.
   let mmTicker = null;
+  let tickerFit = null;
   // In a narrow corner each short part between the gems stays on one line, so a line breaks at the gems
   // ("Feb 5-7, 2027" never splits); a part too long for one line still wraps.
   function tickerHtml(line) {
-    if (!G.ticker) return window.MM.gems(line);
+    if (!tickerFit) return window.MM.gems(line);
     return String(line).split(/\s*(?:◆|<>)\s*/)
       .map((part) => (part.length <= 26 ? `<span class="nb">${window.MM.gems(part)}</span>` : window.MM.gems(part)))
       .join(window.MM.GEM);
@@ -288,9 +289,13 @@
     if (!show) return;
     const mm = S.branding.mm || {};
     $('#mm-sub').innerHTML = mm.mode === 'event' ? '' : window.MM.gems('Feb 5-7, 2027 ◆ UNT Dallas');
-    // A game with a narrow free corner (G.ticker) gets the ticker wrapped to that width.
+    // A game with a narrow free corner (G.ticker) gets the ticker wrapped to that width, and with the player
+    // cam on, the ticker stops 30 px short of the cam's frame.
     const t = $('#mm-ticker');
-    const tk = G.ticker || null;
+    let tk = G.ticker || null;
+    const pc = S.playerCam || {};
+    if (pc.show && pc.box && (!tk || 44 + tk.w > pc.box.x - 34)) tk = { w: pc.box.x - 78, size: tk ? tk.size : 20 };
+    tickerFit = tk;
     t.style.maxWidth = tk ? px(tk.w) : '';
     t.style.whiteSpace = tk ? 'normal' : '';
     t.style.fontSize = tk ? px(tk.size || 16) : '';
@@ -298,6 +303,18 @@
     t.style.lineHeight = tk ? '1.3' : '';
     if (!mmTicker) mmTicker = window.MM.ticker($('#mm-ticker'), () => window.MM.lines(S), 7000, tickerHtml);
     else mmTicker.refresh();
+  }
+  // The player cam's frame, drawn around the window the server places the camera in (S.playerCam: on for
+  // the game being played, off for Ultimate doubles).
+  function renderPlayerCam() {
+    const pc = S.playerCam || {};
+    const el = $('#pcam');
+    el.hidden = !(pc.show && pc.box);
+    if (el.hidden) return;
+    el.style.left = px(pc.box.x - 4);
+    el.style.top = px(pc.box.y - 4);
+    el.style.width = px(pc.box.w);
+    el.style.height = px(pc.box.h);
   }
   // Right after "Add overlay to OBS" the server opens a short window in which sample names are shown,
   // so the new layer is visible in OBS before any set is picked.
@@ -331,6 +348,7 @@
     // Ultimate doubles shows four HUD panels across the whole bottom, so the corners stay off. Doubles
     // teams arrive as "A & B" (entrantNames on the server); crews are titled by the crew's name.
     const doubles = game === 'ssbu' && [S.current.p1, S.current.p2].some((n) => / & /.test(n || ''));
+    renderPlayerCam();
     renderMMCorners(mm && G.corners !== false && !doubles && (S.branding.mm || {}).corners !== false);
     if (useTT) { renderTT(ov, demoActive()); return; }
     if (useMM) { renderMM(ov, demoActive()); return; }

@@ -430,6 +430,19 @@
         </div>
       </fieldset>
       <fieldset>
+        <legend>Player cam</legend>
+        <label class="check"><input type="checkbox" name="playerCam.enabled"> <span>Show the player cam: a frame at the bottom of the gameplay overlay (between the two players' HUD in Smash, bottom centre in Tekken 8 and SF6) and a Players window in the Casters scene. It stays off for Smash doubles, whose HUD fills the bottom.</span></label>
+        <div class="grid2 sw-obs">
+          <label>Camera <select name="playerCam.source"></select></label>
+        </div>
+        <div class="row sw-obs" style="align-items:center;flex-wrap:wrap;gap:8px">
+          <button type="button" id="btn-playercam" class="small">Add player cam to OBS</button>
+          <span id="playercam-status" class="muted"></span>
+        </div>
+        <div class="muted sw-obs" style="margin-top:6px">Puts the camera into the gameplay scene, just under the overlay, and into MM Casters, sized to the frames. The recorder moves it when the game changes and hides it with the setting.</div>
+        <div class="muted sw-vmix">In vMix, add the camera as a layer of the gameplay input under the overlay, at x 784, y 852, 352 by 198 (x 754 for Smash), on a 1920 by 1080 output.</div>
+      </fieldset>
+      <fieldset>
         <legend>Instant replay</legend>
         <div class="muted sw-obs">OBS keeps the last few seconds in memory with its Replay Buffer, using the recording encoder (no second encode). Turn it on once in OBS: Settings, Output, tick Enable Replay Buffer (in Advanced output mode it is the Replay Buffer tab), then OK. The recorder sets the length and keeps the buffer running. Recording format Hybrid MP4 (or MP4) is best: with MKV and "Automatically remux to mp4", OBS also remuxes every replay and opens its remux window.</div>
         <div class="muted sw-vmix">Uses vMix's own Instant Replay (vMix 4K, Pro or MAX). Add a Replay input in vMix and set its camera to Output. REPLAY marks the last seconds as a vMix event and, when vMix runs on this PC, exports it into the Replays folder; Play sends the newest event to the output at the chosen speed. Not yet tested on a live vMix.</div>

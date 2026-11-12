@@ -14,12 +14,12 @@ last-synced bracket and manual entry keep working, and sync resumes on its own.
 
 ## Screenshots
 
-Rendered by OBS from the recorder's own scenes in the Metroplex Major theme, over Smash Ultimate gameplay, with
-made-up player and caster names (the in-game name tags are blurred). The grey CAMERA box is where OBS shows the
-casters' camera.
+The recorder's own pages in the Metroplex Major theme, layered over Smash Ultimate gameplay the way OBS layers
+them, with made-up player and caster names (the in-game name tags are blurred). The grey CAMERA boxes are where OBS
+shows the cameras.
 
-**Stream overlay** over the gameplay: names, score, round, games won, and the rotating promo line and crown in the
-corners.
+**Stream overlay** over the gameplay: names, score, round, games won, the player cam between the two players' HUD,
+and the rotating promo line and crown in the corners.
 
 ![Stream overlay](docs/screenshots/overlay.png)
 
@@ -28,7 +28,7 @@ little faded so viewers can tell it already happened.
 
 ![Instant replay](docs/screenshots/replay.png)
 
-**Casters** scene: gameplay and camera windows, the set and score above, one or two name cards.
+**Casters** scene: gameplay and camera windows, the set and score above, one or two name cards, and the player cam.
 
 ![Casters scene](docs/screenshots/casters.png)
 
@@ -321,6 +321,27 @@ http://localhost:8420/overlay. **Remove from OBS** takes the layer out again.
 After you press the button, the header chip reads **Overlay: live in <scene>**, the layer shows sample names for
 30 seconds, and if OBS is showing a different scene the message says so: switch OBS to that scene to see it. The item
 is scaled to your canvas, so a 1280x720 canvas gets the same layout at 2/3 size.
+
+In the Metroplex Major theme the ticker sits in the bottom-left corner. In Ultimate it wraps inside the free corner
+left of player 1's HUD panel, breaking lines at the gems, and Ultimate doubles (four HUD panels across the bottom)
+leaves both corners off.
+
+### Player cam
+
+One camera on the players. Settings, **Player cam**:
+
+1. Pick the camera under **Camera** (cameras are listed first) and press **Add player cam to OBS**. The camera goes
+   into the gameplay scene just under the overlay and into MM Casters just under the Casters page, sized to the frames.
+2. Tick **Show the player cam** and save.
+
+On the gameplay screen the overlay draws a frame around a 352x198 window at the bottom: centred between the two
+players' HUD panels in Ultimate (x 754 to 1106, since the 1v1 HUD panels end at x 720 and start at x 1140), bottom
+centre in Tekken 8 and SF6, whose HUD is at the top. The recorder moves the camera when the game changes, hides it
+for Ultimate doubles, and hides it in both scenes when the box is unticked. In the Casters scene it is a **Players**
+window under the caster cards, in place of the crown lockup. A different window for a game can be set in
+`data/config.json` under `playerCam.boxes` (for example `"ssbu": { "x": 754, "y": 852, "w": 352, "h": 198 }`, in
+1920x1080 coordinates). With vMix, add the camera as a layer of the gameplay input under the overlay at those
+coordinates; the frame is drawn either way.
 
 ## Character detection (optional)
 

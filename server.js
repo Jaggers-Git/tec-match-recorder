@@ -101,6 +101,10 @@ const DEFAULT_CONFIG = {
   // at 100% be heard (slowed ones never are).
   // fade takes a little colour out of the clip on air, so viewers can tell the moment already happened.
   replay: { enabled: true, seconds: 15, speed: 50, autoReturn: true, audio: false, inRecord: false, fade: true },
+  // Player cam: one camera on the players. enabled draws its frame on the gameplay overlay (bottom centre,
+  // between Ultimate's HUD panels) and a Players box in the Casters scene; source is the OBS input that
+  // "Add player cam to OBS" places under those frames. boxes (optional) overrides the window per game.
+  playerCam: { enabled: false, source: '' },
 };
 
 // ---------- utilities ----------
@@ -738,6 +742,7 @@ function onSwitcherEvent(ev) {
     if (sw === obs) trainer.cleanupLeftovers();
     rememberRecordDirectory();
     replay.onReady().catch((e) => log('Instant replay:', e.message));
+    if (sw === obs) syncPlayerCam({ force: true });
   } else if (['replay-state', 'replay-saved', 'media-ended'].includes(ev.type)) {
     replay.onSwitcherEvent(ev);
   } else if (ev.type === 'record') {
@@ -1521,6 +1526,8 @@ function updateConfig(body) {
     inRecord: !!rp.inRecord,
     fade: rp.fade !== false,
   };
+  const pc = next.playerCam || {};
+  next.playerCam = { enabled: !!pc.enabled, source: String(pc.source || '').trim().slice(0, 200), ...(pc.boxes && typeof pc.boxes === 'object' ? { boxes: pc.boxes } : {}) };
   const modeChanged = next.mode !== cfg.mode;
   // The buffer runs in Broadcast mode (and in Record mode only with inRecord), so a mode switch can start or stop it.
   const replayChanged = modeChanged || ['enabled', 'seconds', 'inRecord', 'fade'].some((k) => next.replay[k] !== cfg.replay[k]);
@@ -1622,6 +1629,8 @@ function coreSnapshot() {
     branding: brandingInfo(),
     screens: state.screens,
     screenLayout: CASTER_LAYOUT,
+    // Where the player cam's window is on the gameplay screen for the game being played, and whether it shows.
+    playerCam: playerCamView(),
     screenScenes: SCREENS.map((s) => s.scene),
     stageList: STAGES,
     version: APP_VERSION,
@@ -1661,6 +1670,8 @@ const lastSent = { state: '', log: '', replays: '' };
 // nothing anyone can see sends nothing. The log and replays go first, so the dashboard has them when
 // the state event redraws it.
 function broadcast() {
+  // The player cam follows the game and doubles; this does nothing until something it depends on changed.
+  if (cfg.playerCam && cfg.playerCam.source) syncPlayerCam();
   if (broadcastTimer) return;
   broadcastTimer = setTimeout(() => {
     broadcastTimer = null;
@@ -2028,7 +2039,90 @@ async function installOverlay(sceneName) {
 // ---------- stream screens: Starting Soon, BRB, Casters ----------
 // The Casters page draws the Metroplex Major frame with two transparent windows; the gameplay capture
 // and the camera sit underneath, placed into these boxes (1920x1080 coordinates, scaled to the canvas).
-const CASTER_LAYOUT = { game: { x: 60, y: 168, w: 1280, h: 720 }, cam: { x: 1380, y: 168, w: 480, h: 270 } };
+const CASTER_LAYOUT = {
+  game: { x: 60, y: 168, w: 1280, h: 720 }, cam: { x: 1380, y: 168, w: 480, h: 270 },
+  // The player cam, under the caster cards (shown when Settings turns the player cam on).
+  player: { x: 1404, y: 716, w: 432, h: 243 },
+};
+// ---------- player cam ----------
+// Its window on the gameplay screen (1920x1080 coordinates; the overlay draws the frame around it and the
+// camera sits underneath in OBS). Ultimate's 1v1 HUD panels end at x 720 and start at x 1140, so the
+// camera is centred between them on x 930, level with the bottom of the HUD; Tekken 8 and SF6 keep their
+// HUD at the top, so it sits bottom centre. Ultimate doubles fills the bottom with four panels, so the
+// player cam stays off for doubles sets. playerCam.boxes in config.json overrides a game's window.
+const PLAYER_CAM = { ssbu: { x: 754, y: 852, w: 352, h: 198 }, other: { x: 784, y: 852, w: 352, h: 198 } };
+const isDoubles = () => (state.current.game || 'ssbu') === 'ssbu' && [state.current.p1, state.current.p2].some((n) => / & /.test(n || ''));
+function playerCamView() {
+  const game = state.current.game || cfg.game || 'ssbu';
+  const pc = cfg.playerCam || {};
+  const box = (pc.boxes && pc.boxes[game]) || PLAYER_CAM[game] || PLAYER_CAM.other;
+  return { enabled: !!pc.enabled, show: !!pc.enabled && !isDoubles(), box, source: pc.source || '' };
+}
+// Keeps the camera in OBS where the frames are: moved when the game changes, shown or hidden with the
+// setting (and for doubles). Only the scene items "Add player cam to OBS" made are touched.
+let pcamSig = '';
+let pcamBusy = false;
+let pcamAgain = false;
+async function syncPlayerCam({ force = false } = {}) {
+  if (sw !== obs || obs.status !== 'connected') return;
+  const v = playerCamView();
+  if (!v.source) return;
+  const sig = `${v.source}|${v.enabled}|${v.show}|${JSON.stringify(v.box)}`;
+  if (!force && sig === pcamSig) return;
+  if (pcamBusy) { pcamAgain = true; return; }
+  pcamBusy = true;
+  try {
+    let canvas = { w: 1920, h: 1080 };
+    try { const vs = await obs.request('GetVideoSettings'); canvas = { w: vs.baseWidth || 1920, h: vs.baseHeight || 1080 }; } catch { /* assume 1080p */ }
+    const kx = canvas.w / 1920;
+    const ky = canvas.h / 1080;
+    const scenes = (await obs.request('GetSceneList')).scenes.map((s) => s.sceneName);
+    for (const [scene, box, visible] of [[gameplaySceneName(scenes), v.box, v.show], ['MM Casters', CASTER_LAYOUT.player, v.enabled]]) {
+      if (!scene || !scenes.includes(scene)) continue;
+      const it = ((await obs.request('GetSceneItemList', { sceneName: scene })).sceneItems || []).find((i) => i.sourceName === v.source);
+      if (!it) continue;
+      await obs.request('SetSceneItemTransform', {
+        sceneName: scene, sceneItemId: it.sceneItemId,
+        sceneItemTransform: { positionX: box.x * kx, positionY: box.y * ky, alignment: 5, boundsType: 'OBS_BOUNDS_SCALE_INNER', boundsAlignment: 0, boundsWidth: box.w * kx, boundsHeight: box.h * ky },
+      });
+      if (!!it.sceneItemEnabled !== visible) await obs.request('SetSceneItemEnabled', { sceneName: scene, sceneItemId: it.sceneItemId, sceneItemEnabled: visible });
+    }
+    pcamSig = sig;
+  } catch (e) {
+    log('Player cam: could not update OBS', e.message);
+  } finally {
+    pcamBusy = false;
+    if (pcamAgain) { pcamAgain = false; syncPlayerCam(); }
+  }
+}
+// Puts the camera input into the gameplay scene (just under the overlay, which draws its frame) and into
+// MM Casters (just under the Casters page), then places it.
+async function installPlayerCam(source) {
+  if (sw !== obs || obs.status !== 'connected') throw new Error('OBS is not connected');
+  if (source !== undefined) { cfg.playerCam = { ...cfg.playerCam, source: String(source || '').trim() }; saveConfig(); }
+  const src = cfg.playerCam.source;
+  if (!src) throw new Error('Pick the player camera in Settings, Player cam, first');
+  const inputs = (await obs.request('GetInputList')).inputs.map((i) => i.inputName);
+  if (!inputs.includes(src)) throw new Error(`OBS has no source called "${src}"`);
+  const scenes = (await obs.request('GetSceneList')).scenes.map((s) => s.sceneName);
+  const gameplay = gameplaySceneName(scenes);
+  if (!gameplay) throw new Error('No gameplay scene found in OBS: pick it in Settings, Stream screens');
+  const done = [];
+  for (const [scene, under] of [[gameplay, OVERLAY_INPUT], ['MM Casters', 'MM Casters Frame']]) {
+    if (!scenes.includes(scene)) continue;
+    const items = async () => (await obs.request('GetSceneItemList', { sceneName: scene })).sceneItems || [];
+    if (!(await items()).some((i) => i.sourceName === src)) await obs.request('CreateSceneItem', { sceneName: scene, sourceName: src, sceneItemEnabled: true });
+    const list = await items();
+    const me = list.find((i) => i.sourceName === src);
+    const top = list.find((i) => i.sourceName === under);
+    if (me && top) await obs.request('SetSceneItemIndex', { sceneName: scene, sceneItemId: me.sceneItemId, sceneItemIndex: me.sceneItemIndex > top.sceneItemIndex ? top.sceneItemIndex : top.sceneItemIndex - 1 }).catch(() => {});
+    done.push(scene);
+  }
+  await syncPlayerCam({ force: true });
+  log(`Player cam: "${src}" placed in ${done.join(' and ')}`);
+  broadcast();
+  return { ok: true, scenes: done, source: src };
+}
 const SCREENS = [
   { id: 'starting', scene: 'MM Starting Soon', input: 'MM Starting Soon Screen', path: '/slate?scene=starting' },
   { id: 'brb', scene: 'MM BRB', input: 'MM BRB Screen', path: '/slate?scene=brb' },
@@ -2212,6 +2306,13 @@ async function handleDetectApi(route, req, res, url) {
     case 'POST /api/overlay/install': {
       const body = await readBody(req);
       try { sendJson(res, 200, sw === vmix ? await installVmixOverlay(body.channel) : await installOverlay(String(body.scene || ''))); }
+      catch (e) { sendJson(res, 400, { error: e.message }); }
+      return true;
+    }
+    // "Add player cam to OBS" (Settings, Player cam): body.source picks the camera input.
+    case 'POST /api/playercam/install': {
+      const b = await readBody(req);
+      try { sendJson(res, 200, await installPlayerCam(b.source)); }
       catch (e) { sendJson(res, 400, { error: e.message }); }
       return true;
     }

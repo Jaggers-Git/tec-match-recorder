@@ -1100,6 +1100,9 @@
     set('replay.autoReturn', rp.autoReturn !== false);
     set('replay.audio', !!rp.audio);
     set('replay.fade', rp.fade !== false);
+    set('playerCam.enabled', !!(c.playerCam && c.playerCam.enabled));
+    loadCamChoices((c.playerCam && c.playerCam.source) || '');
+    $('#playercam-status').textContent = '';
     renderReplaySceneStatus();
     set('overlay.center', c.overlay ? c.overlay.center : 'round');
     set('overlay.scores', !c.overlay || c.overlay.scores !== false);
@@ -1469,6 +1472,28 @@
     if (selected && !opts.some((o) => o[0] === selected)) opts.push([selected, selected]);
     sel.innerHTML = opts.map(([v, label]) => `<option value="${esc(v)}"${v === selected ? ' selected' : ''}>${esc(label)}</option>`).join('');
   }
+  // Player cam picker: the video inputs in OBS (cameras first).
+  async function loadCamChoices(selected) {
+    const sel = $('#settings-form').elements['playerCam.source'];
+    if (!sel) return;
+    let data = { inputs: [], scenes: [] };
+    try { data = await api('GET', '/api/detect/sources'); } catch { /* app offline */ }
+    const video = data.inputs.filter((i) => !/^(browser_source|text_|image_source|color_source|wasapi_|coreaudio_|pulse_|alsa_|jack_)/.test(i.kind || ''));
+    video.sort((a, b) => Number(/dshow_input|av_capture|v4l2/.test(b.kind)) - Number(/dshow_input|av_capture|v4l2/.test(a.kind)));
+    const opts = [['', '(pick the player camera)'], ...video.map((i) => [i.name, `${i.name} (${i.kind})`])];
+    if (selected && !opts.some((o) => o[0] === selected)) opts.push([selected, `${selected} (not found)`]);
+    sel.innerHTML = opts.map(([v, label]) => `<option value="${esc(v)}"${v === selected ? ' selected' : ''}>${esc(label)}</option>`).join('');
+  }
+  $('#btn-playercam').addEventListener('click', async () => {
+    const out = $('#playercam-status');
+    const source = $('#settings-form').elements['playerCam.source'].value;
+    if (!source) { out.textContent = 'Pick the camera first.'; return; }
+    out.textContent = 'Placing the camera in OBS...';
+    try {
+      const r = await api('POST', '/api/playercam/install', { source });
+      out.textContent = `"${r.source}" is in ${r.scenes.join(' and ')}. Tick Show the player cam and Save settings to turn the frames on.`;
+    } catch (e) { out.textContent = e.message; }
+  });
   // Scene pickers for auto-switch: OBS scenes, or vMix inputs.
   async function loadSceneChoices(sc) {
     const f = $('#settings-form');
