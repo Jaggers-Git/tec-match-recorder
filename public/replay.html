@@ -18,11 +18,11 @@
   #badge { position: absolute; left: -24px; top: 180px; display: flex; flex-direction: column; align-items: stretch; filter: drop-shadow(0 4px 10px rgba(0,0,0,.45)); }
   #badge.in { animation: slide .45s cubic-bezier(.2,.9,.25,1) both; }
   @keyframes slide { from { transform: translateX(-110%); } to { transform: translateX(0); } }
-  .tag { transform: skewX(-12deg); background: #FF3D2E; color: #fff; padding: 16px 46px 14px 64px; font-size: 76px; font-weight: 700; letter-spacing: .14em; box-shadow: 0 0 0 4px #fff; }
+  .tag { transform: skewX(-12deg); background: #FF3D2E; color: #fff; padding: 10px 30px 9px 46px; font-size: 48px; font-weight: 700; letter-spacing: .14em; box-shadow: 0 0 0 3px #fff; }
   .tag > span { display: inline-block; transform: skewX(12deg); white-space: nowrap; line-height: 1; }
 
   /* Tuesday Takedown: maroon plate in a black frame, belt yellow */
-  :root[data-theme="tt"] .tag { background: linear-gradient(180deg, #7c3749 0%, #6D2E3F 42%, #5f2636 100%); color: #FCE319; box-shadow: 0 0 0 5px #0a0a0a; text-shadow: 0 4px 0 rgba(0,0,0,.55); }
+  :root[data-theme="tt"] .tag { background: linear-gradient(180deg, #7c3749 0%, #6D2E3F 42%, #5f2636 100%); color: #FCE319; box-shadow: 0 0 0 4px #0a0a0a; text-shadow: 0 3px 0 rgba(0,0,0,.55); }
 
   /* Metroplex Major: Major Gold on Midnight, Tomorrow */
   :root[data-theme="mm"] body { font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; }
@@ -31,11 +31,11 @@
 
   /* Countdown: a bar under the tag, as wide as it, that drains while the clip plays and is empty as the
      replay ends. Fed by /api/replay/progress (OBS's own position in the clip). */
-  .bar { height: 12px; margin-top: 9px; background: #2a2626; box-shadow: 0 0 0 3px #fff; transform: skewX(-12deg); overflow: hidden; }
+  .bar { height: 8px; margin-top: 7px; background: #2a2626; box-shadow: 0 0 0 2px #fff; transform: skewX(-12deg); overflow: hidden; }
   .bar > i { display: block; height: 100%; background: #FF3D2E; transform-origin: left center; transform: scaleX(1); }
-  :root[data-theme="tt"] .bar { background: #0a0a0a; box-shadow: 0 0 0 3px #F2B53A; }
+  :root[data-theme="tt"] .bar { background: #0a0a0a; box-shadow: 0 0 0 2px #F2B53A; }
   :root[data-theme="tt"] .bar > i { background: #FCE319; }
-  :root[data-theme="mm"] .bar { background: #11151A; box-shadow: 0 0 0 2px #F0B40D; transform: skewX(-8deg); height: 10px; }
+  :root[data-theme="mm"] .bar { background: #11151A; box-shadow: 0 0 0 2px #F0B40D; transform: skewX(-8deg); height: 7px; }
   :root[data-theme="mm"] .bar > i { background: #F0B40D; }
 </style>
 <script src="/theme.js"></script>
