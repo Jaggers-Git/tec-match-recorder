@@ -368,6 +368,7 @@ textarea:focus { outline: none; border-color: var(--accent); }
 /* Settings: theme-specific rows, logo picker */
 #settings-form:not([data-theme="tt"]) .tt-only { display: none; }
 #settings-form:not([data-theme="mm"]) .mm-only { display: none; }
+#settings-form:not([data-theme="col"]) .col-only { display: none; }
 html.smash-only .multi-game { display: none !important; }
 /* OBS or vMix: Settings rows follow the form's (unsaved) choice, the how-to guide the saved one */
 #settings-form:not([data-sw="vmix"]) .sw-vmix, #settings-form[data-sw="vmix"] .sw-obs { display: none; }
@@ -456,3 +457,39 @@ label.small.file-btn:hover { border-color: var(--brand); }
 :root[data-theme="mm"] h2, :root[data-theme="mm"] h3, :root[data-theme="mm"] legend { color: var(--brand); }
 :root[data-theme="mm"] .round-head { color: #e0c46c; }
 :root[data-theme="mm"] .pip.on { background: var(--brand); border-color: #fff; }
+
+/* ---------- Texas Esports Collegiate (TEC's college track) ----------
+   Collegiate Blue on near-black with Tomorrow display type, as in the Fall Split graphics. Blue carries
+   accents and filled buttons; the record state stays red so it reads at a glance. */
+:root[data-theme="col"] {
+  --bg: #0A0A0A;
+  --panel: #10141c;
+  --panel2: #171d28;
+  --border: #262e3c;
+  --text: #f3f4f6;
+  --muted: #949cab;
+  --brand: #2B6FD4;        /* Collegiate Blue */
+  --accent: #5B95EA;
+  --brand-fill: #2B6FD4;
+  --on-brand: #fff;
+  --brand-soft: #10213d;
+  --brand-edge: #1d4a8e;
+  --tag-text: #b9d2f6;
+  --link: #7aaaf0;
+  --focus-ring: rgba(43, 111, 212, .28);
+  --selected-bg: #111d31;
+  --display: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif;
+}
+:root[data-theme="col"] body {
+  background:
+    radial-gradient(900px 420px at 92% -8%, rgba(43, 111, 212, .16), transparent 62%),
+    var(--bg);
+  background-attachment: fixed;
+}
+:root[data-theme="col"] .topbar { background: #0d1118; border-top: 4px solid var(--brand); border-bottom: 1px solid var(--border); }
+:root[data-theme="col"] .brand .brand-mark { width: 34px; height: 34px; }
+:root[data-theme="col"] .brand .org { color: var(--accent); }
+:root[data-theme="col"] .brand .org svg.gem, :root[data-theme="col"] svg.gem { display: inline-block; width: .6em; height: .6em; vertical-align: middle; margin: 0 .45em; transform: translateY(-.05em); }
+:root[data-theme="col"] h2, :root[data-theme="col"] h3, :root[data-theme="col"] legend { color: var(--accent); }
+:root[data-theme="col"] .round-head { color: #9dbff2; }
+:root[data-theme="col"] .pip.on { background: var(--brand); border-color: #fff; }

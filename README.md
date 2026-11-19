@@ -434,11 +434,13 @@ Storage: `data/templates/` holds the learned name masks (plus a crop of each so 
 
 ## Stream screens and scene switching
 
-Three full-screen 1920x1080 scenes in the Metroplex Major look:
+Four full-screen 1920x1080 scenes, in the look of the theme picked in Settings (Metroplex Major here; the
+Texas Esports Collegiate versions are under [Branding and themes](#branding-and-themes)):
 
 - **Starting Soon** (`/slate?scene=starting`) and **BRB** (`/slate?scene=brb`): the set picked on the station ("Up
   next", or "On now" while recording), a message typed in the dashboard, and in promo mode the countdown and the
   register QR. The Nintendo notice and license number sit at the bottom.
+- **End** (`/slate?scene=end`): Thanks for Watching, with the message, for the close of the stream.
 - **Casters** (`/casters`): the gameplay capture in a large window, one camera in a smaller one with "On the mic"
   above it, one or two caster name cards (name plus an optional handle) under the camera, and the set and score
   above the gameplay.
@@ -455,14 +457,16 @@ transition, from OBS or vMix as usual or with **Transition ▶** under the live 
 buttons and the automatic switching cut straight away instead. With Studio Mode off, OBS has no Preview, so Preview
 mode reports that rather than cutting live.
 
-**Setup:** Settings, *Stream screens and scene switching*, **Add Metroplex Major scenes**.
+**Setup:** Settings, *Stream screens and scene switching*, **Add the stream scenes**.
 
-- **OBS**: creates the scenes "MM Starting Soon", "MM BRB" and "MM Casters". Casters gets the gameplay capture (the
+- **OBS**: creates the scenes "MM Starting Soon", "MM BRB", "MM End" and "MM Casters" (the names stay "MM" whatever
+  the theme, so stations set up before the End scene keep their buttons; pressing the button again adds MM End).
+  Casters gets the gameplay capture (the
   detector's source if it is a video input, else the bottom-most video source of the gameplay scene) placed in the
   big window, and, if OBS has a second camera-type input (one named like "cam", "caster" or "face" first), that
   camera in the small one. Otherwise drag the camera into MM Casters and fit it to the small window: 480x270 at
   1380, 168 on a 1920x1080 canvas. Pressing the button again refreshes everything without duplicating it.
-- **vMix**: adds "MM Starting Soon", "MM BRB" and "MM Casters" as Browser inputs. For Casters, open the input's
+- **vMix**: adds "MM Starting Soon", "MM BRB", "MM End" and "MM Casters" as Browser inputs. For Casters, open the input's
   settings, **Layers**, and add the gameplay input (position 60, 168, size 1280x720) and the camera (1380, 168,
   480x270) as layers underneath the frame. This part is not automated for vMix.
 
@@ -480,8 +484,8 @@ dashboard and the stream overlay in every theme. The fonts are bundled in `publi
 offline and on any machine. Urban Constructed is free for noncommercial use only (Creative Commons BY-NC, see
 `THIRD_PARTY.md`); Tomorrow, Oswald and Silkscreen (SIL Open Font License) are the fallbacks.
 
-Settings, **Look and games**, switches the whole station to another event series' look. The one built in besides
-TEC is **Tuesday Takedown** (TAMUSA Esports' Smash monthly):
+Settings, **Look and games**, switches the whole station to another event series' look. Three are built in besides
+TEC. The first is **Tuesday Takedown** (TAMUSA Esports' Smash monthly):
 
 - Dashboard in TAMUSA maroon and championship-belt gold, with Urban Constructed display type.
 - Stream overlay rebuilt from the TT stream's scoreboard: maroon name plates in a black frame with the win count at
@@ -495,7 +499,7 @@ TEC is **Tuesday Takedown** (TAMUSA Esports' Smash monthly):
   Without one, a plain TT badge stands in.
 - Picking the theme also ticks Smash Ultimate only, which can be unticked.
 
-The other is **Metroplex Major**, TEC's flagship weekend (Feb 5-7, 2027, UNT Dallas), used to promote it at every
+The second is **Metroplex Major**, TEC's flagship weekend (Feb 5-7, 2027, UNT Dallas), used to promote it at every
 event TEC runs beforehand and then on the weekend itself. It is the default theme for new installs until the weekend
 is over (TEC after Feb 7, 2027); a station that has saved a theme keeps it.
 
@@ -516,7 +520,39 @@ is over (TEC after Feb 7, 2027); a station that has saved a theme keeps it.
   changes the headline.
 - The crown is TEC's own mark and ships with the app, so this theme needs no logo upload.
 
-Overlay geometry can be fine-tuned in `data/config.json` under `overlay.tt` or `overlay.mm` (for example
+The third is **Texas Esports Collegiate**, TEC's college track, built for the Fall Split (Super Smash Bros. Ultimate
+crews, run on Challonge rather than start.gg) and any collegiate event after it:
+
+- Collegiate Blue `#2B6FD4` on near-black with Tomorrow, as in the Fall Split graphics, and the Collegiate lockup
+  (TEC's own mark, so no logo upload). Settings sets the event title (default *Fall Split*) and the line above it on
+  the screens (default *Super Smash Bros. Ultimate crews*).
+- Stream overlay: crew or player names on near-black plates with a blue rule along the top, blue score cells, the
+  TEC mark in the middle, and the event, round, *Crew battle* and set length in light blue on a band underneath.
+  Tekken 8 and SF6 keep their notched shape in Collegiate colours. The Collegiate lockup sits bottom-right.
+- Starting Soon, BRB and End (`/slate?scene=...`, the same scenes as above) in the Collegiate look: lockup, the event
+  line, a large headline, the typed message and the up-next card.
+- **Metroplex Major promo** (on by default): the Major's ticker in the overlay's bottom-left corner, a strip on Starting
+  Soon, and on BRB and the End screen a card with the crown, dates, countdown and register QR. Each piece keeps the
+  Major's gold-on-midnight look and carries the Nintendo notice and license number, which the Major's license asks
+  for on its promotional material; the Collegiate parts carry no notice. The Casters scene takes the same colours and
+  keeps the Major's band along the bottom while the promo is on.
+- With no start.gg event and no event name typed, titles start "Texas Esports Collegiate Fall Split".
+
+### Crew battles
+
+Settings, **Crew battles**, for events where every set is a crew battle (the Fall Split: 4 v 4, 3 stocks each,
+carrying over):
+
+- The name boxes become **Crew 1** and **Crew 2**, and the number under each counts that crew's **stocks left**. A new
+  set, Clear and every End & Save start both crews at the full count (12 by default); tap **-1** each time a stock goes.
+  The overlay, Casters and the screens show the crews and the count.
+- Type the crews in Settings, one per line: they become buttons under **Manual** (which opens by itself when there is
+  no start.gg bracket) and suggestions in the name boxes. The list is saved in `data/config.json` on the station only.
+- Titles leave the characters out (a crew can use eight); the CSV keeps them.
+- A best-of-3 grand final where the winners-side crew starts a win up: pick **Best of 3** and tap that crew's first
+  **Games** pip.
+
+Overlay geometry can be fine-tuned in `data/config.json` under `overlay.tt`, `overlay.mm` or `overlay.col` (for example
 `"logo": 190` or `"nameW": 420`; the defaults are at the top of `public/overlay.js`).
 
 ## License

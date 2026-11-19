@@ -275,7 +275,11 @@
               <option value="tec">Texas Esports Collective</option>
               <option value="tt">Tuesday Takedown (TAMUSA Esports)</option>
               <option value="mm">Metroplex Major (Feb 5-7, 2027)</option>
+              <option value="col">Texas Esports Collegiate (Fall Split)</option>
             </select>
+          </label>
+          <label class="col-only">Event title on the screens and the scoreboard band
+            <input name="branding.col.title" maxlength="40" placeholder="Fall Split" autocomplete="off">
           </label>
           <label class="mm-only">Metroplex Major mode
             <select name="branding.mm.mode" id="mm-mode">
@@ -303,7 +307,27 @@
           <div class="muted">Type ◆ (or &lt;&gt;) for the gold gem. {days} is the countdown to Feb 5 and drops off once the weekend starts; {event} is the tournament loaded from start.gg. Keep the Nintendo notice and license lines in: the license asks for both on promotional material.</div>
           <div class="muted" style="margin-top:6px">Between sets: add a second Browser Source at <span class="mono">http://localhost:8420/slate</span> (1920x1080) for the full-screen Metroplex Major screen: countdown and register QR in promo mode, the set on the station in both. <span class="mono">/slate?title=Starting%20Soon</span> changes the headline.</div>
         </div>
+        <div class="col-only">
+          <label>Line above the title on Starting Soon, BRB and the end screen (blank for none)
+            <input name="branding.col.game" maxlength="60" placeholder="Super Smash Bros. Ultimate crews" autocomplete="off">
+          </label>
+          <label class="check" style="margin-top:6px"><input type="checkbox" name="branding.col.promo"> Promote the Metroplex Major: the ticker in the overlay's bottom-left corner, a strip on Starting Soon, and a card with the register QR on BRB and the end screen (each carries the Nintendo notice and license number)</label>
+          <div class="muted">The screens are <span class="mono">/slate?scene=starting</span>, <span class="mono">/slate?scene=brb</span> and <span class="mono">/slate?scene=end</span> (Thanks for Watching). Scenes already in OBS switch to this look on their own; <b>Add the stream scenes</b> (Stream screens, below) adds the End scene.</div>
+        </div>
         <label class="check" style="margin-top:10px"><input type="checkbox" name="smashOnly" id="smash-only"> Smash Ultimate only: hide Street Fighter 6 and Tekken 8 (game picker, title suffixes, tournament import)</label>
+      </fieldset>
+      <fieldset>
+        <legend>Crew battles</legend>
+        <label class="check"><input type="checkbox" name="crews.enabled"> Crew battles: the names are crews, and each side's number counts that crew's stocks left instead of games won</label>
+        <div class="grid2" style="margin-top:6px">
+          <label>Stocks per crew at the start (4 players x 3 stocks = 12)
+            <input type="number" name="crews.stocks" min="1" max="99" step="1">
+          </label>
+        </div>
+        <label>Crews, one per line (they appear as buttons under Manual and as suggestions in the name boxes)
+          <textarea name="crews.list" rows="6" placeholder="A&amp;M-San Antonio&#10;Northwest Vista&#10;..."></textarea>
+        </label>
+        <div class="muted">A new set (and every set after End &amp; Save) starts both crews at the full stock count: tap −1 each time a stock is lost. Titles leave the characters out (a crew uses up to eight); the CSV keeps them. For a best-of-3 grand final, pick Best of 3 and tap a game pip for the crew that starts a win up.</div>
       </fieldset>
       <fieldset>
         <legend>Event</legend>
@@ -410,10 +434,10 @@
       <fieldset>
         <legend>Stream screens and scene switching</legend>
         <div class="row" style="align-items:center;flex-wrap:wrap;gap:8px">
-          <button type="button" id="btn-scenes-add" class="small">Add Metroplex Major scenes to <span class="sw-name">OBS</span></button>
+          <button type="button" id="btn-scenes-add" class="small">Add the stream scenes to <span class="sw-name">OBS</span></button>
           <span id="scenes-status" class="muted"></span>
         </div>
-        <div class="muted" style="margin-top:6px"><span class="sw-obs">Creates the scenes "MM Starting Soon", "MM BRB" and "MM Casters". Casters gets your gameplay capture and, when there is a second camera input, the camera, each placed in its window; otherwise drag the camera into the right-hand window yourself.</span><span class="sw-vmix">Adds "MM Starting Soon", "MM BRB" and "MM Casters" as Browser inputs. In vMix, add your gameplay and camera to MM Casters as layers (Input settings, Layers); the README has the positions.</span> Pages: <a href="/slate?scene=starting" target="_blank">Starting Soon</a>, <a href="/slate?scene=brb" target="_blank">BRB</a>, <a href="/casters" target="_blank">Casters</a>.</div>
+        <div class="muted" style="margin-top:6px"><span class="sw-obs">Creates the scenes "MM Starting Soon", "MM BRB", "MM End" and "MM Casters" (pressing it again refreshes them and adds any that are missing). Each shows the look of the theme picked above. Casters gets your gameplay capture and, when there is a second camera input, the camera, each placed in its window; otherwise drag the camera into the right-hand window yourself.</span><span class="sw-vmix">Adds "MM Starting Soon", "MM BRB", "MM End" and "MM Casters" as Browser inputs. In vMix, add your gameplay and camera to MM Casters as layers (Input settings, Layers); the README has the positions.</span> Pages: <a href="/slate?scene=starting" target="_blank">Starting Soon</a>, <a href="/slate?scene=brb" target="_blank">BRB</a>, <a href="/slate?scene=end" target="_blank">End</a>, <a href="/casters" target="_blank">Casters</a>.</div>
         <div class="grid2" style="margin-top:10px">
           <label>Scene changes from the recorder go to
             <select name="scenes.to">

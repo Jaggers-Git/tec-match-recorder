@@ -186,6 +186,16 @@
     renderChips();
     renderBanner();
     renderCurrent();
+    // Cheap when nothing changed; picks up the crews list as soon as Settings saves it.
+    if (S.branding && S.branding.crews && S.branding.crews.enabled) {
+      renderRecent();
+      // Crews run off another bracket site (Challonge): with no start.gg event, open on the crew buttons.
+      if (!render.crewTab && !(S.startgg && S.startgg.configured)) {
+        render.crewTab = true;
+        const manual = document.querySelector('.tab[data-tab="manual"]');
+        if (manual) manual.click();
+      }
+    }
     renderRecord();
     // The log table and recent players redraw on their own event, only when the log changes.
     renderBracket(false);
@@ -529,7 +539,7 @@
       ? (preview ? '<span class="muted" style="align-self:center">To Preview:</span>' : '')
         + list.map(([label, name]) => `<button class="small${state(name)}" type="button" data-scene="${esc(name)}" title="${preview ? 'Load' : 'Cut'} &quot;${esc(name)}&quot; ${preview ? `into ${esc(S.sw.name)}'s Preview` : `to ${esc(S.sw.name)}'s Program`}${where(name)}">${esc(label)}</button>`).join('')
         + (preview ? '<button class="small primary" type="button" data-transition title="Take Preview live with the current transition">Transition ▶</button>' : '')
-        + (addScreens ? `<button class="linkish" type="button" data-add-screens style="align-self:center">Add Starting Soon, BRB and Casters to ${esc(S.sw.name)}…</button>` : '')
+        + (addScreens ? `<button class="linkish" type="button" data-add-screens style="align-self:center">Add Starting Soon, BRB, End and Casters to ${esc(S.sw.name)}…</button>` : '')
       : '';
   }
   let scrTimer = null;
@@ -582,12 +592,14 @@
     if (key === brandKey) return;
     brandKey = key;
     const tec = b.theme === 'tec';
+    // Texas Esports Collegiate: TEC's own mark in Collegiate Blue, so it needs no logo either.
+    const col = b.theme === 'col';
     document.documentElement.dataset.theme = b.theme;
     document.documentElement.classList.toggle('smash-only', !!b.smashOnly);
-    $('#brand-mark').innerHTML = tec ? TEC_MARK : mm ? MM_CROWN : b.logo ? `<img src="${esc(b.logo)}" alt="">` : TT_EMBLEM;
+    $('#brand-mark').innerHTML = tec ? TEC_MARK : col ? TEC_MARK.replace(/#FF3D2E/gi, '#2B6FD4') : mm ? MM_CROWN : b.logo ? `<img src="${esc(b.logo)}" alt="">` : TT_EMBLEM;
     $('#brand-org').innerHTML = window.MM.gems(org);
     document.title = tec ? 'TEC Match Recorder' : `${b.name} · Match Recorder`;
-    document.querySelector('link[rel="icon"]').href = mm ? MM_ICON : !tec && b.logo ? b.logo : TEC_ICON;
+    document.querySelector('link[rel="icon"]').href = mm ? MM_ICON : col ? TEC_ICON.replace(/%23FF3D2E/gi, '%232B6FD4') : !tec && b.logo ? b.logo : TEC_ICON;
   }
   // OBS or vMix: .obs-only / .vmix-only blocks (the how-to guide) follow the saved choice, and every
   // .sw-name span outside Settings says which app it is.
@@ -701,6 +713,20 @@
     $('#chars2').innerHTML = charChips(c.chars2, 2);
     $('#score1').textContent = c.score1 || 0;
     $('#score2').textContent = c.score2 || 0;
+    // Crew battles: the names are crews and the number is each crew's stocks left.
+    const crews = !!(S.branding && S.branding.crews && S.branding.crews.enabled);
+    if (document.body.dataset.crews !== String(crews)) {
+      document.body.dataset.crews = String(crews);
+      for (const side of [1, 2]) {
+        document.querySelector(`label[for="p${side}"]`).textContent = crews ? `Crew ${side}` : `Player ${side}`;
+        $(`#p${side}`).placeholder = crews ? `Crew ${side}` : `Player ${side}`;
+        const box = $(`#score${side}`).closest('.score');
+        box.querySelector('.label').textContent = crews ? 'Stocks' : 'Wins';
+        box.querySelector('[data-delta="-1"]').title = crews ? 'A stock was lost' : 'Remove a win';
+        box.querySelector('[data-delta="1"]').title = crews ? 'Add a stock back (a correction)' : 'Add a win';
+      }
+      $('#btn-swap').title = crews ? 'Swap Crew 1 and Crew 2 (names, stocks and characters)' : 'Swap Player 1 and Player 2 (names and characters)';
+    }
     // Game-win pips for Bo3/Bo5 (tap a pip to set the count; tap the last lit pip to undo).
     const bestOf = Number(c.bestOf) || 1;
     const need = bestOf === 5 ? 3 : bestOf === 3 ? 2 : 0;
@@ -894,11 +920,18 @@
     }).join('');
   }
   function renderRecent() {
-    const names = S.recentPlayers || [];
+    // Crew battles offer the crews typed in Settings (tap one to fill Crew 1, then Crew 2).
+    const cr = (S.branding && S.branding.crews) || {};
+    const crewNames = cr.enabled ? cr.list || [] : [];
+    const names = crewNames.length ? crewNames : S.recentPlayers || [];
+    const key = names.join('\n');
+    if (key === renderRecent.key) return;
+    renderRecent.key = key;
     $('#recent-list').innerHTML = names.map((n) => `<option value="${esc(n)}">`).join('');
     $('#recent-players').innerHTML = names.length
       ? names.map((n) => `<button class="small" data-recent="${esc(n)}">${esc(n)}</button>`).join('')
-      : '<span class="muted">No players yet. They appear here after the first saved set.</span>';
+      : cr.enabled ? '<span class="muted">Type the crews in Settings, Crew battles, to get a button for each.</span>'
+        : '<span class="muted">No players yet. They appear here after the first saved set.</span>';
   }
   function renderSettingsStatus() {
     if ($('#settings').hidden || !S) return;
@@ -1055,6 +1088,14 @@
     set('branding.mm.corners', mmCfg.corners !== false);
     set('branding.mm.ticker', mmCfg.ticker || '');
     setTickerPlaceholder();
+    const colCfg = (S.branding && S.branding.col) || {};
+    set('branding.col.title', colCfg.title || 'Fall Split');
+    set('branding.col.game', colCfg.game ?? '');
+    set('branding.col.promo', colCfg.promo !== false);
+    const crewCfg = c.crews || {};
+    set('crews.enabled', !!crewCfg.enabled);
+    set('crews.stocks', crewCfg.stocks || 12);
+    set('crews.list', crewCfg.list || '');
     set('smashOnly', c.smashOnly);
     f.dataset.theme = f.elements['branding.theme'].value;
     set('event.name', c.event.name);

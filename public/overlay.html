@@ -91,11 +91,42 @@
   #mm-lockup small:empty { display: none; }
   #mm-lockup small svg.gem { margin: 0 .4em; }
 
+  /* Texas Esports Collegiate: the Fall Split look. Near-black plates with a hairline edge and a Collegiate
+     Blue rule along the top, blue score cells (stocks left in a crew battle), the TEC mark in the middle,
+     and the event, round and format in light blue on a band underneath. Square-cornered, not skewed. */
+  @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-SemiBold.ttf') format('truetype'); font-weight: 600; }
+  @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-ExtraBold.ttf') format('truetype'); font-weight: 800; }
+  .col-colors .piece .edge { background: #2B6FD4; }
+  .col-colors .piece .face, .col-colors .piece.bridge .face, .col-colors .seg.center { background: #10141c; }
+  .col-colors .seg.badge { background: #2B6FD4; color: #fff; }
+  body.col-colors, .col-colors .text { font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; }
+  .col-colors .pips .pip { background: #10141c; border-color: #2B6FD4; }
+  .col-colors .pips .pip.on { background: #2B6FD4; }
+  #col { position: absolute; inset: 0; font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; }
+  #col-board { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: stretch; gap: 2px; padding: 2px; background: rgba(255,255,255,.18); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.5); overflow: hidden; }
+  #col-board::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: #2B6FD4; z-index: 1; }
+  #col .seg { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #col .seg > span { display: inline-block; white-space: nowrap; line-height: 1; }
+  #col .nm { background: #0d1118; color: #fff; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+  #col .pt { background: #2B6FD4; color: #fff; font-weight: 800; }
+  #col .mk { background: #0d1118; }
+  #col .mk svg { height: 58%; width: auto; }
+  #col-band { position: absolute; left: 50%; transform: translateX(-50%); background: rgba(13,17,24,.94); border: 2px solid rgba(255,255,255,.16); border-radius: 4px; color: #5B95EA; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; padding: 6px 18px 6px calc(18px + .2em); white-space: nowrap; box-shadow: 0 3px 8px rgba(0,0,0,.4); }
+  #col-band svg.gem { color: #2B6FD4; margin: 0 .6em; }
+  .col-pips { position: absolute; display: none; gap: 10px; }
+  .col-pips .pip { width: 26px; height: 10px; border-radius: 2px; background: #0d1118; border: 2px solid #2B6FD4; box-shadow: 0 2px 4px rgba(0,0,0,.5); }
+  .col-pips .pip.on { background: #2B6FD4; box-shadow: 0 0 10px rgba(43,111,212,.8); }
+  #col-lockup { position: absolute; right: 34px; bottom: 30px; filter: drop-shadow(0 3px 8px rgba(0,0,0,.7)); }
+  #col-lockup svg { height: 48px; width: auto; display: block; }
+  /* The Metroplex Major ticker keeps its own gold when it runs in the Collegiate corner. */
+  .col-colors #mm-lockup { display: none; }
+
   /* Player cam: a frame around the camera's window (the camera itself sits under the overlay in OBS).
      TEC red with a white edge; Tuesday Takedown gold in black; Metroplex Major gold. */
   #pcam { position: absolute; box-sizing: content-box; border: 4px solid #FF3D2E; box-shadow: 0 0 0 2px #fff, 0 6px 18px rgba(0,0,0,.5); pointer-events: none; }
   .tt-colors #pcam { border-color: #F2B53A; box-shadow: 0 0 0 3px #0a0a0a, 0 6px 18px rgba(0,0,0,.5); }
   .mm-colors #pcam { border-color: #F0B40D; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+  .col-colors #pcam { border-color: #2B6FD4; box-shadow: 0 0 0 2px rgba(255,255,255,.18), 0 6px 18px rgba(0,0,0,.5); }
 </style>
 </head>
 <body>
@@ -145,6 +176,19 @@
   <div id="mm-w1" class="mm-pips"></div>
   <div id="mm-w2" class="mm-pips"></div>
 </div>
+<div id="col" hidden>
+  <div id="col-board">
+    <div id="col-n1" class="seg nm"><span></span></div>
+    <div id="col-s1" class="seg pt"><span></span></div>
+    <div id="col-mk" class="seg mk"></div>
+    <div id="col-s2" class="seg pt"><span></span></div>
+    <div id="col-n2" class="seg nm"><span></span></div>
+  </div>
+  <div id="col-band"><span></span></div>
+  <div id="col-w1" class="col-pips"></div>
+  <div id="col-w2" class="col-pips"></div>
+</div>
+<div id="col-lockup" hidden></div>
 <div id="pcam" hidden></div>
 <div id="mm-corners" hidden>
   <div id="mm-ticker"></div>
@@ -154,6 +198,7 @@
   </div>
 </div>
 <script src="/mm.js"></script>
+<script src="/col.js"></script>
 <script src="/overlay.js"></script>
 </body>
 </html>

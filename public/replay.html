@@ -29,6 +29,11 @@
   :root[data-theme="mm"] .tag { transform: skewX(-8deg); background: #F0B40D; color: #11151A; box-shadow: none; letter-spacing: .16em; }
   :root[data-theme="mm"] .tag > span { transform: skewX(8deg); }
 
+  /* Texas Esports Collegiate: Collegiate Blue, square-cornered, Tomorrow */
+  :root[data-theme="col"] body { font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; }
+  :root[data-theme="col"] .tag { transform: none; background: #2B6FD4; color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,.22); letter-spacing: .16em; border-radius: 0 4px 4px 0; }
+  :root[data-theme="col"] .tag > span { transform: none; }
+
   /* Countdown: a bar under the tag, as wide as it, that drains while the clip plays and is empty as the
      replay ends. Fed by /api/replay/progress (OBS's own position in the clip). */
   .bar { height: 8px; margin-top: 7px; background: #2a2626; box-shadow: 0 0 0 2px #fff; transform: skewX(-12deg); overflow: hidden; }
@@ -37,6 +42,8 @@
   :root[data-theme="tt"] .bar > i { background: #FCE319; }
   :root[data-theme="mm"] .bar { background: #11151A; box-shadow: 0 0 0 2px #F0B40D; transform: skewX(-8deg); height: 7px; }
   :root[data-theme="mm"] .bar > i { background: #F0B40D; }
+  :root[data-theme="col"] .bar { background: #0d1118; box-shadow: 0 0 0 2px rgba(255,255,255,.22); transform: none; height: 7px; border-radius: 0 3px 3px 0; }
+  :root[data-theme="col"] .bar > i { background: #2B6FD4; }
 </style>
 <script src="/theme.js"></script>
 </head>

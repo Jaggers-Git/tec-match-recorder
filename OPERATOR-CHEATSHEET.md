@@ -18,6 +18,12 @@
 6. Set over? **END & SAVE**, then tap it again to confirm. Done. The form clears for the next set.
 7. Filling in the stream worksheet? Tap **Copy row** on the log line and paste it in.
 
+**Crew battles** (Settings, Crew battles, ticked; the boxes read **Crew 1** and **Crew 2**)
+1. **Manual** tab: tap the first crew, then the second. Type the round (Winners Round 1, Losers Finals, ...).
+2. Both crews start at **12** stocks (4 players x 3). Tap **-1** under a crew every time it loses a stock; the scoreboard follows.
+3. Record the whole crew battle as one set: **START RECORDING** before the first game, **END & SAVE** after the last stock.
+4. Grand finals best of 3: pick **Best of 3** and tap the first **Games** pip for the crew coming from winners (it starts up 1-0).
+
 **Broadcast mode** (header switch: Record | Broadcast; every device on the station follows)
 1. **Live output** shows what is on air (red, Program) and what is cued (green, Preview). It runs a moment behind, with no sound.
 2. Scene buttons load Preview; **Transition ▶** takes it live. The live scene's button is outlined red, the cued one green.

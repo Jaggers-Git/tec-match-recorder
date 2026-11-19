@@ -84,6 +84,8 @@
   let ticker = null;
   function render() {
     if (!S) return;
+    // The station switched to the Texas Esports Collegiate theme: /slate now serves its screens.
+    if (S.branding && S.branding.theme === 'col') { location.reload(); return; }
     const mm = (S.branding && S.branding.mm) || {};
     const promo = mm.mode !== 'event';
     const c = S.current || {};

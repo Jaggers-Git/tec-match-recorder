@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TEC Match Recorder: Texas Esports Collegiate screens</title>
+<!-- Full-screen 1920x1080 Texas Esports Collegiate screens, served at /slate while the station is in the
+     Texas Esports Collegiate theme: ?scene=starting (Starting Soon), ?scene=brb (Be Right Back) and
+     ?scene=end (Thanks for Watching); ?title= replaces the headline. The look follows the Fall Split
+     graphics: near-black, Collegiate Blue, Tomorrow. With the Metroplex Major promo on (Settings, Look and
+     games), Starting Soon carries a Major strip along the bottom and BRB and the end screen a Major card on
+     the right, each in the Major's own gold-on-midnight look and with the Nintendo notice and license
+     number its license asks for on promotional material. -->
+<style>
+  @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Regular.ttf') format('truetype'); font-weight: 400; }
+  @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-SemiBold.ttf') format('truetype'); font-weight: 600; }
+  @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Bold.ttf') format('truetype'); font-weight: 700; }
+  @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-ExtraBold.ttf') format('truetype'); font-weight: 800; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; }
+  /* OBS gives every Browser Source "body { background-color: rgba(0,0,0,0) }", so the black lives on html too. */
+  html { background: #0A0A0A; }
+  body { background: #0A0A0A; color: #fff; font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; position: relative; -webkit-font-smoothing: antialiased; }
+  [hidden] { display: none !important; }
+  .glow { position: absolute; inset: 0; background: radial-gradient(60% 70% at 100% 0%, rgba(43,111,212,.30) 0%, rgba(43,111,212,0) 70%); }
+  .topbar { position: absolute; left: 0; right: 0; top: 0; height: 10px; background: #2B6FD4; }
+  .wm { position: absolute; right: -170px; bottom: -190px; width: 900px; opacity: .06; }
+  .wm svg { width: 100%; height: auto; display: block; }
+
+  .main { position: absolute; left: 110px; top: 96px; bottom: 96px; width: 1700px; display: flex; flex-direction: column; }
+  body.promo-card .main { width: 1040px; }
+  .lockup svg { height: 92px; width: auto; display: block; }
+  .stack { margin-top: auto; margin-bottom: auto; display: flex; flex-direction: column; align-items: flex-start; }
+  .kicker { font-weight: 600; font-size: 30px; letter-spacing: .26em; text-transform: uppercase; color: #5B95EA; line-height: 1.4; }
+  body.promo-card .kicker { font-size: 23px; letter-spacing: .2em; }
+  .kicker .sep { display: inline-block; width: 10px; height: 10px; background: #2B6FD4; transform: rotate(45deg) translateY(-4px); margin: 0 .7em 0 .55em; }
+  h1 { margin: 18px 0 0; font-weight: 800; font-size: 148px; line-height: .92; letter-spacing: .01em; text-transform: uppercase; }
+  body.promo-card h1 { font-size: 128px; }
+  .message { margin-top: 40px; font-weight: 600; font-size: 36px; line-height: 1.25; max-width: 100%; padding: 18px 28px; border: 2px solid rgba(255,255,255,.16); background: rgba(16,22,34,.82); border-radius: 6px; box-sizing: border-box; }
+
+  /* Up next / on now: the date-card shape from the Fall Split graphics, blue tile on the left. */
+  .card { margin-top: 44px; display: flex; border: 2px solid rgba(255,255,255,.16); background: rgba(16,22,34,.82); border-radius: 6px; overflow: hidden; max-width: 100%; }
+  .tile { flex: none; width: 190px; background: #2B6FD4; display: flex; align-items: center; justify-content: center; text-transform: uppercase; font-weight: 700; font-size: 26px; letter-spacing: .2em; padding-left: .2em; text-align: center; line-height: 1.15; }
+  .card .body { padding: 22px 34px 24px; min-width: 0; }
+  .vsline { display: flex; align-items: baseline; gap: .45em; font-weight: 800; font-size: 46px; line-height: 1.05; white-space: nowrap; overflow: hidden; }
+  .vsline > span { flex: none; }
+  .vsline .vs { color: #5B95EA; font-size: .62em; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+  .round { margin-top: 10px; font-weight: 600; font-size: 24px; letter-spacing: .2em; text-transform: uppercase; color: #5B95EA; }
+
+  .site { position: absolute; left: 110px; bottom: 64px; font-weight: 800; font-size: 30px; letter-spacing: .04em; }
+
+  /* ---------- Metroplex Major: its own brand (Major Gold on Midnight), boxed off from the Collegiate look ---------- */
+  svg.gem { display: inline-block; width: .42em; height: .42em; vertical-align: middle; transform: translateY(-.05em); margin: 0 .5em; color: #F0B40D; }
+  .notice { text-transform: none; color: #8e97a8; font-family: 'Segoe UI', system-ui, sans-serif; font-weight: 400; font-size: 15px; line-height: 1.45; letter-spacing: 0; }
+
+  /* BRB and end screen: the Major card on the right. */
+  .mm-card { position: absolute; right: 110px; top: 96px; bottom: 96px; width: 600px; display: flex; flex-direction: column; }
+  .mm-box { flex: 1; background: #11151A; border: 2px solid #F0B40D; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 34px 40px; box-sizing: border-box; gap: 18px; box-shadow: 0 0 60px rgba(240,180,13,.10); }
+  .mm-kicker { font-weight: 600; font-size: 20px; letter-spacing: .26em; text-transform: uppercase; color: #F0B40D; }
+  .mm-crown { width: 230px; height: auto; }
+  .mm-name { font-weight: 700; font-size: 52px; letter-spacing: .12em; line-height: 1; text-transform: uppercase; }
+  .mm-when { font-weight: 700; font-size: 24px; letter-spacing: .14em; text-transform: uppercase; color: #F0B40D; }
+  .mm-what { font-weight: 400; font-size: 22px; line-height: 1.35; color: #d7dbe2; max-width: 460px; }
+  .mm-count { display: flex; align-items: baseline; gap: 14px; text-transform: uppercase; }
+  .mm-count b { font-weight: 800; font-size: 84px; line-height: .9; color: #F0B40D; }
+  .mm-count span { font-weight: 700; font-size: 24px; letter-spacing: .16em; text-align: left; line-height: 1.15; }
+  .mm-reg { display: flex; align-items: center; gap: 22px; margin-top: 6px; }
+  .mm-qr { width: 168px; height: 168px; background: #fff; padding: 10px; box-sizing: border-box; flex: none; }
+  .mm-qr img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  .mm-reg-cap { text-align: left; font-weight: 700; font-size: 22px; letter-spacing: .14em; text-transform: uppercase; line-height: 1.35; }
+  .mm-reg-cap b { display: block; color: #F0B40D; font-size: 26px; letter-spacing: .06em; text-transform: none; }
+  .mm-card .notice { margin-top: 14px; }
+
+  /* Starting Soon: a slim Major strip along the bottom, with the notice under it. */
+  .mm-strip { position: absolute; right: 110px; bottom: 56px; width: 1040px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+  .mm-strip .row { display: flex; align-items: center; gap: 18px; background: #11151A; border: 2px solid #F0B40D; border-radius: 6px; padding: 12px 22px; text-transform: uppercase; font-weight: 700; font-size: 22px; letter-spacing: .1em; white-space: nowrap; }
+  .mm-strip .row svg.crown { height: 34px; width: auto; flex: none; }
+  .mm-strip .row .gold { color: #F0B40D; }
+  .mm-strip .notice { text-align: right; max-width: 1040px; }
+</style>
+<script src="/theme.js"></script>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="topbar"></div>
+  <div id="wm" class="wm"></div>
+  <div class="main">
+    <div id="lockup" class="lockup"></div>
+    <div class="stack">
+      <div id="kicker" class="kicker"></div>
+      <h1 id="title">Fall Split</h1>
+      <div id="message" class="message" hidden></div>
+      <div id="now" class="card" hidden>
+        <div id="now-tag" class="tile">Up next</div>
+        <div class="body">
+          <div class="vsline"><span id="now-p1"></span><span class="vs">vs</span><span id="now-p2"></span></div>
+          <div id="now-round" class="round"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="site" class="site">texasesports.org</div>
+
+  <div id="mm-card" class="mm-card" hidden>
+    <div class="mm-box">
+      <!-- the cast-gold crown, as on the Metroplex Major stream kit -->
+      <svg class="mm-crown" viewBox="-6 -39 201 132" aria-hidden="true">
+        <defs><linearGradient id="gf" x1="0" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#FFD75E"/><stop offset="0.55" stop-color="#F0B40D"/><stop offset="1" stop-color="#D29A08"/></linearGradient></defs>
+        <polygon fill="#6E4E04" points="11,17 20,8 33,8 61,36 89,8 100,-5 111,8 139,36 167,8 180,8 189,17 189,77 180,86 167,86 167,39 139,67 111,39 111,86 89,86 89,39 61,67 33,39 33,86 20,86 11,77"/>
+        <polygon fill="#D9A50A" points="22,0 50,28 61,36 33,8"/><polygon fill="#D9A50A" points="89,-13 100,0 111,8 100,-5"/><polygon fill="#D9A50A" points="100,0 128,28 139,36 111,8"/><polygon fill="#D9A50A" points="169,0 178,9 189,17 180,8"/>
+        <polygon fill="#B07F06" points="178,9 178,69 189,77 189,17"/><polygon fill="#966905" points="178,69 169,78 180,86 189,77"/><polygon fill="#7E5804" points="169,78 156,78 167,86 180,86"/><polygon fill="#966905" points="156,31 128,59 139,67 167,39"/><polygon fill="#B07F06" points="100,31 100,78 111,86 111,39"/><polygon fill="#7E5804" points="100,78 78,78 89,86 111,86"/><polygon fill="#966905" points="78,31 50,59 61,67 89,39"/><polygon fill="#B07F06" points="22,31 22,78 33,86 33,39"/><polygon fill="#7E5804" points="22,78 9,78 20,86 33,86"/>
+        <polygon fill="url(#gf)" points="0,9 9,0 22,0 50,28 78,0 89,-13 100,0 128,28 156,0 169,0 178,9 178,69 169,78 156,78 156,31 128,59 100,31 100,78 78,78 78,31 50,59 22,31 22,78 9,78 0,69"/>
+        <polygon fill="#6E4E04" points="26.5,-9 32.5,-3 26.5,3 20.5,-3"/><polygon fill="#D9A50A" points="15.5,-17 21.5,-11 32.5,-3 26.5,-9"/><polygon fill="#966905" points="21.5,-11 15.5,-5 26.5,3 32.5,-3"/><polygon fill="url(#gf)" points="15.5,-17 21.5,-11 15.5,-5 9.5,-11"/>
+        <polygon fill="#6E4E04" points="100,-24.5 107.5,-17 100,-9.5 92.5,-17"/><polygon fill="#D9A50A" points="89,-32.5 96.5,-25 107.5,-17 100,-24.5"/><polygon fill="#966905" points="96.5,-25 89,-17.5 100,-9.5 107.5,-17"/><polygon fill="url(#gf)" points="89,-32.5 96.5,-25 89,-17.5 81.5,-25"/>
+        <polygon fill="#6E4E04" points="173.5,-9 179.5,-3 173.5,3 167.5,-3"/><polygon fill="#D9A50A" points="162.5,-17 168.5,-11 179.5,-3 173.5,-9"/><polygon fill="#966905" points="168.5,-11 162.5,-5 173.5,3 179.5,-3"/><polygon fill="url(#gf)" points="162.5,-17 168.5,-11 162.5,-5 156.5,-11"/>
+      </svg>
+      <div class="mm-name">Metroplex Major</div>
+      <div id="mm-when" class="mm-when"></div>
+      <div class="mm-what">A Super Smash Bros. Ultimate weekend with FGC side brackets</div>
+      <div id="mm-count" class="mm-count" hidden><b id="mm-days"></b><span id="mm-days-label"></span></div>
+      <div class="mm-reg">
+        <div class="mm-qr"><img src="/mm-register.svg" alt=""></div>
+        <div class="mm-reg-cap">Register now<b id="mm-register"></b></div>
+      </div>
+    </div>
+    <div id="mm-card-notice" class="notice"></div>
+  </div>
+
+  <div id="mm-strip" class="mm-strip" hidden>
+    <div class="row">
+      <svg class="crown" viewBox="-6 -38 190 128" aria-hidden="true"><g fill="#F0B40D"><polygon points="0,9 9,0 22,0 50,28 78,0 89,-13 100,0 128,28 156,0 169,0 178,9 178,69 169,78 156,78 156,31 128,59 100,31 100,78 78,78 78,31 50,59 22,31 22,78 9,78 0,69"/><polygon points="15.5,-15 21.5,-9 15.5,-3 9.5,-9"/><polygon points="89,-32.5 96.5,-25 89,-17.5 81.5,-25"/><polygon points="162.5,-15 168.5,-9 162.5,-3 156.5,-9"/></g></svg>
+      <span id="mm-strip-text"></span>
+    </div>
+    <div id="mm-strip-notice" class="notice"></div>
+  </div>
+<script src="/mm.js"></script>
+<script src="/col.js"></script>
+<script>
+(() => {
+  'use strict';
+  const $ = (sel) => document.querySelector(sel);
+  const params = new URLSearchParams(location.search);
+  const scene = params.get('scene') || '';
+  const SCENE_TITLES = { starting: 'Starting Soon', brb: 'Be Right Back', end: 'Thanks for Watching' };
+  $('#lockup').innerHTML = window.COL.lockup();
+  $('#wm').innerHTML = window.COL.mark('#2B6FD4');
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  let S = null;
+  function render() {
+    if (!S) return;
+    const b = S.branding || {};
+    // The station left the Collegiate theme: /slate now serves that theme's screen, so load it.
+    if (b.theme && b.theme !== 'col') { location.reload(); return; }
+    const col = b.col || {};
+    const mm = b.mm || {};
+    const promo = col.promo !== false;
+    const c = S.current || {};
+    const live = !!(c.p1 && c.p2) && scene !== 'end';
+    // Headline: the scene's, else ?title=, else the event title alone.
+    const headline = params.get('title') || SCENE_TITLES[scene] || '';
+    $('#title').textContent = headline || col.title || 'Fall Split';
+    const kicker = headline ? [col.title || 'Fall Split', col.game].filter(Boolean) : [col.game].filter(Boolean);
+    $('#kicker').innerHTML = kicker.map(esc).join('<span class="sep"></span>');
+    // The line typed in the dashboard (Stream screens).
+    const msg = (S.screens && S.screens.message) || '';
+    $('#message').hidden = !msg;
+    $('#message').textContent = msg;
+    // The set on the station: "On now" while recording, "Up next" once picked.
+    $('#now').hidden = !live;
+    if (live) {
+      $('#now-tag').textContent = S.rec && S.rec.active ? 'On now' : 'Up next';
+      $('#now-p1').textContent = c.p1;
+      $('#now-p2').textContent = c.p2;
+      const crews = b.crews && b.crews.enabled;
+      $('#now-round').textContent = [c.round, crews ? 'Crew battle' : ''].filter(Boolean).join('  /  ');
+    }
+    // Metroplex Major: a card on BRB and the end screen, a strip on Starting Soon (and on a bare /slate).
+    const card = promo && (scene === 'brb' || scene === 'end');
+    const strip = promo && !card;
+    document.body.classList.toggle('promo-card', card);
+    $('#mm-card').hidden = !card;
+    $('#mm-strip').hidden = !strip;
+    $('#wm').hidden = card;
+    // Long crew names shrink until both fit beside "vs" (the card is narrower next to the Major card).
+    if (live) {
+      const line = document.querySelector('.vsline');
+      const room = ($('.main').clientWidth || 1040) - 190 - 72;
+      let size = 46;
+      line.style.fontSize = `${size}px`;
+      while (size > 24 && line.scrollWidth > room) { size -= 2; line.style.fontSize = `${size}px`; }
+    }
+    const days = window.MM.daysTo(mm.start);
+    const notice = window.MM.gems(`Metroplex Major: Nintendo is not a sponsor of or affiliated with this tournament. Terms for participating in and viewing Licensed Tournaments using Nintendo Games: https://en-americas-support.nintendo.com/app/answers/detail/a_id/63454. Tournament license ${mm.license || ''}`);
+    if (card) {
+      $('#mm-when').innerHTML = window.MM.gems('Feb 5-7, 2027 ◆ UNT Dallas');
+      $('#mm-count').hidden = days < 1;
+      $('#mm-days').textContent = String(days);
+      $('#mm-days-label').innerHTML = `${days === 1 ? 'Day' : 'Days'}<br>to go`;
+      $('#mm-register').textContent = mm.register || 'start.gg/metroplex';
+      $('#mm-card-notice').innerHTML = notice;
+    }
+    if (strip) {
+      $('#mm-strip-text').innerHTML = `Metroplex Major${window.MM.GEM}<span class="gold">Feb 5-7, 2027</span>${window.MM.GEM}UNT Dallas${window.MM.GEM}Register at <span class="gold">${esc(mm.register || 'start.gg/metroplex')}</span>`;
+      $('#mm-strip-notice').innerHTML = notice;
+    }
+  }
+  let loadedVersion = '';
+  const es = new EventSource('/api/events');
+  es.addEventListener('state', (ev) => {
+    S = JSON.parse(ev.data);
+    if (S.version && loadedVersion && S.version !== loadedVersion) { location.reload(); return; }
+    loadedVersion = loadedVersion || S.version || '';
+    render();
+  });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+})();
+</script>
+</body>
+</html>

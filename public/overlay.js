@@ -25,6 +25,9 @@
       bridge: { x: 704, y: 0, w: 512, h: 34 }, badge: 46, endSlant: 20, corners: false,
     },
   };
+  // Texas Esports Collegiate scoreboard (bar-type games). Any of these can be overridden from config.json
+  // under overlay.col.
+  const COLB = { top: 22, h: 60, nameW: 390, cell: 76, mark: 84, nameSize: 27, scoreSize: 34, bandGap: 10, bandSize: 16 };
   // Metroplex Major scoreboard (bar-type games), sized off the MM stream kit's game overlay at 1920x1080.
   // Any of these can be overridden from config.json under overlay.mm.
   const MMB = { top: 24, h: 62, nameW: 380, cell: 72, crown: 100, nameSize: 27, scoreSize: 32, roundGap: 10, roundSize: 17 };
@@ -273,6 +276,62 @@
       el.style.flexDirection = side === 1 ? 'row-reverse' : 'row';
     }
   }
+  // Texas Esports Collegiate: crew (or player) names on near-black plates, blue cells with the score (each
+  // crew's stocks left when crew battles are on), the TEC mark between them, and the event, round and
+  // format on a band underneath. Game-win pips (a best-of-3 grand final) hang under the plates.
+  function renderCOL(ov, demo) {
+    const g = { ...COLB, ...(ov.col || {}) };
+    const c = S.current;
+    const b = S.branding || {};
+    const crews = !!(b.crews && b.crews.enabled);
+    const board = $('#col-board');
+    board.style.top = px(g.top);
+    board.style.height = px(g.h);
+    for (const side of [1, 2]) {
+      const n = $(`#col-n${side}`);
+      n.style.width = px(g.nameW);
+      fit(n, demo ? `${crews ? 'Crew' : 'Player'} ${side === 1 ? 'One' : 'Two'}` : c[`p${side}`], g.nameSize);
+      const s = $(`#col-s${side}`);
+      s.style.display = showScores ? 'flex' : 'none';
+      s.style.width = px(g.cell);
+      const span = s.querySelector('span');
+      const full = (b.crews && b.crews.stocks) || 12;
+      span.textContent = String(demo ? (crews ? (side === 1 ? full : full - 3) : (side === 1 ? 2 : 1)) : c[`score${side}`] || 0);
+      span.style.fontSize = px(g.scoreSize);
+    }
+    const mk = $('#col-mk');
+    mk.style.width = px(g.mark);
+    if (!mk.firstChild) mk.innerHTML = window.COL.mark();
+    const bestOf = Number(c.bestOf) || 1;
+    const col = b.col || {};
+    const parts = demo
+      ? [col.title || 'Fall Split', 'Overlay ready', crews ? 'Crew battle' : '']
+      : [col.title || '', centerText(), crews ? 'Crew battle' : '', bestOf > 1 ? `Best of ${bestOf}` : ''];
+    const band = $('#col-band');
+    const text = parts.filter(Boolean);
+    band.style.display = text.length ? 'block' : 'none';
+    band.style.top = px(g.top + g.h + g.bandGap);
+    band.style.fontSize = px(g.bandSize);
+    band.querySelector('span').innerHTML = window.MM.gems(text.join(' ◆ '));
+    // Pips beside the band, level with its middle and clear of its ends.
+    const need = bestOf === 5 ? 3 : bestOf === 3 ? 2 : 0;
+    const y = g.top + g.h + g.bandGap + Math.round((band.offsetHeight - 14) / 2);
+    for (const side of [1, 2]) {
+      const el = $(`#col-w${side}`);
+      if (!need) { el.style.display = 'none'; continue; }
+      el.replaceChildren(...Array.from({ length: need }, (_, i) => {
+        const d = document.createElement('div');
+        d.className = `pip${i < (Number(c[`wins${side}`]) || 0) ? ' on' : ''}`;
+        return d;
+      }));
+      el.style.display = 'flex';
+      el.style.top = px(y);
+      const clear = Math.max(g.mark / 2 + (showScores ? g.cell : 0) + 24, band.offsetWidth / 2 + 24);
+      el.style.left = side === 2 ? px(960 + clear) : '';
+      el.style.right = side === 1 ? px(960 + clear) : '';
+      el.style.flexDirection = side === 1 ? 'row-reverse' : 'row';
+    }
+  }
   // Ticker and crown lockup in the bottom corners, for every game whose HUD leaves the corners free.
   let mmTicker = null;
   let tickerFit = null;
@@ -340,18 +399,31 @@
     // Metroplex Major works the same way: its scoreboard for Ultimate, MM colours on the notched shape.
     const mm = !!(S.branding && S.branding.theme === 'mm');
     const useMM = mm && G.type !== 'notched';
+    // Texas Esports Collegiate: its scoreboard for Ultimate, Collegiate Blue on the notched shape.
+    const col = !!(S.branding && S.branding.theme === 'col');
+    const useCOL = col && G.type !== 'notched';
     document.body.classList.toggle('tt-colors', tt);
     document.body.classList.toggle('mm-colors', mm);
+    document.body.classList.toggle('col-colors', col);
     $('#tt').hidden = !useTT;
     $('#mm').hidden = !useMM;
-    $('#tec').hidden = useTT || useMM;
+    $('#col').hidden = !useCOL;
+    $('#tec').hidden = useTT || useMM || useCOL;
     // Ultimate doubles shows four HUD panels across the whole bottom, so the corners stay off. Doubles
-    // teams arrive as "A & B" (entrantNames on the server); crews are titled by the crew's name.
+    // teams arrive as "A & B" (entrantNames on the server); crews are titled by the crew's name. A crew
+    // typed by hand with "&" in it (A&M-San Antonio) has no spaces round it, so it is not doubles.
     const doubles = game === 'ssbu' && [S.current.p1, S.current.p2].some((n) => / & /.test(n || ''));
     renderPlayerCam();
-    renderMMCorners(mm && G.corners !== false && !doubles && (S.branding.mm || {}).corners !== false);
+    // In the Collegiate theme the bottom-left corner carries the Metroplex Major ticker (when its promo
+    // is on) and the bottom-right the Collegiate lockup instead of the crown.
+    const cornersOk = G.corners !== false && !doubles && (S.branding.mm || {}).corners !== false;
+    renderMMCorners(cornersOk && (mm || (col && (S.branding.col || {}).promo !== false)));
+    const lockup = $('#col-lockup');
+    lockup.hidden = !(col && cornersOk);
+    if (!lockup.hidden && !lockup.firstChild) lockup.innerHTML = window.COL.lockup();
     if (useTT) { renderTT(ov, demoActive()); return; }
     if (useMM) { renderMM(ov, demoActive()); return; }
+    if (useCOL) { renderCOL(ov, demoActive()); return; }
     const sizes = G.type === 'notched' ? layoutNotched() : layoutBar();
     for (const id of ['#s1', '#s2']) $(id).style.display = showScores ? 'flex' : 'none';
     const demo = demoActive();

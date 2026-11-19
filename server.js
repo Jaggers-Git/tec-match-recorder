@@ -82,7 +82,11 @@ const DEFAULT_CONFIG = {
   // whether the corner pieces show at all.
   // Metroplex Major is the default look until the weekend is over (Feb 7, 2027), TEC after that. A
   // station that has saved a theme keeps it.
-  branding: { theme: Date.now() < new Date(2027, 1, 8).getTime() ? 'mm' : 'tec', label: 'Tuesday Takedown', mm: { mode: 'promo', ticker: '', corners: true } },
+  branding: { theme: Date.now() < new Date(2027, 1, 8).getTime() ? 'mm' : 'tec', label: 'Tuesday Takedown', mm: { mode: 'promo', ticker: '', corners: true }, col: { title: 'Fall Split', game: 'Super Smash Bros. Ultimate crews', promo: true } },
+  // Crew battles: the score on each side counts that crew's stocks left instead of games won, and a new
+  // set starts both at `stocks` (4 players x 3 stocks = 12). `list` is the crews, one per line, offered
+  // as names in the current set. It lives in data/config.json on the station, never in git.
+  crews: { enabled: false, stocks: 12, list: '' },
   // Stream screens (Starting Soon, BRB, Casters) and scene switching. With autoSwitch on, Start Recording
   // cuts to `gameplay` before recording and End & Save cuts to `after` once the recording has stopped,
   // so a between-sets screen never ends up in a VOD. Names are OBS scenes or vMix inputs.
@@ -222,7 +226,23 @@ const THEMES = {
   tec: { name: 'Texas Esports Collective', org: 'Texas Esports Collective' },
   tt: { name: 'Tuesday Takedown', org: 'Tuesday Takedown · TAMUSA Esports' },
   mm: { name: 'Metroplex Major', org: 'Metroplex Major ◆ Feb 5-7, 2027' },
+  col: { name: 'Texas Esports Collegiate', org: 'Texas Esports Collegiate' },
 };
+// Texas Esports Collegiate (TEC's college track, Collegiate Blue): the overlay, screens and dashboard for
+// a collegiate event such as the Fall Split. `title` is the event name on the screens, `game` the line
+// above it, and `promo` carries the Metroplex Major along: the gameplay corner ticker, a strip on
+// Starting Soon and a card on BRB and the end screen, each with the Nintendo notice the Major's license asks for.
+function colSettings() {
+  const c = (cfg.branding && cfg.branding.col) || {};
+  return {
+    title: String(c.title || '').trim() || 'Fall Split',
+    game: String(c.game ?? 'Super Smash Bros. Ultimate crews').trim(),
+    promo: c.promo !== false,
+  };
+}
+const crewsOn = () => !!(cfg.crews && cfg.crews.enabled);
+const crewStocks = () => Math.max(1, Math.min(99, Math.round(Number(cfg.crews && cfg.crews.stocks) || 12)));
+const crewList = () => splitLines(cfg.crews && cfg.crews.list).map((l) => l.slice(0, 60)).slice(0, 32);
 // Metroplex Major (TEC's flagship, Feb 5-7, 2027, UNT Dallas). Its crown mark ships with the app, so the
 // theme needs no logo. Ticker lines rotate in the overlay's bottom-left corner and on the /slate screen:
 // ◆ draws as a gold gem, {days} is the countdown to Feb 5 (the line drops once the weekend starts),
@@ -273,12 +293,15 @@ function logoUrl(id) {
 function brandingInfo() {
   const id = themeId();
   return {
-    theme: id, name: THEMES[id].name, org: id === 'mm' && mmSettings().mode === 'event' ? 'Metroplex Major ◆ UNT Dallas' : THEMES[id].org,
+    theme: id, name: THEMES[id].name,
+    org: id === 'mm' && mmSettings().mode === 'event' ? 'Metroplex Major ◆ UNT Dallas' : id === 'col' ? `Texas Esports Collegiate ◆ ${colSettings().title}` : THEMES[id].org,
     label: String((cfg.branding && cfg.branding.label) || ''),
     logo: logoUrl(id),
     logos: Object.fromEntries(Object.keys(THEMES).map((t) => [t, logoUrl(t)])),
     smashOnly: !!cfg.smashOnly,
     mm: mmSettings(),
+    col: colSettings(),
+    crews: { enabled: crewsOn(), stocks: crewStocks(), list: crewList() },
   };
 }
 const themeParam = (url) => (THEMES[url.searchParams.get('theme')] ? url.searchParams.get('theme') : themeId());
@@ -309,7 +332,9 @@ if (cfg.event.suffix) {
   if (!(cfg.games.ssbu && cfg.games.ssbu.suffix)) cfg.games.ssbu = { ...(cfg.games.ssbu || {}), suffix: cfg.event.suffix };
   cfg.event.suffix = '';
 }
-const emptyCurrent = () => ({ setId: '', setLetter: '', round: '', p1: '', p2: '', chars1: [], chars2: [], auto1: [], auto2: [], costume1: -1, costume2: -1, score1: 0, score2: 0, wins1: 0, wins2: 0, bestOf: 1, source: 'manual', game: cfg.game || 'ssbu', eventName: '', stages: [] });
+// With crew battles on, a new set starts each crew at its full stock count (the score counts down).
+const startScore = () => (crewsOn() ? crewStocks() : 0);
+const emptyCurrent = () => ({ setId: '', setLetter: '', round: '', p1: '', p2: '', chars1: [], chars2: [], auto1: [], auto2: [], costume1: -1, costume2: -1, score1: startScore(), score2: startScore(), wins1: 0, wins2: 0, bestOf: 1, source: 'manual', game: cfg.game || 'ssbu', eventName: '', stages: [] });
 const clampScore = (n) => Math.max(0, Math.min(99, Math.round(Number(n) || 0)));
 // Game wins inside a set (the Bo3/Bo5 pips), separate from the score badge which crews use for stocks.
 const clampWins = (n) => Math.max(0, Math.min(3, Math.round(Number(n) || 0)));
@@ -395,7 +420,9 @@ function eventDisplayName() {
   const name = String(cfg.event.name || '').trim();
   if (name && !looksLikeUrl(name)) return name;
   const tournament = String(bracket.tournamentName || '').trim();
-  return looksLikeUrl(tournament) ? '' : tournament;
+  if (tournament && !looksLikeUrl(tournament)) return tournament;
+  // A collegiate event run off Challonge has no start.gg name to fall back on.
+  return themeId() === 'col' ? `Texas Esports Collegiate ${colSettings().title}` : '';
 }
 function buildLabel(current) {
   const game = gameProfile(current.game || cfg.game || 'ssbu');
@@ -404,10 +431,11 @@ function buildLabel(current) {
     event: eventDisplayName(),
     round: current.round || '',
     set: current.setLetter || '',
-    p1: current.p1 || 'Player 1',
-    p2: current.p2 || 'Player 2',
-    chars1: (current.chars1 || []).join(', '),
-    chars2: (current.chars2 || []).join(', '),
+    p1: current.p1 || (crewsOn() ? 'Crew 1' : 'Player 1'),
+    p2: current.p2 || (crewsOn() ? 'Crew 2' : 'Player 2'),
+    // A crew battle runs through up to eight characters a side, too many for a title; the CSV keeps them.
+    chars1: crewsOn() ? '' : (current.chars1 || []).join(', '),
+    chars2: crewsOn() ? '' : (current.chars2 || []).join(', '),
     score: `${current.score1 || 0}-${current.score2 || 0}`,
     stages: (current.stages || []).map((g) => g.stage).filter(Boolean).join(', '),
     suffix: game.suffix || '',
@@ -1511,7 +1539,24 @@ function updateConfig(body) {
       ticker: splitLines(mmIn.ticker).map((l) => l.slice(0, 120)).slice(0, 12).join('\n'),
       corners: mmIn.corners !== false,
     },
+    col: (() => {
+      const c = { ...((cfg.branding && cfg.branding.col) || {}), ...((next.branding && next.branding.col) || {}) };
+      return {
+        title: String(c.title || '').trim().slice(0, 40) || 'Fall Split',
+        game: String(c.game ?? '').trim().slice(0, 60),
+        promo: c.promo !== false,
+      };
+    })(),
   };
+  const cr = next.crews || {};
+  next.crews = {
+    enabled: !!cr.enabled,
+    stocks: Math.max(1, Math.min(99, Math.round(Number(cr.stocks) || 12))),
+    list: splitLines(cr.list).map((l) => l.slice(0, 60)).slice(0, 32).join('\n'),
+  };
+  // Turning crew battles on (or changing the stock count) with no crews typed yet resets the empty set's
+  // score to the full stock count, so the first crew battle does not start at 0-0.
+  const crewsChanged = next.crews.enabled !== crewsOn() || next.crews.stocks !== crewStocks();
   next.smashOnly = !!next.smashOnly;
   const sc = next.scenes || {};
   next.scenes = { autoSwitch: !!sc.autoSwitch, gameplay: String(sc.gameplay || '').trim(), after: String(sc.after || '').trim(), to: sc.to === 'program' ? 'program' : 'preview' };
@@ -1537,6 +1582,11 @@ function updateConfig(body) {
   const sgChanged = JSON.stringify(next.startgg) !== JSON.stringify(cfg.startgg) || next.smashOnly !== !!cfg.smashOnly;
   const themeChanged = next.branding.theme !== themeId();
   cfg = next;
+  if (crewsChanged && !state.rec.active && !state.current.p1 && !state.current.p2) {
+    state.current.score1 = startScore();
+    state.current.score2 = startScore();
+    persistState();
+  }
   if (cfg.smashOnly && state.current.game !== 'ssbu') {
     state.current.game = 'ssbu';
     cfg.game = 'ssbu';
@@ -1762,7 +1812,7 @@ function serveStatic(res, pathname, url) {
       res.end(data);
     });
   }
-  const rel = pathname === '/' ? 'index.html' : pathname === '/train' ? 'train.html' : pathname === '/overlay' ? 'overlay.html' : pathname === '/slate' ? 'slate.html' : pathname === '/casters' ? 'casters.html' : pathname === '/replay' ? 'replay.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
+  const rel = pathname === '/' ? 'index.html' : pathname === '/train' ? 'train.html' : pathname === '/overlay' ? 'overlay.html' : pathname === '/slate' ? (themeId() === 'col' ? 'collegiate.html' : 'slate.html') : pathname === '/casters' ? 'casters.html' : pathname === '/replay' ? 'replay.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
   const file = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!file.startsWith(PUBLIC_DIR)) return sendJson(res, 403, { error: 'forbidden' });
   fs.readFile(file, (err, data) => {
@@ -2126,6 +2176,7 @@ async function installPlayerCam(source) {
 const SCREENS = [
   { id: 'starting', scene: 'MM Starting Soon', input: 'MM Starting Soon Screen', path: '/slate?scene=starting' },
   { id: 'brb', scene: 'MM BRB', input: 'MM BRB Screen', path: '/slate?scene=brb' },
+  { id: 'end', scene: 'MM End', input: 'MM End Screen', path: '/slate?scene=end' },
   { id: 'casters', scene: 'MM Casters', input: 'MM Casters Frame', path: '/casters' },
 ];
 const screenUrl = (s) => `http://localhost:${cfg.port || 8420}${s.path}`;
