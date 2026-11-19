@@ -210,7 +210,9 @@
     loadedVersion = loadedVersion || S.version || '';
     render();
   });
+  // Re-fit the crew names once Tomorrow has loaded (it loads only when first used, after fonts.ready).
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+  if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', render);
 })();
 </script>
 </body>

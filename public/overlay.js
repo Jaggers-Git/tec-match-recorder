@@ -450,7 +450,10 @@
     });
     es.onerror = () => { /* EventSource reconnects on its own */ };
   }
-  // Text is measured for fitting, so re-run once the display font has actually loaded.
+  // Text is measured for fitting, so re-run once the display font has actually loaded. Fonts load only
+  // when first used, so fonts.ready can resolve before Tomorrow has even started; loadingdone catches the
+  // load the first render sets off (a long crew name otherwise keeps a size fitted to the fallback font).
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => render());
+  if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => render());
   connect();
 })();
