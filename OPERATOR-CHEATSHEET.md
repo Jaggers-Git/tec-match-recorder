@@ -25,11 +25,12 @@
 4. Grand finals best of 3: pick **Best of 3** and tap the first **Games** pip for the crew coming from winners (it starts up 1-0).
 
 **Broadcast mode** (header switch: Record | Broadcast; every device on the station follows)
-1. **Live output** shows what is on air (red, Program) and what is cued (green, Preview). It runs a moment behind, with no sound.
+1. **Live output** shows what is cued on the left (green, Preview) and what is on air on the right (red, Program). It runs a moment behind, with no sound.
 2. Scene buttons load Preview; **Transition ▶** takes it live. The live scene's button is outlined red, the cued one green.
 3. Big moment? **REPLAY**. The last 15 seconds are saved and added to the list.
 4. Pick a speed (**50%** is a good slow motion), then **Play last on air**, or **On air** on any clip. It lands in Preview: **Transition ▶** to air it.
-5. When the clip ends, the scene that was live before goes back to air by itself. **Back to ...** does it sooner.
+   With **Play the clips after it too** ticked, every clip saved after it follows, oldest first. Replays carry their sound (slowed ones sound lower).
+5. When the last clip ends, the scene that was live before goes back to air by itself. **Back to ...** does it sooner.
 6. Want to find the moment first? **▶** plays the clip in the panel, off air. Tap **☆** to star the good ones.
 
 **Rules of thumb**

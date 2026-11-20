@@ -327,7 +327,7 @@
     const items = (r.queue || []).map((id) => byId.get(id)).filter(Boolean);
     $('#replay-queue').hidden = !items.length;
     $('#replay-queue-count').textContent = items.length ? `${items.length} clip${items.length === 1 ? '' : 's'}` : '';
-    const pl = r.playlist;
+    const pl = r.playlist && r.playlist.kind === 'queue' ? r.playlist : null;
     $('#replay-queue-list').innerHTML = items.map((e, i) => `<li class="${pl && pl.index === i ? 'playing' : ''}">
       <span class="q-name">${esc(e.title || replayWho(e))}</span>
       <button type="button" class="small" data-queue-up="${esc(e.id)}"${i === 0 ? ' disabled' : ''} title="Earlier">↑</button>
@@ -352,7 +352,12 @@
     else if (r.available == null) status = 'Checking…';
     else if (!r.active) status = vm ? 'vMix replay is not recording' : 'Replay buffer stopped';
     else status = vm ? `vMix replay recording, ${r.seconds} s clips` : `Buffer running, last ${r.seconds} s`;
-    if (r.playing) status = `${r.playlist ? `Queue ${r.playlist.index + 1} of ${r.playlist.total}, ` : ''}${r.playing.onAir ? 'on air' : 'cued in Preview'} at ${r.playing.speed}%`.replace(/^./, (c) => c.toUpperCase());
+    const pl = r.playlist;
+    const runOf = pl && pl.total > 1 ? `${pl.kind === 'queue' ? 'Queue' : 'Clip'} ${pl.index + 1} of ${pl.total}, ` : '';
+    if (r.playing) status = `${runOf}${r.playing.onAir ? 'on air' : 'cued in Preview'} at ${r.playing.speed}%`.replace(/^./, (c) => c.toUpperCase());
+    const po = $('#replay-playon');
+    po.checked = r.playOn !== false;
+    po.parentElement.hidden = vm;
     $('#replay-status').textContent = status;
     const help = !r.connected ? '' : r.available === false ? r.reason : r.lastError || '';
     $('#replay-help').hidden = !help;
@@ -436,6 +441,18 @@
     renderReplay();
   }
   $('#replay-video').addEventListener('loadedmetadata', () => { $('#replay-video').playbackRate = speedNow() / 100; });
+  // With "Play the clips after it" on, the panel's player goes on to the next clip saved after this one.
+  $('#replay-video').addEventListener('ended', () => {
+    const r = S && S.replay;
+    if (!checkId || !r || r.playOn === false) return;
+    const list = r.events || [];
+    const i = list.findIndex((e) => e.id === checkId);
+    const next = list.slice(0, Math.max(0, i)).reverse().find((e) => e.status === 'saved' && !e.vmixOnly && !!e.filename);
+    if (next) checkClip(next.id);
+  });
+  $('#replay-playon').addEventListener('change', async (ev) => {
+    try { await api('POST', '/api/replay/play-on', { on: ev.target.checked }); } catch (e) { ev.target.checked = !ev.target.checked; toast(e.message, { error: true }); }
+  });
   $('#replay-video').addEventListener('error', () => {
     if (!checkId) return;
     toast('This browser cannot play that clip. MKV files often will not play in a browser; record in Hybrid MP4 in OBS (Settings, Output, Recording Format).', { error: true });
@@ -1092,6 +1109,7 @@
     set('branding.col.title', colCfg.title || 'Fall Split');
     set('branding.col.game', colCfg.game ?? '');
     set('branding.col.promo', colCfg.promo !== false);
+    set('branding.motion', !(c.branding && c.branding.motion === false));
     const crewCfg = c.crews || {};
     set('crews.enabled', !!crewCfg.enabled);
     set('crews.stocks', crewCfg.stocks || 12);
@@ -1139,7 +1157,8 @@
     set('replay.inRecord', !!rp.inRecord);
     set('replay.seconds', rp.seconds || 15);
     set('replay.autoReturn', rp.autoReturn !== false);
-    set('replay.audio', !!rp.audio);
+    set('replay.sound', rp.sound !== false);
+    set('replay.hear', !!rp.hear);
     set('replay.fade', rp.fade !== false);
     set('playerCam.enabled', !!(c.playerCam && c.playerCam.enabled));
     loadCamChoices((c.playerCam && c.playerCam.source) || '');

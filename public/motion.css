@@ -1,0 +1,66 @@
+/* TEC Match Recorder: motion on the full-screen stream screens (Starting Soon, BRB, End, Casters and the
+   between-sets slate). A light sweeps across the marks now and then (.shine on SVG art, .sheen on boxes),
+   glows breathe, watermarks drift and the bottom bar's ticker crawls. Everything moves with transform and
+   opacity only, so OBS's browser source draws it on the GPU without repainting the page.
+   html.still (Settings, Stream screens, untick Motion) stops all of it. */
+
+/* A soft white band across an SVG mark, clipped to its shapes (window.MM.shine adds it). */
+.shine {
+  transform-box: fill-box; transform-origin: center;
+  transform: translateX(var(--shine-from, -400px)) skewX(-18deg);
+  animation: shine-sweep 7s ease-in-out infinite;
+}
+@keyframes shine-sweep {
+  0% { transform: translateX(var(--shine-from)) skewX(-18deg); }
+  28%, 100% { transform: translateX(var(--shine-to)) skewX(-18deg); }
+}
+
+/* The same light across a box. The box brings its own position (relative or absolute). */
+.sheen { overflow: hidden; }
+.sheen::after {
+  content: ''; position: absolute; top: -30%; bottom: -30%; left: 0; width: var(--sheen-w, 26%); pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, var(--sheen-a, .36)), rgba(255, 255, 255, 0));
+  transform: translateX(-170%) skewX(-18deg);
+  animation: sheen-sweep var(--sheen-every, 8s) ease-in-out var(--sheen-delay, 0s) infinite;
+}
+@keyframes sheen-sweep {
+  0% { transform: translateX(-170%) skewX(-18deg); }
+  30%, 100% { transform: translateX(480%) skewX(-18deg); }
+}
+
+/* Glows that slowly swell and settle, and watermarks that drift a little. */
+@keyframes breathe {
+  0%, 100% { opacity: var(--breathe-lo, .55); transform: scale(var(--breathe-s0, .96)); }
+  50% { opacity: 1; transform: scale(var(--breathe-s1, 1.04)); }
+}
+@keyframes drift {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  100% { transform: translate(var(--drift-x, -30px), var(--drift-y, 18px)) rotate(var(--drift-r, -1.5deg)); }
+}
+@keyframes glow-pulse { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+
+/* "On now": a live dot while the station records. */
+.live-dot {
+  display: inline-block; width: .5em; height: .5em; border-radius: 50%; background: #FF3D2E; flex: none;
+  margin-right: .55em; vertical-align: middle; transform: translateY(-.06em); box-shadow: 0 0 .5em rgba(255, 61, 46, .8);
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+/* The bottom bar's ticker as a crawl (window.MM.bar): the lines run right to left in one loop, fading in
+   and out at the ends of the bar. */
+.crawl {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 56px, #000 calc(100% - 56px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 56px, #000 calc(100% - 56px), transparent 100%);
+}
+.crawl-track { display: inline-flex; align-items: center; white-space: nowrap; will-change: transform; }
+.crawl-seg { display: inline-flex; align-items: center; flex: none; }
+.crawl-item { flex: none; }
+.crawl-gap { flex: none; display: inline-flex; margin: 0 1.1em; }
+.crawl-gap svg.gem { margin: 0; }
+@keyframes crawl { from { transform: translateX(0); } to { transform: translateX(var(--crawl-dist, -1000px)); } }
+
+html.still *, html.still *::before, html.still *::after { animation: none !important; }
+html.still .shine { display: none; }
+html.still .sheen::after { display: none; }

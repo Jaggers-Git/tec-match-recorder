@@ -15,6 +15,13 @@
   svg.gem { display: inline-block; width: .42em; height: .42em; vertical-align: middle; transform: translateY(-.05em); margin: 0 .5em; }
   #bg { position: absolute; inset: 0; }
   .frame { position: absolute; border: 4px solid #F0B40D; box-shadow: 0 0 24px rgba(0,0,0,.6); pointer-events: none; }
+  /* motion (motion.css): the window frames glow now and then, offset so they never pulse together */
+  .frame::after { content: ''; position: absolute; inset: -4px; box-shadow: 0 0 26px 2px rgba(240,180,13,.55); opacity: 0; animation: glow-pulse 6s ease-in-out infinite; pointer-events: none; }
+  #frame-cam::after { animation-delay: 2s; }
+  #frame-player::after { animation-delay: 4s; }
+  :root[data-theme="col"] .frame::after { box-shadow: 0 0 26px 2px rgba(43,111,212,.65); }
+  .bar { --sheen-every: 9s; --sheen-delay: 2.5s; --sheen-a: .55; }
+  :root[data-theme="col"] .bar { --sheen-a: .12; }
   .tag { position: absolute; background: #F0B40D; color: #11151A; font-size: 18px; letter-spacing: .14em; padding: 6px 14px; transform: skewX(-8deg); }
   .tag > span { display: inline-block; transform: skewX(8deg); }
   /* scoreboard over the gameplay window, as on the stream overlay */
@@ -37,7 +44,8 @@
   #lockup small { display: block; margin-top: 6px; color: #F0B40D; font-size: 15px; letter-spacing: .14em; line-height: 1; }
   #notice { position: absolute; left: 60px; width: 1280px; text-transform: none; color: #8e97a8; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 15px; line-height: 1.45; }
   .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 84px; background: #F0B40D; color: #11151A; display: flex; align-items: center; justify-content: space-between; gap: 40px; padding: 0 52px; font-size: 25px; letter-spacing: .07em; }
-  #ticker { white-space: nowrap; overflow: hidden; transition: opacity .6s ease; }
+  #ticker { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; transition: opacity .6s ease; }
+  #site { white-space: nowrap; flex: none; }
 
   /* Texas Esports Collegiate: Collegiate Blue on near-black, square corners, the TEC mark in the middle of
      the scoreboard and the Collegiate lockup in the corner. The bottom band stays the Metroplex Major's
@@ -62,6 +70,7 @@
   :root[data-theme="col"] .bar svg.gem { color: #F0B40D; }
   :root[data-theme="col"] #site { color: #F0B40D; }
 </style>
+<link rel="stylesheet" href="/motion.css">
 </head>
 <body>
   <!-- Midnight background with the two windows cut out of it -->
@@ -96,7 +105,7 @@
     </div><div><b id="lockup-name">Metroplex Major</b><small id="lockup-sub"></small></div>
   </div>
   <div id="notice"></div>
-  <div class="bar"><span id="ticker"></span><span id="site"></span></div>
+  <div class="bar sheen"><span id="ticker"></span><span id="site"></span></div>
 <script src="/mm.js"></script>
 <script src="/col.js"></script>
 <script>
@@ -129,9 +138,13 @@
       document.documentElement.dataset.theme = theme;
       $('#crest').innerHTML = col ? window.COL.mark() : MM_ART.crest;
       $('#lockup-art').innerHTML = col ? window.COL.lockup() : MM_ART.lockup;
+      window.MM.shine($('#lockup-art svg'), 'polygon, path', { delay: 1, every: 8 });
       $('#bg-fill').setAttribute('fill', col ? '#0A0A0A' : '#11151A');
       $('#bg-glow').setAttribute('fill', col ? 'url(#glow-col)' : 'url(#glow)');
     }
+    // Settings, Stream screens: Motion off keeps the frame still and the ticker fading.
+    const motion = !(S.branding && S.branding.motion === false);
+    document.documentElement.classList.toggle('still', !motion);
     $('#headline').textContent = col ? col.title || 'Fall Split' : 'Metroplex Major';
     // In the Collegiate theme the bottom band and the notice belong to the Major promo.
     const promo = !col || col.promo !== false;
@@ -203,7 +216,8 @@
     $('#notice').style.top = px(L.game.y + L.game.h + 22);
     $('#notice').innerHTML = window.MM.gems(`${col ? 'Metroplex Major: ' : ''}Nintendo is not a sponsor of or affiliated with this tournament. Terms for participating in and viewing Licensed Tournaments using Nintendo Games: https://en-americas-support.nintendo.com/app/answers/detail/a_id/63454 ◆ Tournament license ${mm.license || ''}`);
     $('#site').innerHTML = window.MM.gems(`${mm.site || 'metroplexmajor.com'} ◆ #MetroplexMajor`);
-    if (!ticker) ticker = window.MM.ticker($('#ticker'), () => window.MM.lines(S).filter((l) => !/^metroplexmajor\.com/i.test(l)));
+    if (!ticker) ticker = window.MM.bar($('#ticker'), () => window.MM.lines(S).filter((l) => !/^metroplexmajor\.com/i.test(l)));
+    ticker.set(motion);
   }
   let loadedVersion = '';
   const es = new EventSource('/api/events');

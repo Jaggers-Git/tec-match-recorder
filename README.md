@@ -153,9 +153,14 @@ The **Record | Broadcast** switch in the header changes the dashboard on every d
   folded (**Show** opens it, and each device remembers). Stream screens and the scene buttons appear in this mode
   only.
 
-**Live output** shows what is on air (Program, red tag) and, while OBS Studio Mode is on, what is cued (Preview,
-green tag), so a one-monitor station can run the show from the dashboard. The scene button for what is on air is
-outlined red and the one in Preview green.
+**Live output** shows what is cued on the left (Preview, green tag, while OBS Studio Mode is on) and what is on air
+on the right (Program, red tag), side by side at the same size as in OBS Studio Mode and vMix, so a one-monitor
+station can run the show from the dashboard. The scene button for what is on air is outlined red and the one in
+Preview green. A phone stacks the two with Program on top.
+
+The dashboard fits half a screen, for a station that keeps OBS on the other half: below about 1400 pixels wide the
+header takes two rows (the controls on top, the status chips under them), and Broadcast mode sets the live pictures
+across the top with the current set and the replay panel side by side under them.
 
 - The recorder asks OBS for a small 640-wide JPEG of each scene, about 5 a second for Program and 2 for Preview, one
   request at a time, and only while a dashboard in Broadcast mode is open and on screen. The picture runs about a
@@ -209,7 +214,10 @@ Hybrid MP4 (or MP4) recording gives clips that play everywhere, the dashboard's 
 .mp4 once it is written.
 
 **Slow motion on stream.** Pick a speed (100, 75, 50 or 25 percent, or the slider down to 10), then **Play last on
-air**, or **On air** on any clip in the list.
+air**, or **On air** on any clip in the list. With *Play the clips after it too* ticked under the buttons (the
+default), the replay keeps going: **On air** on a clip plays it and then every clip saved after it, oldest first, at
+the same speed, and a clip saved while they play joins the end. The panel shows "Clip 2 of 5" as it goes. Untick it
+to play one clip at a time.
 
 - The first time, the recorder adds the scene **TEC Replay** to OBS (or press *Add replay scene to OBS* in Settings,
   *Instant replay*): a Media Source "TEC Replay Clip" fitted to the canvas and, on top, a Browser Source "TEC Replay
@@ -226,16 +234,22 @@ air**, or **On air** on any clip in the list.
 - The replay goes where the scene buttons send scenes (Settings, *Scene changes from the recorder go to*). By default
   that is **Preview**, where the clip plays so you can watch it, and it starts again from its first frame when
   **Transition** takes it live. Set to Program, it cuts to air at once.
-- When the clip ends, the scene that was live before goes back to air and whatever you had cued in Preview is cued
-  again. Untick *When a replay ends, take the scene that was live before it back to air* to hold the last frame
-  instead; **Back to Gameplay** (named after the previous scene) in the panel takes it back by hand.
-- Replays play muted, because slowed audio plays pitch-shifted and the buffer also holds the casters' mics. Settings
-  can let a replay at 100% be heard.
+- When the last clip ends, the scene that was live before goes back to air and whatever you had cued in Preview is
+  cued again. Untick *When a replay ends, take the scene that was live before it back to air* to hold the last frame
+  instead; **Back to Gameplay** (named after the previous scene) in the panel takes it back by hand, and stops a run
+  of clips part way.
+- Replays are heard on stream at every speed. OBS slows a clip's sound along with the picture, so a 50% replay sounds
+  lower and slower, like tape. The buffer records everything in the OBS mix, so if the casters' mics run through this
+  OBS their voices are in the clip too. Untick *Replays are heard on stream* in Settings, *Instant replay*, for silent
+  replays. Stream sound never plays on the station PC by itself: tick *Also play replay sound on this PC* to send it to
+  OBS's monitoring device as well (an operator in headphones), and leave it off where the PC's speakers would play it
+  at the setup.
 - A new speed means playing the clip again, since OBS reopens the file on any speed change.
 - A replay put on air during a recording ends up in that VOD, as it would in any broadcast.
 
 **Checking a clip first.** **▶** on a clip plays it inside the panel at the chosen speed, off air, so a one-monitor
-station can find the moment before putting it on stream.
+station can find the moment before putting it on stream. With *Play the clips after it too* ticked, the panel's
+player goes on to the clips saved after it as well.
 
 **Naming clips.** Tap a clip's name (✎) to give it a title, like "Liva's ledge read". The title shows in the list
 and the starred-clips export, and the file is renamed to match
@@ -444,6 +458,14 @@ Texas Esports Collegiate versions are under [Branding and themes](#branding-and-
 - **Casters** (`/casters`): the gameplay capture in a large window, one camera in a smaller one with "On the mic"
   above it, one or two caster name cards (name plus an optional handle) under the camera, and the set and score
   above the gameplay.
+
+**Motion.** The screens move while they wait: a light sweeps across the crown or the Collegiate lockup every few
+seconds, a glow swells and settles behind it, the watermark drifts, the bottom bar's ticker crawls right to left
+(on the Major slate and Casters), a light runs along the gold bar and the Collegiate top rule, the Casters window
+frames glow in turn, and "On now" carries a pulsing live dot while the station records. It all moves with
+transform and opacity, which OBS's browser source draws on the graphics card. Untick *Motion on Starting Soon, BRB,
+End, Casters and the between-sets screen* (Settings, *Stream screens and scene switching*) to keep them still, with
+the ticker fading through its lines as before; screens already in OBS follow the setting straight away.
 
 The **Stream screens** panel (Broadcast mode) holds the message and the two caster cards; what is typed there shows
 on the screens straight away. A card with no name is not drawn. When the production software is connected, a button

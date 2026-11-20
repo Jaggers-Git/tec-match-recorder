@@ -101,10 +101,12 @@ const DEFAULT_CONFIG = {
   // Instant replay (lib/replay.js). enabled keeps OBS's replay buffer (or vMix's replay recording) running
   // in Broadcast mode, and in Record mode too when inRecord is on (for Save clip; with x264 the buffer keeps
   // a CPU encoder busy all day); seconds is the clip length; speed the slow-motion speed in percent;
-  // autoReturn takes the scene that was live before back to air when a replay ends; audio lets a replay
-  // at 100% be heard (slowed ones never are).
+  // autoReturn takes the scene that was live before back to air when a replay ends; sound lets replays be
+  // heard on stream at every speed (a slowed clip's sound slows with it); hear also plays them on this
+  // PC's OBS monitoring device; playOn keeps going through the clips saved after the one started.
   // fade takes a little colour out of the clip on air, so viewers can tell the moment already happened.
-  replay: { enabled: true, seconds: 15, speed: 50, autoReturn: true, audio: false, inRecord: false, fade: true },
+  // (Before 1.11.0 an `audio` switch let only 100% replays be heard, and it was off by default.)
+  replay: { enabled: true, seconds: 15, speed: 50, autoReturn: true, sound: true, hear: false, playOn: true, inRecord: false, fade: true },
   // Player cam: one camera on the players. enabled draws its frame on the gameplay overlay (bottom centre,
   // between Ultimate's HUD panels) and a Players box in the Casters scene; source is the OBS input that
   // "Add player cam to OBS" places under those frames. boxes (optional) overrides the window per game.
@@ -302,6 +304,8 @@ function brandingInfo() {
     mm: mmSettings(),
     col: colSettings(),
     crews: { enabled: crewsOn(), stocks: crewStocks(), list: crewList() },
+    // Motion on the full-screen stream screens (shimmer, glow, crawling ticker); off keeps them still.
+    motion: !(cfg.branding && cfg.branding.motion === false),
   };
 }
 const themeParam = (url) => (THEMES[url.searchParams.get('theme')] ? url.searchParams.get('theme') : themeId());
@@ -1539,6 +1543,7 @@ function updateConfig(body) {
       ticker: splitLines(mmIn.ticker).map((l) => l.slice(0, 120)).slice(0, 12).join('\n'),
       corners: mmIn.corners !== false,
     },
+    motion: !(next.branding && next.branding.motion === false),
     col: (() => {
       const c = { ...((cfg.branding && cfg.branding.col) || {}), ...((next.branding && next.branding.col) || {}) };
       return {
@@ -1567,10 +1572,13 @@ function updateConfig(body) {
     seconds: Math.min(60, Math.max(5, Math.round(Number(rp.seconds) || 15))),
     speed: clampSpeed(rp.speed),
     autoReturn: rp.autoReturn !== false,
-    audio: !!rp.audio,
+    sound: rp.sound !== false,
+    hear: !!rp.hear,
+    playOn: rp.playOn !== false,
     inRecord: !!rp.inRecord,
     fade: rp.fade !== false,
   };
+  const soundChanged = ['sound', 'hear'].some((k) => next.replay[k] !== cfg.replay[k]);
   const pc = next.playerCam || {};
   next.playerCam = { enabled: !!pc.enabled, source: String(pc.source || '').trim().slice(0, 200), ...(pc.boxes && typeof pc.boxes === 'object' ? { boxes: pc.boxes } : {}) };
   const modeChanged = next.mode !== cfg.mode;
@@ -1605,6 +1613,7 @@ function updateConfig(body) {
   }
   if (sgChanged) { schedulePoll(); syncStartgg(); } else broadcastBracket();
   if (replayChanged) replay.configChanged();
+  if (soundChanged) replay.soundChanged();
   if (modeChanged) log(`Dashboard mode: ${cfg.mode === 'broadcast' ? 'Broadcast' : 'Record'}`);
   broadcast();
   // A bare tournament link has no bracket of its own: with a token, swap it for the tournament's events as Add events does.
@@ -1951,6 +1960,12 @@ async function handleReplayApi(route, req, res, url) {
     case 'POST /api/replay/speed': {
       const b = await readBody(req);
       sendJson(res, 200, { ok: true, speed: replay.setSpeed(b.speed) });
+      return true;
+    }
+    // The replay panel's "Play the clips after it" switch.
+    case 'POST /api/replay/play-on': {
+      const b = await readBody(req);
+      sendJson(res, 200, { ok: true, playOn: replay.setPlayOn(!!b.on) });
       return true;
     }
     case 'POST /api/replay/star': {

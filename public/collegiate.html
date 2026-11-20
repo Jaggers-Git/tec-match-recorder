@@ -20,9 +20,13 @@
   html { background: #0A0A0A; }
   body { background: #0A0A0A; color: #fff; font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; position: relative; -webkit-font-smoothing: antialiased; }
   [hidden] { display: none !important; }
-  .glow { position: absolute; inset: 0; background: radial-gradient(60% 70% at 100% 0%, rgba(43,111,212,.30) 0%, rgba(43,111,212,0) 70%); }
-  .topbar { position: absolute; left: 0; right: 0; top: 0; height: 10px; background: #2B6FD4; }
-  .wm { position: absolute; right: -170px; bottom: -190px; width: 900px; opacity: .06; }
+  .glow { position: absolute; inset: 0; background: radial-gradient(60% 70% at 100% 0%, rgba(43,111,212,.30) 0%, rgba(43,111,212,0) 70%); transform-origin: 100% 0; --breathe-lo: .6; --breathe-s0: 1; --breathe-s1: 1.12; animation: breathe 9s ease-in-out infinite; }
+  .topbar { position: absolute; left: 0; right: 0; top: 0; height: 10px; background: #2B6FD4; --sheen-w: 14%; --sheen-a: .8; --sheen-every: 6s; }
+  .wm { position: absolute; right: -170px; bottom: -190px; width: 900px; opacity: .06; animation: drift 28s ease-in-out infinite alternate; }
+  /* motion (motion.css): the headline catches a light now and then */
+  h1.gleam { background: linear-gradient(100deg, #fff 0%, #fff 42%, #a8c8f6 50%, #fff 58%, #fff 100%) no-repeat; background-size: 300% 100%; background-position: 100% 0; -webkit-background-clip: text; background-clip: text; color: transparent; animation: gleam 8s ease-in-out 3s infinite; }
+  @keyframes gleam { 0% { background-position: 100% 0; } 30%, 100% { background-position: 0% 0; } }
+  html.still h1.gleam { color: #fff; background: none; }
   .wm svg { width: 100%; height: auto; display: block; }
 
   .main { position: absolute; left: 110px; top: 96px; bottom: 96px; width: 1700px; display: flex; flex-direction: column; }
@@ -38,7 +42,7 @@
 
   /* Up next / on now: the date-card shape from the Fall Split graphics, blue tile on the left. */
   .card { margin-top: 44px; display: flex; border: 2px solid rgba(255,255,255,.16); background: rgba(16,22,34,.82); border-radius: 6px; overflow: hidden; max-width: 100%; }
-  .tile { flex: none; width: 190px; background: #2B6FD4; display: flex; align-items: center; justify-content: center; text-transform: uppercase; font-weight: 700; font-size: 26px; letter-spacing: .2em; padding-left: .2em; text-align: center; line-height: 1.15; }
+  .tile { position: relative; --sheen-every: 7s; --sheen-delay: 1.5s; --sheen-a: .45; flex: none; width: 190px; background: #2B6FD4; display: flex; align-items: center; justify-content: center; text-transform: uppercase; font-weight: 700; font-size: 26px; letter-spacing: .2em; padding-left: .2em; text-align: center; line-height: 1.15; }
   .card .body { padding: 22px 34px 24px; min-width: 0; }
   .vsline { display: flex; align-items: baseline; gap: .45em; font-weight: 800; font-size: 46px; line-height: 1.05; white-space: nowrap; overflow: hidden; }
   .vsline > span { flex: none; }
@@ -53,7 +57,9 @@
 
   /* BRB and end screen: the Major card on the right. */
   .mm-card { position: absolute; right: 110px; top: 96px; bottom: 96px; width: 600px; display: flex; flex-direction: column; }
-  .mm-box { flex: 1; background: #11151A; border: 2px solid #F0B40D; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 34px 40px; box-sizing: border-box; gap: 18px; box-shadow: 0 0 60px rgba(240,180,13,.10); }
+  .mm-box { position: relative; flex: 1; background: #11151A; border: 2px solid #F0B40D; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 34px 40px; box-sizing: border-box; gap: 18px; box-shadow: 0 0 60px rgba(240,180,13,.10); }
+  /* a warmer gold glow that swells and settles around the Major card */
+  .mm-box::before { content: ''; position: absolute; inset: -2px; border-radius: 6px; box-shadow: 0 0 70px rgba(240,180,13,.32), inset 0 0 40px rgba(240,180,13,.08); opacity: 0; animation: glow-pulse 7s ease-in-out infinite; pointer-events: none; }
   .mm-kicker { font-weight: 600; font-size: 20px; letter-spacing: .26em; text-transform: uppercase; color: #F0B40D; }
   .mm-crown { width: 230px; height: auto; }
   .mm-name { font-weight: 700; font-size: 52px; letter-spacing: .12em; line-height: 1; text-transform: uppercase; }
@@ -71,25 +77,26 @@
 
   /* Starting Soon: a slim Major strip along the bottom, with the notice under it. */
   .mm-strip { position: absolute; right: 110px; bottom: 56px; width: 1040px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-  .mm-strip .row { display: flex; align-items: center; gap: 18px; background: #11151A; border: 2px solid #F0B40D; border-radius: 6px; padding: 12px 22px; text-transform: uppercase; font-weight: 700; font-size: 22px; letter-spacing: .1em; white-space: nowrap; }
+  .mm-strip .row { position: relative; --sheen-every: 9s; --sheen-delay: 4s; --sheen-a: .22; --sheen-w: 18%; display: flex; align-items: center; gap: 18px; background: #11151A; border: 2px solid #F0B40D; border-radius: 6px; padding: 12px 22px; text-transform: uppercase; font-weight: 700; font-size: 22px; letter-spacing: .1em; white-space: nowrap; }
   .mm-strip .row svg.crown { height: 34px; width: auto; flex: none; }
   .mm-strip .row .gold { color: #F0B40D; }
   .mm-strip .notice { text-align: right; max-width: 1040px; }
 </style>
+<link rel="stylesheet" href="/motion.css">
 <script src="/theme.js"></script>
 </head>
 <body>
   <div class="glow"></div>
-  <div class="topbar"></div>
+  <div class="topbar sheen"></div>
   <div id="wm" class="wm"></div>
   <div class="main">
     <div id="lockup" class="lockup"></div>
     <div class="stack">
       <div id="kicker" class="kicker"></div>
-      <h1 id="title">Fall Split</h1>
+      <h1 id="title" class="gleam">Fall Split</h1>
       <div id="message" class="message" hidden></div>
       <div id="now" class="card" hidden>
-        <div id="now-tag" class="tile">Up next</div>
+        <div class="tile sheen"><span><i id="now-dot" class="live-dot" hidden></i><span id="now-tag">Up next</span></span></div>
         <div class="body">
           <div class="vsline"><span id="now-p1"></span><span class="vs">vs</span><span id="now-p2"></span></div>
           <div id="now-round" class="round"></div>
@@ -102,7 +109,7 @@
   <div id="mm-card" class="mm-card" hidden>
     <div class="mm-box">
       <!-- the cast-gold crown, as on the Metroplex Major stream kit -->
-      <svg class="mm-crown" viewBox="-6 -39 201 132" aria-hidden="true">
+      <svg class="mm-crown" id="mm-crown" viewBox="-6 -39 201 132" aria-hidden="true">
         <defs><linearGradient id="gf" x1="0" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#FFD75E"/><stop offset="0.55" stop-color="#F0B40D"/><stop offset="1" stop-color="#D29A08"/></linearGradient></defs>
         <polygon fill="#6E4E04" points="11,17 20,8 33,8 61,36 89,8 100,-5 111,8 139,36 167,8 180,8 189,17 189,77 180,86 167,86 167,39 139,67 111,39 111,86 89,86 89,39 61,67 33,39 33,86 20,86 11,77"/>
         <polygon fill="#D9A50A" points="22,0 50,28 61,36 33,8"/><polygon fill="#D9A50A" points="89,-13 100,0 111,8 100,-5"/><polygon fill="#D9A50A" points="100,0 128,28 139,36 111,8"/><polygon fill="#D9A50A" points="169,0 178,9 189,17 180,8"/>
@@ -125,7 +132,7 @@
   </div>
 
   <div id="mm-strip" class="mm-strip" hidden>
-    <div class="row">
+    <div class="row sheen">
       <svg class="crown" viewBox="-6 -38 190 128" aria-hidden="true"><g fill="#F0B40D"><polygon points="0,9 9,0 22,0 50,28 78,0 89,-13 100,0 128,28 156,0 169,0 178,9 178,69 169,78 156,78 156,31 128,59 100,31 100,78 78,78 78,31 50,59 22,31 22,78 9,78 0,69"/><polygon points="15.5,-15 21.5,-9 15.5,-3 9.5,-9"/><polygon points="89,-32.5 96.5,-25 89,-17.5 81.5,-25"/><polygon points="162.5,-15 168.5,-9 162.5,-3 156.5,-9"/></g></svg>
       <span id="mm-strip-text"></span>
     </div>
@@ -142,6 +149,8 @@
   const SCENE_TITLES = { starting: 'Starting Soon', brb: 'Be Right Back', end: 'Thanks for Watching' };
   $('#lockup').innerHTML = window.COL.lockup();
   $('#wm').innerHTML = window.COL.mark('#2B6FD4');
+  window.MM.shine($('#lockup svg'), 'path', { delay: 0.5, every: 8 });
+  window.MM.shine($('#mm-crown'), 'polygon[fill="url(#gf)"]', { delay: 3, every: 7 });
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let S = null;
   function render() {
@@ -149,6 +158,8 @@
     const b = S.branding || {};
     // The station left the Collegiate theme: /slate now serves that theme's screen, so load it.
     if (b.theme && b.theme !== 'col') { location.reload(); return; }
+    // Settings, Stream screens: Motion off keeps the screen still.
+    document.documentElement.classList.toggle('still', b.motion === false);
     const col = b.col || {};
     const mm = b.mm || {};
     const promo = col.promo !== false;
@@ -167,6 +178,7 @@
     $('#now').hidden = !live;
     if (live) {
       $('#now-tag').textContent = S.rec && S.rec.active ? 'On now' : 'Up next';
+      $('#now-dot').hidden = !(S.rec && S.rec.active);
       $('#now-p1').textContent = c.p1;
       $('#now-p2').textContent = c.p2;
       const crews = b.crews && b.crews.enabled;

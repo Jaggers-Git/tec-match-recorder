@@ -109,12 +109,28 @@ input[type="checkbox"] { width: auto; }
 .mode-switch button.active { background: var(--brand-fill); color: var(--on-brand); }
 .mode-switch button:hover:not(.active) { color: var(--text); }
 
-/* live output */
+/* Half a screen (a dashboard beside OBS): the header keeps to two rows, the brand and controls on top and
+   the status chips under them, and the current set's score buttons stay inside a narrow panel. */
+@media (max-width: 1400px) {
+  .topbar { gap: 8px 12px; padding: 8px 12px; }
+  .topbar .chips { order: 10; flex: 1 0 100%; gap: 6px; }
+  .topbar .chip { font-size: 12px; padding: 3px 9px; }
+  .topbar .mode-switch { margin-left: auto; }
+}
+.match-panel { container-type: inline-size; }
+@container (max-width: 520px) {
+  .score .label, .games .label { display: none; }
+  .score { gap: 6px; }
+  .score-btn { min-width: 40px; }
+}
+
+/* live output: Preview on the left and Program on the right, the same size, as in OBS Studio Mode and vMix.
+   A phone stacks them with Program on top. */
 .small-check { font-size: 13px; color: var(--muted); margin: 0; gap: 6px; }
-.live-views { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 10px; align-items: start; }
+.live-views { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: start; }
 .live-views.single { grid-template-columns: minmax(0, 1fr); }
-@media (max-width: 900px) { .live-views { grid-template-columns: minmax(0, 1fr); } }
-.live-views.single .live-view { width: min(100%, calc(52vh * 16 / 9)); justify-self: center; }
+@media (max-width: 600px) { .live-views { grid-template-columns: minmax(0, 1fr); } .live-view.program { order: -1; } }
+.live-views.single .live-view { width: min(100%, calc(46vh * 16 / 9)); justify-self: center; }
 .live-view { margin: 0; position: relative; background: #000; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; aspect-ratio: 16 / 9; }
 .live-view img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .live-view figcaption { position: absolute; left: 8px; top: 8px; display: flex; gap: 6px; align-items: center; font-size: 12px; color: #fff; text-shadow: 0 1px 2px #000; max-width: calc(100% - 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -138,10 +154,11 @@ input[type="checkbox"] { width: auto; }
 .speed-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .speed-row .label { font-family: var(--display); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .speeds { display: flex; gap: 4px; }
-.speeds button { padding: 6px 10px; font-size: 13px; }
+.speeds button { padding: 6px 8px; font-size: 13px; }
 .speeds button.active { border-color: var(--brand); background: var(--brand-soft); color: var(--tag-text); }
 input[type="range"] { padding: 0; border: none; background: transparent; accent-color: var(--brand); }
-.speed-row input[type="range"] { flex: 1; min-width: 110px; }
+.speed-row input[type="range"] { flex: 1; min-width: 64px; }
+.play-on { margin-top: 8px; }
 .speed-num { font-family: var(--display); font-weight: 700; min-width: 44px; text-align: right; }
 .replay-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
 .replay-help { margin-top: 10px; }
@@ -237,8 +254,8 @@ button.primary { background: var(--brand-fill); color: var(--on-brand); border: 
 .row { display: flex; gap: 10px; align-items: flex-end; margin-top: 12px; }
 .field.grow { flex: 1; }
 .field.small-field { width: 90px; }
-.preview { margin-top: 12px; background: var(--panel2); border-radius: 8px; padding: 8px 10px; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: baseline; }
-.preview .label { font-family: var(--display); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.match-panel .preview { margin-top: 12px; background: var(--panel2); border-radius: 8px; padding: 8px 10px; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: baseline; }
+.match-panel .preview .label { font-family: var(--display); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 
 .record-area { margin-top: 16px; }
 .record-btn {
