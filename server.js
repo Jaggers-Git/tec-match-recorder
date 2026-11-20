@@ -111,6 +111,9 @@ const DEFAULT_CONFIG = {
   // between Ultimate's HUD panels) and a Players box in the Casters scene; source is the OBS input that
   // "Add player cam to OBS" places under those frames. boxes (optional) overrides the window per game.
   playerCam: { enabled: false, source: '' },
+  // Stinger transition: enabled keeps the theme's stinger (public/stingers/<theme>.webm) in OBS's Stinger
+  // transition `name`, which "Set up stinger in OBS" picks and makes the current transition.
+  stinger: { enabled: false, name: '' },
 };
 
 // ---------- utilities ----------
@@ -775,6 +778,9 @@ function onSwitcherEvent(ev) {
     rememberRecordDirectory();
     replay.onReady().catch((e) => log('Instant replay:', e.message));
     if (sw === obs) syncPlayerCam({ force: true });
+    // Points the stinger at this copy's file again (the app folder may have moved) without changing
+    // which transition the operator has picked.
+    if (sw === obs && cfg.stinger.enabled) syncStinger().catch(() => {});
   } else if (['replay-state', 'replay-saved', 'media-ended'].includes(ev.type)) {
     replay.onSwitcherEvent(ev);
   } else if (ev.type === 'record') {
@@ -1579,6 +1585,9 @@ function updateConfig(body) {
     fade: rp.fade !== false,
   };
   const soundChanged = ['sound', 'hear'].some((k) => next.replay[k] !== cfg.replay[k]);
+  const st = next.stinger || {};
+  next.stinger = { enabled: !!st.enabled, name: String(st.name || '').trim().slice(0, 120) };
+  const stingerChanged = next.stinger.enabled !== !!(cfg.stinger && cfg.stinger.enabled);
   const pc = next.playerCam || {};
   next.playerCam = { enabled: !!pc.enabled, source: String(pc.source || '').trim().slice(0, 200), ...(pc.boxes && typeof pc.boxes === 'object' ? { boxes: pc.boxes } : {}) };
   const modeChanged = next.mode !== cfg.mode;
@@ -1614,6 +1623,8 @@ function updateConfig(body) {
   if (sgChanged) { schedulePoll(); syncStartgg(); } else broadcastBracket();
   if (replayChanged) replay.configChanged();
   if (soundChanged) replay.soundChanged();
+  // A new theme brings its own stinger; ticking the box takes OBS's stinger over straight away.
+  if (cfg.stinger.enabled && (themeChanged || stingerChanged)) syncStinger({ makeCurrent: true, adopt: stingerChanged }).catch(() => {});
   if (modeChanged) log(`Dashboard mode: ${cfg.mode === 'broadcast' ? 'Broadcast' : 'Record'}`);
   broadcast();
   // A bare tournament link has no bracket of its own: with a token, swap it for the tournament's events as Add events does.
@@ -1690,6 +1701,7 @@ function coreSnapshot() {
     screenLayout: CASTER_LAYOUT,
     // Where the player cam's window is on the gameplay screen for the game being played, and whether it shows.
     playerCam: playerCamView(),
+    stinger: stingerInfo(),
     screenScenes: SCREENS.map((s) => s.scene),
     stageList: STAGES,
     version: APP_VERSION,
@@ -2109,6 +2121,90 @@ const CASTER_LAYOUT = {
   // The player cam, under the caster cards (shown when Settings turns the player cam on).
   player: { x: 1404, y: 716, w: 432, h: 243 },
 };
+// ---------- stinger transition ----------
+// Every theme ships a 1.2 second transparent stinger, public/stingers/<theme>.webm (60 fps VP9 with alpha,
+// rendered with Remotion in TEC's motion project). Each covers the whole screen from about 0.3 to 0.95 seconds,
+// so OBS cuts to the next scene at 600 ms. Preloading the video to RAM and decoding it in software means it
+// plays from its first frame the moment the transition starts: a cut that lands before the stinger covers
+// the screen shows the next scene for a frame or two, which is what a Frame-type point of 18 did with the
+// 60 fps Major stinger. OBS's WebSocket can change and pick a transition but cannot create one, so the
+// operator adds one Stinger in OBS once; "Set up stinger in OBS" takes it over and the theme keeps it current.
+const STINGER_DIR = path.join(ROOT, 'public', 'stingers');
+const STINGER_KIND = 'obs_stinger_transition';
+const STINGER_POINT_MS = 600;
+const stingerTheme = (id = themeId()) => (fs.existsSync(path.join(STINGER_DIR, `${id}.webm`)) ? id : 'tec');
+const stingerPath = (id = themeId()) => path.join(STINGER_DIR, `${stingerTheme(id)}.webm`);
+let stingerState = { state: '', name: '', error: '' };
+function stingerInfo() {
+  const theme = stingerTheme();
+  const st = cfg.stinger || {};
+  return {
+    enabled: !!st.enabled, name: st.name || '', theme, url: `/stingers/${theme}.webm`, path: stingerPath(), pointMs: STINGER_POINT_MS,
+    // ready | missing (no Stinger in OBS yet) | error | vmix | '' (not checked)
+    state: switcherId() === 'vmix' ? 'vmix' : stingerState.state, active: stingerState.name || '', error: stingerState.error,
+  };
+}
+async function obsTransitionNow() {
+  return obs.request('GetCurrentSceneTransition');
+}
+// Makes `name` OBS's current transition and waits until OBS reports it: the request returns before OBS
+// has switched, and settings sent too soon land on the old transition.
+async function useTransition(name) {
+  await obs.request('SetCurrentSceneTransition', { transitionName: name });
+  for (let i = 0; i < 30; i += 1) {
+    if ((await obsTransitionNow()).transitionName === name) return;
+    await sleep(100);
+  }
+  throw new Error(`OBS did not switch to the transition "${name}"`);
+}
+let stingerBusy = null;
+function syncStinger(opts = {}) {
+  // One at a time: a theme change while a sync runs waits for it, then runs again.
+  const run = () => syncStingerNow(opts);
+  stingerBusy = (stingerBusy || Promise.resolve()).catch(() => {}).then(run);
+  return stingerBusy;
+}
+// adopt: no stinger picked yet, so take OBS's "TEC Stinger", else the current transition if it is a stinger,
+// else the first stinger. makeCurrent leaves it as OBS's transition; otherwise the operator's pick is put back.
+async function syncStingerNow({ makeCurrent = false, adopt = false } = {}) {
+  if (sw !== obs) { stingerState = { state: 'vmix', name: '', error: '' }; broadcast(); return stingerInfo(); }
+  if (obs.status !== 'connected') throw new Error('OBS is not connected');
+  try {
+    const list = await obs.request('GetSceneTransitionList');
+    const stingers = (list.transitions || []).filter((t) => t.transitionKind === STINGER_KIND).map((t) => t.transitionName);
+    let name = stingers.includes(cfg.stinger.name) ? cfg.stinger.name : '';
+    if (!name && adopt) {
+      name = stingers.includes('TEC Stinger') ? 'TEC Stinger'
+        : stingers.includes(list.currentSceneTransitionName) ? list.currentSceneTransitionName : stingers[0] || '';
+    }
+    if (!name) {
+      stingerState = { state: 'missing', name: '', error: '' };
+      broadcast();
+      throw new Error(stingers.length
+        ? `The stinger "${cfg.stinger.name}" is no longer in OBS. Press Set up stinger in OBS to use "${stingers[0]}"`
+        : 'OBS has no Stinger transition yet. In OBS, Scene Transitions dock: press +, pick Stinger, name it TEC Stinger, OK, then OK again. Then press Set up stinger in OBS');
+    }
+    const before = list.currentSceneTransitionName;
+    await useTransition(name);
+    await obs.request('SetCurrentSceneTransitionSettings', {
+      transitionSettings: { path: stingerPath(), tp_type: 0, transition_point: STINGER_POINT_MS, preload: true, hw_decode: false },
+      overlay: true,
+    });
+    if (!makeCurrent && before && before !== name) await useTransition(before);
+    if (cfg.stinger.name !== name) { cfg.stinger = { ...cfg.stinger, name }; saveConfig(); }
+    stingerState = { state: 'ready', name, error: '' };
+    log(`Stinger: "${name}" plays the ${THEMES[stingerTheme()].name} stinger${makeCurrent ? ' and is OBS\'s transition' : ''} (cut at ${STINGER_POINT_MS} ms)`);
+    broadcast();
+    return stingerInfo();
+  } catch (e) {
+    if (stingerState.state !== 'missing') stingerState = { state: 'error', name: '', error: e.message };
+    else stingerState.error = e.message;
+    log(`Stinger: ${e.message}`);
+    broadcast();
+    throw e;
+  }
+}
+
 // ---------- player cam ----------
 // Its window on the gameplay screen (1920x1080 coordinates; the overlay draws the frame around it and the
 // camera sits underneath in OBS). Ultimate's 1v1 HUD panels end at x 720 and start at x 1140, so the
@@ -2376,6 +2472,16 @@ async function handleDetectApi(route, req, res, url) {
       return true;
     }
     // "Add player cam to OBS" (Settings, Player cam): body.source picks the camera input.
+    // Settings, Stinger transition: take over OBS's Stinger, give it the theme's file and make it current.
+    case 'POST /api/stinger/setup': {
+      try {
+        if (switcherId() === 'vmix') throw new Error(`vMix sets its stingers in its own settings: load ${stingerPath()} into a Stinger transition there, with the transition point at ${STINGER_POINT_MS} ms`);
+        cfg.stinger = { ...cfg.stinger, enabled: true };
+        saveConfig();
+        sendJson(res, 200, { ok: true, stinger: await syncStinger({ makeCurrent: true, adopt: true }) });
+      } catch (e) { sendJson(res, 409, { error: e.message, stinger: stingerInfo() }); }
+      return true;
+    }
     case 'POST /api/playercam/install': {
       const b = await readBody(req);
       try { sendJson(res, 200, await installPlayerCam(b.source)); }

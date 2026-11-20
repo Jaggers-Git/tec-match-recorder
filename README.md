@@ -492,6 +492,29 @@ mode reports that rather than cutting live.
   settings, **Layers**, and add the gameplay input (position 60, 168, size 1280x720) and the camera (1380, 168,
   480x270) as layers underneath the frame. This part is not automated for vMix.
 
+**Stinger transition.** Each theme has its own 1.2 second stinger: the three track colours sweeping across with
+the TEC mark (TEC), maroon shutters closing on a gold belt plate (Tuesday Takedown), the gold diamond and crown
+(Metroplex Major), and blue panels with the TEC mark (Texas Esports Collegiate). The files are in
+`public/stingers/` as transparent WebM. Every one covers the whole screen from about 0.3 to 0.95 seconds, and the
+cut comes at 0.6.
+
+- **One-time step in OBS**, since OBS's remote control can change a transition but cannot create one: in the
+  Scene Transitions dock (bottom right), press **+**, pick **Stinger**, name it *TEC Stinger*, OK, then OK again
+  with the video file left empty.
+- Then Settings, *Stinger transition*, **Set up stinger in OBS**. The recorder fills in the theme's video, a
+  transition point of 600 ms (type Time), *Preload video to RAM* and software decoding, and makes it OBS's current
+  transition. From then on it plays for every transition: Transition ▶ and the scene buttons, OBS's own Transition
+  button and hotkeys, and replays going to air and back.
+- Changing the theme swaps the stinger's video straight away. Each time the recorder connects it points the
+  stinger at its own copy of the file again (so a moved app folder keeps working) without changing which
+  transition OBS has picked.
+- **Why those settings:** OBS cuts to the next scene on its own clock, so a cut that lands before the stinger
+  covers the screen shows the next scene for a frame or two first. A Frame-type transition point of 18 does this
+  with the 60 fps Metroplex Major stinger (it cuts at 300 ms, before the diamond reaches the corners); a 600 ms Time
+  point with the video preloaded does not. Both were checked frame by frame in OBS 32.
+- **vMix** sets stingers in its own settings: load the theme's file from `public/stingers/` into a Stinger
+  transition there, with the transition point at 600 ms.
+
 **Switch scenes for me** (off by default): Start Recording sends the gameplay scene, End & Save stops the recording
 first and then sends the between-sets scene (MM BRB unless another is picked). In Preview mode they wait in Preview
 for your transition; a recording starts on whatever is live, so take Gameplay live before Start Recording to keep

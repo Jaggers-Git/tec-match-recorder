@@ -457,6 +457,22 @@
         </div>
       </fieldset>
       <fieldset>
+        <legend>Stinger transition</legend>
+        <div class="stinger-row">
+          <video id="stinger-preview" class="stinger-preview" muted loop playsinline autoplay title="The stinger for the theme picked above"></video>
+          <div class="stinger-body">
+            <div class="muted">A 1.2 second stinger in the look of the theme picked above (each theme has its own) for every transition: <b>Transition ▶</b> and the scene buttons here, <span class="sw-name">OBS</span>'s own Transition button and hotkeys, and replays going to air and back. It covers the whole screen from about 0.3 to 0.95 seconds and the cut comes at 0.6, with the video preloaded, so the next scene never shows before it covers.</div>
+            <label class="check sw-obs" style="margin-top:8px"><input type="checkbox" name="stinger.enabled"> <span>Use the theme's stinger in OBS (it changes with the theme)</span></label>
+            <div class="row sw-obs" style="align-items:center;flex-wrap:wrap;gap:8px;margin-top:4px">
+              <button type="button" id="btn-stinger-setup" class="small">Set up stinger in OBS</button>
+              <span id="stinger-status" class="muted"></span>
+            </div>
+          </div>
+        </div>
+        <div class="muted sw-obs" style="margin-top:6px">One-time step in OBS, since its remote control can change a transition but not create one: in the <b>Scene Transitions</b> dock (bottom right), press <b>+</b>, pick <b>Stinger</b>, name it <b>TEC Stinger</b>, OK, then OK again with the video file left empty. Then press <b>Set up stinger in OBS</b>; the recorder fills in the theme's video, the 600 ms transition point, <i>Preload video to RAM</i> and software decoding, and makes it OBS's transition.</div>
+        <div class="muted sw-vmix">vMix sets its stingers in its own settings. Load <span class="mono" id="stinger-vmix-path"></span> into one of its Stinger transitions and set the transition point to 600 ms.</div>
+      </fieldset>
+      <fieldset>
         <legend>Player cam</legend>
         <label class="check"><input type="checkbox" name="playerCam.enabled"> <span>Show the player cam: a frame at the bottom of the gameplay overlay (between the two players' HUD in Smash, bottom centre in Tekken 8 and SF6) and a Players window in the Casters scene. It stays off for Smash doubles, whose HUD fills the bottom.</span></label>
         <div class="grid2 sw-obs">

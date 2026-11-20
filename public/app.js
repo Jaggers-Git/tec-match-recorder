@@ -958,7 +958,39 @@
     $('#settings-sg-status').textContent = S.startgg.configured ? `${sgText()}${S.startgg.tournamentName ? ` · ${S.startgg.tournamentName} / ${S.startgg.eventName} (${S.startgg.setCount} sets)` : ''}` : 'Not configured. Get a token at start.gg → your profile → Developer Settings → Create new token.';
     $('#settings-info').innerHTML = `Recordings folder (from ${esc(S.sw.name)}): <span class="mono">${esc(S.sw.recordDirectory || (isVmix() ? '(read from vMix on the first recording)' : '(connect OBS to read it)'))}</span><br>`
       + `Dashboard on this network: ${(S.lan || []).map((u) => `<span class="mono">${esc(u)}</span>`).join(' · ') || 'none'}`;
+    renderStingerStatus();
   }
+
+  // ---------- stinger transition (Settings) ----------
+  // The preview follows the theme picked in the form, so a theme's stinger can be seen before saving.
+  function renderStingerPreview() {
+    const v = $('#stinger-preview');
+    const url = `/stingers/${formTheme()}.webm`;
+    if (v.getAttribute('src') !== url) { v.src = url; v.play().catch(() => {}); }
+  }
+  function stingerText(st) {
+    if (!st) return '';
+    if (st.state === 'vmix') return '';
+    if (!S.sw.connected) return 'Connect OBS first.';
+    if (st.state === 'ready') return `"${st.active}" plays the ${st.theme === 'tt' ? 'Tuesday Takedown' : st.theme === 'mm' ? 'Metroplex Major' : st.theme === 'col' ? 'Texas Esports Collegiate' : 'TEC'} stinger.`;
+    if (st.state === 'missing') return 'OBS has no Stinger transition yet: add one first (the step below).';
+    if (st.state === 'error') return st.error;
+    return st.enabled ? 'Checking…' : 'Not set up.';
+  }
+  function renderStingerStatus() {
+    const st = S && S.stinger;
+    if (!st) return;
+    $('#stinger-status').textContent = stingerText(st);
+    $('#stinger-vmix-path').textContent = st.path || '';
+  }
+  $('#btn-stinger-setup').addEventListener('click', async () => {
+    $('#stinger-status').textContent = 'Setting up…';
+    try {
+      const r = await api('POST', '/api/stinger/setup');
+      $('#settings-form').elements['stinger.enabled'].checked = true;
+      toast(`Stinger ready: "${r.stinger.active}" is OBS's transition, with the cut at ${r.stinger.pointMs} ms.`);
+    } catch (e) { $('#stinger-status').textContent = e.message; }
+  });
 
   // ---------- current-set editing ----------
   function queuePatch(patch) {
@@ -1160,6 +1192,8 @@
     set('replay.sound', rp.sound !== false);
     set('replay.hear', !!rp.hear);
     set('replay.fade', rp.fade !== false);
+    set('stinger.enabled', !!(c.stinger && c.stinger.enabled));
+    renderStingerPreview();
     set('playerCam.enabled', !!(c.playerCam && c.playerCam.enabled));
     loadCamChoices((c.playerCam && c.playerCam.source) || '');
     $('#playercam-status').textContent = '';
@@ -1250,6 +1284,7 @@
     if (formTheme() === 'tt') f.elements.smashOnly.checked = true;
     if (formTheme() === 'tt' && !f.elements['branding.label'].value) f.elements['branding.label'].value = 'Tuesday Takedown';
     renderLogoStatus();
+    renderStingerPreview();
   });
   $('#btn-logo-startgg').addEventListener('click', async () => {
     const out = $('#logo-status');
@@ -1453,12 +1488,22 @@
           ? { state: 'ok', title: 'Stream overlay', text: `In OBS scene ${S.overlay.inScenes.join(', ')} as the source "TEC Overlay".${S.overlay.currentScene && !S.overlay.inScenes.includes(S.overlay.currentScene) ? ` OBS is showing "${S.overlay.currentScene}" right now.` : ''}` }
           : { state: 'opt', title: 'Stream overlay (optional)', text: o.connected ? 'Player names, round and wins drawn over the gameplay scene. Adds a Browser Source called "TEC Overlay" to OBS.' : 'Player names, round and wins over the gameplay scene. Available once OBS is connected.', action: o.connected ? 'overlay' : undefined, label: 'Add to OBS' },
       replaySetupItem(),
+      stingerSetupItem(),
       t && t.ok
         ? { state: 'ok', title: 'Test recording', text: testRecText(t) }
         : t && !t.running && t.error
           ? { state: 'warn', title: 'Test recording', text: testRecText(t), action: 'test', label: 'Run again' }
           : { state: 'opt', title: 'Test recording', text: t && t.running ? testRecText(t) : `Records five seconds, checks the file, removes it. Needs ${o.name} connected.`, action: 'test', label: t && t.running ? 'Running...' : 'Run test' },
     ];
+  }
+  function stingerSetupItem() {
+    const st = S.stinger || {};
+    const title = 'Stinger transition';
+    if (st.state === 'vmix') return { state: 'opt', title: `${title} (optional)`, text: `vMix sets stingers in its own settings: load ${st.path} into a Stinger transition there, transition point 600 ms.` };
+    if (st.state === 'ready') return { state: 'ok', title, text: stingerText(st) };
+    if (st.state === 'missing') return { state: st.enabled ? 'warn' : 'opt', title: `${title}${st.enabled ? '' : ' (optional)'}`, text: 'In OBS, Scene Transitions dock: press +, pick Stinger, name it TEC Stinger, OK, then OK again. Then press Set up.', action: S.sw.connected ? 'stinger' : undefined, label: 'Set up' };
+    if (st.state === 'error') return { state: 'warn', title, text: st.error, action: S.sw.connected ? 'stinger' : undefined, label: 'Try again' };
+    return { state: 'opt', title: `${title} (optional)`, text: 'A 1.2 second stinger in the theme\'s look for every transition. Needs one Stinger transition added in OBS first.', action: S.sw.connected ? 'stinger' : undefined, label: 'Set up' };
   }
   // OBS not connected: what the recorder found in OBS's own settings on this PC decides the advice.
   function obsSetupItem() {
@@ -1511,6 +1556,7 @@
     else if (b.dataset.setup === 'obs-enable') { try { await api('POST', '/api/obs/enable-websocket'); toast('OBS\'s WebSocket server is on. Start OBS: the recorder connects by itself.'); } catch (e) { toast(e.message, { error: true }); } }
     else if (b.dataset.setup === 'replay-start') { try { await api('POST', '/api/replay/buffer', { on: true }); } catch (e) { toast(e.message, { error: true }); } }
     else if (b.dataset.setup === 'replay-scene') { try { await installReplayScene(); renderSetup(); } catch (e) { toast(e.message, { error: true }); } }
+    else if (b.dataset.setup === 'stinger') { try { const r = await api('POST', '/api/stinger/setup'); toast(`Stinger ready: "${r.stinger.active}" is OBS's transition.`); renderSetup(); } catch (e) { toast(e.message, { error: true }); } }
   });
   $('#setup-refresh').addEventListener('click', renderSetup);
   $('#setup-settings').addEventListener('click', () => { $('#setup').hidden = true; openSettings(); });

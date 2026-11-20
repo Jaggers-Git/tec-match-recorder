@@ -301,6 +301,8 @@ fieldset label { display: block; font-size: 13px; color: var(--muted); margin: 8
 fieldset label input:not([type="checkbox"]) { margin-top: 4px; }
 .field-warn { color: var(--warn); margin: -4px 0 8px; }
 label.check { display: flex; align-items: center; gap: 8px; color: var(--text); flex-wrap: wrap; }
+/* A long label's text wraps beside its box instead of dropping under it. */
+label.check > span { flex: 1 1 0; min-width: 0; }
 input.inline { width: 140px; display: inline-block; margin: 0 4px; padding: 6px 8px; font-size: 14px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .grid3 { display: grid; grid-template-columns: 2fr 1fr 2fr; gap: 10px; }
@@ -390,6 +392,14 @@ html.smash-only .multi-game { display: none !important; }
 /* OBS or vMix: Settings rows follow the form's (unsaved) choice, the how-to guide the saved one */
 #settings-form:not([data-sw="vmix"]) .sw-vmix, #settings-form[data-sw="vmix"] .sw-obs { display: none; }
 :root:not([data-sw="vmix"]) .vmix-only, :root[data-sw="vmix"] .obs-only { display: none; }
+/* Settings, Stinger transition: the theme's stinger looping on a checkerboard, so its transparency shows */
+.stinger-row { display: flex; gap: 14px; align-items: flex-start; }
+.stinger-body { flex: 1; min-width: 0; }
+.stinger-preview {
+  width: 224px; aspect-ratio: 16 / 9; flex: none; border: 1px solid var(--border); border-radius: 8px; display: block;
+  background: repeating-conic-gradient(#2a2f38 0 25%, #1c2027 0 50%) 0 0 / 20px 20px;
+}
+@media (max-width: 640px) { .stinger-row { flex-direction: column; } .stinger-preview { width: 100%; } }
 .logo-preview { width: 56px; height: 56px; object-fit: contain; background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 4px; }
 label.small.file-btn { display: inline-flex; align-items: center; margin: 0; cursor: pointer; background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
 label.small.file-btn:hover { border-color: var(--brand); }
