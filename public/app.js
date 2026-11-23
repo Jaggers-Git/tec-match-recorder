@@ -1237,6 +1237,7 @@
     set('branding.conf.game', confCfg.game ?? '');
     set('branding.conf.promo', confCfg.promo !== false);
     set('branding.motion', !(c.branding && c.branding.motion === false));
+    renderPhotoStatus();
     const crewCfg = c.crews || {};
     set('crews.enabled', !!crewCfg.enabled);
     set('crews.stocks', crewCfg.stocks || 12);
@@ -1403,6 +1404,32 @@
       renderLogoStatus();
       toast('Logo saved.');
     } catch (e) { toast(e.message, { error: true }); }
+  });
+  // ---------- Be Right Back photo (Settings, Stream screens) ----------
+  function renderPhotoStatus() {
+    const url = (S && S.branding && S.branding.photo) || '';
+    const img = $('#photo-preview');
+    img.hidden = !url;
+    if (url && img.getAttribute('src') !== url) img.src = url;
+    $('#btn-photo-remove').hidden = !url;
+    $('#photo-status').textContent = url ? 'Shown behind Be Right Back.' : 'No photo: Be Right Back keeps its plain background.';
+  }
+  $('#photo-file').addEventListener('change', async () => {
+    const file = $('#photo-file').files[0];
+    $('#photo-file').value = '';
+    if (!file) return;
+    $('#photo-status').textContent = 'Saving…';
+    try {
+      const res = await fetch('/api/branding/photo', { method: 'POST', headers: { 'Content-Type': file.type }, body: file });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`);
+      S.branding = data.branding;
+      renderPhotoStatus();
+      toast('Photo saved: it shows behind Be Right Back.');
+    } catch (e) { $('#photo-status').textContent = e.message; }
+  });
+  $('#btn-photo-remove').addEventListener('click', async () => {
+    try { const r = await api('DELETE', '/api/branding/photo'); S.branding = r.branding; renderPhotoStatus(); } catch (e) { toast(e.message, { error: true }); }
   });
   $('#btn-logo-remove').addEventListener('click', async () => {
     try {

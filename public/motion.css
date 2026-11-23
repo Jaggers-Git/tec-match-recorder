@@ -37,6 +37,13 @@
   0% { transform: translate(0, 0) rotate(0deg); }
   100% { transform: translate(var(--drift-x, -30px), var(--drift-y, 18px)) rotate(var(--drift-r, -1.5deg)); }
 }
+/* A real photo behind a screen (Be Right Back): greyscale, dim, and a slow push in with a little drift. */
+.screen-photo { position: absolute; inset: -4%; background: center 40% / cover no-repeat; filter: grayscale(1) contrast(1.05);
+  opacity: .30; transform-origin: 60% 45%; animation: photo-drift 36s ease-in-out infinite alternate; pointer-events: none; }
+@keyframes photo-drift {
+  0% { transform: scale(1.02) translate(0, 0); }
+  100% { transform: scale(1.12) translate(-2%, -1.2%); }
+}
 @keyframes glow-pulse { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
 
 /* "On now": a live dot while the station records. */

@@ -478,6 +478,18 @@
         </div>
         <div class="muted" style="margin-top:6px"><span class="sw-obs">Creates the scenes "MM Starting Soon", "MM BRB", "MM End" and "MM Casters" (pressing it again refreshes them and adds any that are missing). Each shows the look of the theme picked above. Casters gets your gameplay capture and, when there is a second camera input, the camera, each placed in its window; otherwise drag the camera into the right-hand window yourself.</span><span class="sw-vmix">Adds "MM Starting Soon", "MM BRB", "MM End" and "MM Casters" as Browser inputs. In vMix, add your gameplay and camera to MM Casters as layers (Input settings, Layers); the README has the positions.</span> Pages: <a href="/slate?scene=starting" target="_blank">Starting Soon</a>, <a href="/slate?scene=brb" target="_blank">BRB</a>, <a href="/slate?scene=end" target="_blank">End</a>, <a href="/casters" target="_blank">Casters</a>.</div>
         <label class="check" style="margin-top:10px"><input type="checkbox" name="branding.motion"> <span>Motion on Starting Soon, BRB, End, Casters and the between-sets screen: a shimmer across the logos, a slow glow and a ticker that crawls (untick to keep them still, on a PC that struggles)</span></label>
+        <div class="photo-row" style="margin-top:8px">
+          <img id="photo-preview" class="photo-preview" alt="Be Right Back photo" hidden>
+          <div class="photo-body">
+            <div><b>Photo behind Be Right Back</b> <span class="muted">(every theme: shown in greyscale, dim and slowly drifting behind the title)</span></div>
+            <div class="row" style="align-items:center;flex-wrap:wrap;gap:8px;margin-top:6px">
+              <label class="small file-btn">Choose photo…<input type="file" id="photo-file" accept="image/jpeg,image/png,image/webp" hidden></label>
+              <button type="button" id="btn-photo-remove" class="small">Remove photo</button>
+              <span id="photo-status" class="muted"></span>
+            </div>
+            <div class="muted" style="margin-top:4px">Kept on this PC only (data\branding), never in the app's files: event photos can show students, so use one the event has media releases for. A wide shot of the venue or crowd reads best.</div>
+          </div>
+        </div>
         <div class="grid2" style="margin-top:10px">
           <label>Scene changes from the recorder go to
             <select name="scenes.to">

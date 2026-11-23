@@ -110,6 +110,7 @@
 <script src="/theme.js"></script>
 </head>
 <body>
+  <div id="photo" class="screen-photo" hidden></div>
   <div class="glow"></div>
   <div class="topbar sheen"></div>
   <div id="wm" class="wm"></div>
@@ -210,6 +211,11 @@
     if (b.theme && b.theme !== loadedTheme) { location.reload(); return; }
     // Settings, Stream screens: Motion off keeps the screen still.
     document.documentElement.classList.toggle('still', b.motion === false);
+    // Settings, Stream screens: the station's own event photo behind Be Right Back.
+    const photo = scene === 'brb' ? b.photo || '' : '';
+    const ph = $('#photo');
+    ph.hidden = !photo;
+    if (photo && ph.dataset.src !== photo) { ph.dataset.src = photo; ph.style.backgroundImage = `url("${photo}")`; }
     if (!ticker) ticker = window.MM.bar($('#ticker'), tickerLines);
     ticker.set(b.motion !== false);
     const col = (loadedTheme === 'conf' ? b.conf : b.col) || {};

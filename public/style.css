@@ -421,6 +421,9 @@ html.smash-only .multi-game { display: none !important; }
   background: repeating-conic-gradient(#2a2f38 0 25%, #1c2027 0 50%) 0 0 / 20px 20px;
 }
 @media (max-width: 640px) { .stinger-row { flex-direction: column; } .stinger-preview { width: 100%; } }
+.photo-row { display: flex; gap: 12px; align-items: flex-start; }
+.photo-body { flex: 1; min-width: 0; }
+.photo-preview { width: 160px; aspect-ratio: 16 / 9; object-fit: cover; flex: none; border: 1px solid var(--border); border-radius: 8px; filter: grayscale(1); }
 .logo-preview { width: 56px; height: 56px; object-fit: contain; background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 4px; }
 label.small.file-btn { display: inline-flex; align-items: center; margin: 0; cursor: pointer; background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
 label.small.file-btn:hover { border-color: var(--brand); }

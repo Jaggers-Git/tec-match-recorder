@@ -486,6 +486,12 @@ transform and opacity, which OBS's browser source draws on the graphics card. Un
 End, Casters and the between-sets screen* (Settings, *Stream screens and scene switching*) to keep them still, with
 the ticker fading through its lines as before; screens already in OBS follow the setting straight away.
 
+**A photo behind Be Right Back.** Settings, *Stream screens and scene switching*, **Choose photo…** puts a real
+event photo behind the BRB screen in every theme: greyscale, dim, and slowly pushing in. Starting Soon, End and
+Casters keep their plain backgrounds, so BRB is the one photo scene. The photo is kept on that PC only
+(`data/branding/`), never in the app's files, since event photos can show students: use one the event has media
+releases for. **Remove photo** takes it off.
+
 The **Stream screens** panel (Broadcast mode) holds the message and the two caster cards; what is typed there shows
 on the screens straight away. A card with no name is not drawn. When the production software is connected, a button
 per scene sits under the live output picture: Gameplay (the scene picked in Settings, else the overlay's scene,

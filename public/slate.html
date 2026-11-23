@@ -49,9 +49,15 @@
   .bar .site { white-space: nowrap; flex: none; }
 </style>
 <link rel="stylesheet" href="/motion.css">
+<style>
+  /* Midnight over the photo, so the gold and white keep their contrast. */
+  .photo-wrap { position: absolute; inset: 0; overflow: hidden; }
+  .photo-wrap::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(17,21,26,.55), rgba(17,21,26,.15) 60%, rgba(17,21,26,.4)); }
+</style>
 <script src="/theme.js"></script>
 </head>
 <body>
+  <div id="photo-wrap" class="photo-wrap" hidden><div id="photo" class="screen-photo"></div></div>
   <svg class="wm" viewBox="-6 -38 190 128" aria-hidden="true"><g fill="#F0B40D"><polygon points="0,9 9,0 22,0 50,28 78,0 89,-13 100,0 128,28 156,0 169,0 178,9 178,69 169,78 156,78 156,31 128,59 100,31 100,78 78,78 78,31 50,59 22,31 22,78 9,78 0,69"/><polygon points="15.5,-15 21.5,-9 15.5,-3 9.5,-9"/><polygon points="89,-32.5 96.5,-25 89,-17.5 81.5,-25"/><polygon points="162.5,-15 168.5,-9 162.5,-3 156.5,-9"/></g></svg>
   <div class="main">
     <div class="left">
@@ -96,6 +102,11 @@
     if (S.branding && S.branding.theme === 'col') { location.reload(); return; }
     // Settings, Stream screens: Motion off keeps the screen still and the ticker fading.
     const motion = !(S.branding && S.branding.motion === false);
+    // Settings, Stream screens: the station's own event photo behind Be Right Back.
+    const photo = params.get('scene') === 'brb' ? (S.branding && S.branding.photo) || '' : '';
+    $('#photo-wrap').hidden = !photo;
+    const ph = $('#photo');
+    if (photo && ph.dataset.src !== photo) { ph.dataset.src = photo; ph.style.backgroundImage = `url("${photo}")`; }
     document.documentElement.classList.toggle('still', !motion);
     const mm = (S.branding && S.branding.mm) || {};
     const promo = mm.mode !== 'event';

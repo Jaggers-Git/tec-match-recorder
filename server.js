@@ -324,6 +324,7 @@ function brandingInfo() {
     label: String((cfg.branding && cfg.branding.label) || ''),
     logo: logoUrl(id),
     logos: Object.fromEntries(Object.keys(THEMES).map((t) => [t, logoUrl(t)])),
+    photo: photoUrl(),
     smashOnly: !!cfg.smashOnly,
     mm: mmSettings(),
     col: colSettings(),
@@ -347,6 +348,36 @@ function saveLogo(buffer, contentType, id = themeId()) {
   for (const old of Object.keys(LOGO_TYPES)) fs.rmSync(path.join(BRANDING_DIR, `${id}-logo.${old}`), { force: true });
   fs.writeFileSync(path.join(BRANDING_DIR, `${id}-logo.${ext}`), buffer);
   log(`Branding: ${THEMES[id].name} logo saved (${Math.round(buffer.length / 1024)} KB)`);
+  broadcast();
+}
+// A photo behind the Be Right Back screen (any theme): a real event photo, greyscale and dim, drifting slowly.
+// Event photos can show minors, so they never ship with the app: each station picks its own in Settings and it
+// stays in data/branding/ on that PC.
+function photoFile() {
+  for (const ext of Object.keys(LOGO_TYPES)) {
+    const file = path.join(BRANDING_DIR, `screen-photo.${ext}`);
+    if (fs.existsSync(file)) return file;
+  }
+  return '';
+}
+function photoUrl() {
+  const file = photoFile();
+  let version = 0;
+  try { version = file ? Math.round(fs.statSync(file).mtimeMs) : 0; } catch { version = 0; }
+  return version ? `/branding/photo?v=${version}` : '';
+}
+function savePhoto(buffer, contentType) {
+  const ext = Object.keys(LOGO_TYPES).find((k) => LOGO_TYPES[k] === String(contentType || '').split(';')[0].trim().toLowerCase());
+  if (!ext) throw new Error('Use a JPG, PNG or WebP photo');
+  if (!buffer || buffer.length < 1000) throw new Error('That photo is empty');
+  fs.mkdirSync(BRANDING_DIR, { recursive: true });
+  for (const old of Object.keys(LOGO_TYPES)) fs.rmSync(path.join(BRANDING_DIR, `screen-photo.${old}`), { force: true });
+  fs.writeFileSync(path.join(BRANDING_DIR, `screen-photo.${ext}`), buffer);
+  log(`Branding: Be Right Back photo saved (${Math.round(buffer.length / 1024)} KB)`);
+  broadcast();
+}
+function removePhoto() {
+  for (const ext of Object.keys(LOGO_TYPES)) fs.rmSync(path.join(BRANDING_DIR, `screen-photo.${ext}`), { force: true });
   broadcast();
 }
 function removeLogo(id = themeId()) {
@@ -1859,6 +1890,15 @@ function serveStatic(res, pathname, url) {
     res.writeHead(200, { 'Content-Type': MIME['.js'], 'Cache-Control': 'no-store' });
     return res.end(themeScript());
   }
+  if (pathname === '/branding/photo') {
+    const file = photoFile();
+    if (!file) return sendJson(res, 404, { error: 'No Be Right Back photo saved' });
+    return fs.readFile(file, (err, data) => {
+      if (err) return sendJson(res, 404, { error: 'not found' });
+      res.writeHead(200, { 'Content-Type': LOGO_TYPES[path.extname(file).slice(1)], 'Cache-Control': 'no-cache' });
+      res.end(data);
+    });
+  }
   if (pathname === '/branding/logo') {
     const file = logoFile(themeParam(url));
     if (!file) return sendJson(res, 404, { error: 'No logo saved for this theme' });
@@ -2959,6 +2999,12 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: true, branding: brandingInfo() });
     case 'POST /api/branding/logo/startgg':
       try { const r = await fetchStartggLogo(themeParam(url)); return sendJson(res, 200, { ok: true, ...r, branding: brandingInfo() }); } catch (e) { return sendJson(res, 409, { error: e.message }); }
+    case 'POST /api/branding/photo':
+      try { savePhoto(await readRawBody(req, 15 * 1048576), req.headers['content-type']); } catch (e) { return sendJson(res, 400, { error: e.message }); }
+      return sendJson(res, 200, { ok: true, branding: brandingInfo() });
+    case 'DELETE /api/branding/photo':
+      removePhoto();
+      return sendJson(res, 200, { ok: true, branding: brandingInfo() });
     case 'DELETE /api/branding/logo':
       removeLogo(themeParam(url));
       return sendJson(res, 200, { ok: true, branding: brandingInfo() });
