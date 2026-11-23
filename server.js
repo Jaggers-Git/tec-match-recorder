@@ -101,12 +101,13 @@ const DEFAULT_CONFIG = {
   // Instant replay (lib/replay.js). enabled keeps OBS's replay buffer (or vMix's replay recording) running
   // in Broadcast mode, and in Record mode too when inRecord is on (for Save clip; with x264 the buffer keeps
   // a CPU encoder busy all day); seconds is the clip length; speed the slow-motion speed in percent;
-  // autoReturn takes the scene that was live before back to air when a replay ends; sound lets replays be
-  // heard on stream at every speed (a slowed clip's sound slows with it); hear also plays them on this
-  // PC's OBS monitoring device; playOn keeps going through the clips saved after the one started.
-  // fade takes a little colour out of the clip on air, so viewers can tell the moment already happened.
-  // (Before 1.11.0 an `audio` switch let only 100% replays be heard, and it was off by default.)
-  replay: { enabled: true, seconds: 15, speed: 50, autoReturn: true, sound: true, hear: false, playOn: true, inRecord: false, fade: true },
+  // autoReturn takes the scene that was live before back to air when a replay ends; withSound plays replays
+  // with their own sound (off by default: the clip holds the casters' earlier words, which talked over the
+  // live casters at the Fall Split, 11/20/26); hear also plays that sound on this PC's OBS monitoring device;
+  // playOn keeps going through the clips saved after the one started. fade takes a little colour out of the
+  // clip on air, so viewers can tell the moment already happened. 1.11.0 called the sound switch `sound` and
+  // had it on; the new name leaves every station silent until someone ticks it.
+  replay: { enabled: true, seconds: 15, speed: 50, autoReturn: true, withSound: false, hear: false, playOn: true, inRecord: false, fade: true },
   // Player cam: one camera on the players. enabled draws its frame on the gameplay overlay (bottom centre,
   // between Ultimate's HUD panels) and a Players box in the Casters scene; source is the OBS input that
   // "Add player cam to OBS" places under those frames. boxes (optional) overrides the window per game.
@@ -1578,13 +1579,13 @@ function updateConfig(body) {
     seconds: Math.min(60, Math.max(5, Math.round(Number(rp.seconds) || 15))),
     speed: clampSpeed(rp.speed),
     autoReturn: rp.autoReturn !== false,
-    sound: rp.sound !== false,
+    withSound: !!rp.withSound,
     hear: !!rp.hear,
     playOn: rp.playOn !== false,
     inRecord: !!rp.inRecord,
     fade: rp.fade !== false,
   };
-  const soundChanged = ['sound', 'hear'].some((k) => next.replay[k] !== cfg.replay[k]);
+  const soundChanged = ['withSound', 'hear'].some((k) => next.replay[k] !== cfg.replay[k]);
   const st = next.stinger || {};
   next.stinger = { enabled: !!st.enabled, name: String(st.name || '').trim().slice(0, 120) };
   const stingerChanged = next.stinger.enabled !== !!(cfg.stinger && cfg.stinger.enabled);

@@ -238,12 +238,11 @@ to play one clip at a time.
   cued again. Untick *When a replay ends, take the scene that was live before it back to air* to hold the last frame
   instead; **Back to Gameplay** (named after the previous scene) in the panel takes it back by hand, and stops a run
   of clips part way.
-- Replays are heard on stream at every speed. OBS slows a clip's sound along with the picture, so a 50% replay sounds
-  lower and slower, like tape. The buffer records everything in the OBS mix, so if the casters' mics run through this
-  OBS their voices are in the clip too. Untick *Replays are heard on stream* in Settings, *Instant replay*, for silent
-  replays. Stream sound never plays on the station PC by itself: tick *Also play replay sound on this PC* to send it to
-  OBS's monitoring device as well (an operator in headphones), and leave it off where the PC's speakers would play it
-  at the setup.
+- Replays play silent, so the live casters talk over them. The buffer records everything in the OBS mix, the
+  casters' own earlier words included, and hearing those under the live call was confusing at the Fall Split. Tick
+  *Play replays with their own sound* in Settings, *Instant replay*, for a station without casters on its OBS: OBS
+  slows a clip's sound along with the picture, so a 50% replay sounds lower and slower, like tape. With that on,
+  *also play it on this PC* sends it to OBS's monitoring device too (an operator in headphones).
 - A new speed means playing the clip again, since OBS reopens the file on any speed change.
 - A replay put on air during a recording ends up in that VOD, as it would in any broadcast.
 

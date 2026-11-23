@@ -1189,7 +1189,7 @@
     set('replay.inRecord', !!rp.inRecord);
     set('replay.seconds', rp.seconds || 15);
     set('replay.autoReturn', rp.autoReturn !== false);
-    set('replay.sound', rp.sound !== false);
+    set('replay.withSound', !!rp.withSound);
     set('replay.hear', !!rp.hear);
     set('replay.fade', rp.fade !== false);
     set('stinger.enabled', !!(c.stinger && c.stinger.enabled));

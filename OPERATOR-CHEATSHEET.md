@@ -29,7 +29,7 @@
 2. Scene buttons load Preview; **Transition ▶** takes it live. The live scene's button is outlined red, the cued one green.
 3. Big moment? **REPLAY**. The last 15 seconds are saved and added to the list.
 4. Pick a speed (**50%** is a good slow motion), then **Play last on air**, or **On air** on any clip. It lands in Preview: **Transition ▶** to air it.
-   With **Play the clips after it too** ticked, every clip saved after it follows, oldest first. Replays carry their sound (slowed ones sound lower).
+   With **Play the clips after it too** ticked, every clip saved after it follows, oldest first. Replays play silent, so the casters talk over them.
 5. When the last clip ends, the scene that was live before goes back to air by itself. **Back to ...** does it sooner.
 6. Want to find the moment first? **▶** plays the clip in the panel, off air. Tap **☆** to star the good ones.
 

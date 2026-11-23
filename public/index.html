@@ -495,8 +495,8 @@
           <label>Clip length in seconds (5 to 60) <input name="replay.seconds" type="number" min="5" max="60" step="1"></label>
         </div>
         <label class="check sw-obs"><input type="checkbox" name="replay.autoReturn"> When a replay ends, take the scene that was live before it back to air</label>
-        <label class="check"><input type="checkbox" name="replay.sound"> <span>Replays are heard on stream, at every speed (a slowed replay's sound slows with it, lower and slower). If the casters' mics run through this <span class="sw-name">OBS</span>, their voices are in the clip too</span></label>
-        <label class="check sw-obs"><input type="checkbox" name="replay.hear"> <span>Also play replay sound on this PC (OBS's monitoring device, for an operator in headphones; leave it off if this PC's speakers would play it at the setup)</span></label>
+        <label class="check"><input type="checkbox" name="replay.withSound"> <span>Play replays with their own sound. Off by default: the clip holds everything in the <span class="sw-name">OBS</span> mix, the casters' earlier words included, which talk over the live casters. A slowed replay's sound plays lower and slower</span></label>
+        <label class="check sw-obs"><input type="checkbox" name="replay.hear"> <span>With replay sound on, also play it on this PC (OBS's monitoring device, for an operator in headphones; leave it off if this PC's speakers would play it at the setup)</span></label>
         <label class="check sw-obs"><input type="checkbox" name="replay.fade"> <span>Fade the colours of replays a little, so viewers can tell the moment already happened (OBS's Color Correction filter "TEC Replay Fade" on the clip)</span></label>
         <div class="row sw-obs" style="align-items:center;flex-wrap:wrap;gap:8px">
           <button type="button" id="btn-replay-scene" class="small">Add replay scene to OBS</button>
