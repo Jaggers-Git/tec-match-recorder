@@ -65,7 +65,15 @@
   .maps .wn { font-weight: 800; text-transform: uppercase; text-align: right; }
   .maps .m.next .nm, .maps .m.next .wn { color: #9aa0a6; }
 
-  .site { position: absolute; left: 110px; bottom: 64px; font-weight: 800; font-size: 30px; letter-spacing: .04em; }
+  /* A crawl along the bottom edge, so the screen always has something moving: the event, the set on the
+     station, the typed message, the site and, with the promo on, the Major's lines (motion.css, MM.bar). */
+  .tk { position: absolute; left: 0; right: 0; bottom: 0; height: 50px; display: flex; align-items: center; background: rgba(13,17,24,.94);
+    color: #fff; font-weight: 700; font-size: 21px; letter-spacing: .1em; text-transform: uppercase; }
+  .tk::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--c-fill); }
+  #ticker { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; transition: opacity .6s ease; }
+  .tk svg.gem { color: var(--c-gem, #2B6FD4); }
+  :root[data-theme="conf"] .tk { background: rgba(13,15,18,.94); --c-gem: #f3f4f6; }
+  .site { position: absolute; left: 110px; bottom: 74px; font-weight: 800; font-size: 30px; letter-spacing: .04em; }
 
   /* ---------- Metroplex Major: its own brand (Major Gold on Midnight), boxed off from the Collegiate look ---------- */
   svg.gem { display: inline-block; width: .42em; height: .42em; vertical-align: middle; transform: translateY(-.05em); margin: 0 .5em; color: #F0B40D; }
@@ -92,7 +100,7 @@
   .mm-card .notice { margin-top: 14px; }
 
   /* Starting Soon: a slim Major strip along the bottom, with the notice under it. */
-  .mm-strip { position: absolute; right: 110px; bottom: 56px; width: 1040px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+  .mm-strip { position: absolute; right: 110px; bottom: 70px; width: 1040px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
   .mm-strip .row { position: relative; --sheen-every: 9s; --sheen-delay: 4s; --sheen-a: .22; --sheen-w: 18%; display: flex; align-items: center; gap: 18px; background: #11151A; border: 2px solid #F0B40D; border-radius: 6px; padding: 12px 22px; text-transform: uppercase; font-weight: 700; font-size: 22px; letter-spacing: .1em; white-space: nowrap; }
   .mm-strip .row svg.crown { height: 34px; width: auto; flex: none; }
   .mm-strip .row .gold { color: #F0B40D; }
@@ -122,6 +130,7 @@
     </div>
   </div>
   <div id="site" class="site">texasesports.org</div>
+  <div class="tk"><span id="ticker"></span></div>
 
   <div id="mm-card" class="mm-card" hidden>
     <div class="mm-box">
@@ -174,6 +183,25 @@
   window.MM.shine($('#mm-crown'), 'polygon[fill="url(#gf)"]', { delay: 3, every: 7 });
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let S = null;
+  let ticker = null;
+  // The crawl's lines: the event, the set on the station, the typed message, the site, then the Major's
+  // own lines while its promo is on (they carry its Nintendo notice and license).
+  function tickerLines() {
+    if (!S) return [];
+    const b = S.branding || {};
+    const cfg = (loadedTheme === 'conf' ? b.conf : b.col) || {};
+    const org = loadedTheme === 'conf' ? 'Texas Esports Conference' : 'Texas Esports Collegiate';
+    const title = cfg.title || (loadedTheme === 'conf' ? 'Fall Finals' : 'Fall Split');
+    const c = S.current || {};
+    const lines = [`${org} ◆ ${title}`];
+    if (cfg.game) lines.push(cfg.game);
+    if (c.p1 && c.p2 && scene !== 'end') lines.push(`${S.rec && S.rec.active ? 'On now' : 'Up next'} ◆ ${c.p1} vs ${c.p2}${c.round ? ` ◆ ${c.round}` : ''}`);
+    const msg = (S.screens && S.screens.message) || '';
+    if (msg) lines.push(msg);
+    lines.push('texasesports.org');
+    if (cfg.promo !== false) lines.push(...window.MM.lines(S));
+    return lines;
+  }
   function render() {
     if (!S) return;
     const b = S.branding || {};
@@ -182,6 +210,8 @@
     if (b.theme && b.theme !== loadedTheme) { location.reload(); return; }
     // Settings, Stream screens: Motion off keeps the screen still.
     document.documentElement.classList.toggle('still', b.motion === false);
+    if (!ticker) ticker = window.MM.bar($('#ticker'), tickerLines);
+    ticker.set(b.motion !== false);
     const col = (loadedTheme === 'conf' ? b.conf : b.col) || {};
     const mm = b.mm || {};
     const promo = col.promo !== false;

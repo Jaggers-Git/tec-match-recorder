@@ -91,6 +91,12 @@
   :root[data-theme="conf"] .bar svg.gem { color: #F0B40D; }
   :root[data-theme="conf"] #site { color: #F0B40D; }
   :root[data-theme="conf"] .bar { --sheen-a: .12; }
+  /* The band with the promo off: the event in the theme's own colours. */
+  :root[data-theme="col"] .bar.event { border-top-color: #2B6FD4; background: #0d1118; }
+  :root[data-theme="col"] .bar.event svg.gem { color: #2B6FD4; }
+  :root[data-theme="conf"] .bar.event { background: #0d0f12; border-top: 3px solid transparent; border-image: linear-gradient(90deg, #ff4635, #fa6529, #f0b40d, #ecd402, #ccdc01, #7df000, #45ff00, #007bff) 3 0 0 0 / 3px 0 0 0; }
+  :root[data-theme="conf"] .bar.event svg.gem { color: #f3f4f6; }
+  .bar.event #site { color: #fff; }
 </style>
 <link rel="stylesheet" href="/motion.css">
 </head>
@@ -138,6 +144,19 @@
   const px = (n) => `${Math.round(n)}px`;
   let S = null;
   let ticker = null;
+  let promoOn = true;
+  let eventCfg = null;
+  // The band's lines: the Major's while its promo is on, else the event, the typed message and the site.
+  function tickerLines() {
+    if (!S) return [];
+    if (promoOn || !eventCfg) return window.MM.lines(S).filter((l) => !/^metroplexmajor\.com/i.test(l));
+    const lines = [`${eventCfg.org} ◆ ${eventCfg.title || eventCfg.fallback}`];
+    if (eventCfg.game) lines.push(eventCfg.game);
+    const msg = (S.screens && S.screens.message) || '';
+    if (msg) lines.push(msg);
+    lines.push('texasesports.org');
+    return lines;
+  }
   const place = (el, b) => { el.style.left = px(b.x); el.style.top = px(b.y); el.style.width = px(b.w); el.style.height = px(b.h); };
   const setRect = (el, b) => { for (const k of ['x', 'y']) el.setAttribute(k, b[k]); el.setAttribute('width', b.w); el.setAttribute('height', b.h); };
   // Shrink until it fits, so long tags stay whole.
@@ -172,9 +191,14 @@
     const motion = !(S.branding && S.branding.motion === false);
     document.documentElement.classList.toggle('still', !motion);
     $('#headline').textContent = col ? col.title || (confTheme ? 'Fall Finals' : 'Fall Split') : 'Metroplex Major';
-    // In the Collegiate theme the bottom band and the notice belong to the Major promo.
+    // The bottom band always crawls. With the Major promo on it carries the Major's lines in its gold; with it
+    // off (Collegiate or Conference) it carries the event in the theme's colours, and the notice goes.
     const promo = !col || col.promo !== false;
-    document.querySelector('.bar').hidden = !promo;
+    promoOn = promo;
+    eventCfg = col ? { ...col, org: confTheme ? 'Texas Esports Conference' : 'Texas Esports Collegiate', fallback: confTheme ? 'Fall Finals' : 'Fall Split' } : null;
+    const bandEl = document.querySelector('.bar');
+    bandEl.hidden = false;
+    bandEl.classList.toggle('event', !promo);
     $('#notice').hidden = !promo;
     const c = S.current || {};
     setRect($('#hole-game'), L.game);
@@ -241,8 +265,8 @@
     $('#lockup-sub').hidden = !!col;
     $('#notice').style.top = px(L.game.y + L.game.h + 22);
     $('#notice').innerHTML = window.MM.gems(`${col ? 'Metroplex Major: ' : ''}Nintendo is not a sponsor of or affiliated with this tournament. Terms for participating in and viewing Licensed Tournaments using Nintendo Games: https://en-americas-support.nintendo.com/app/answers/detail/a_id/63454 ◆ Tournament license ${mm.license || ''}`);
-    $('#site').innerHTML = window.MM.gems(`${mm.site || 'metroplexmajor.com'} ◆ #MetroplexMajor`);
-    if (!ticker) ticker = window.MM.bar($('#ticker'), () => window.MM.lines(S).filter((l) => !/^metroplexmajor\.com/i.test(l)));
+    $('#site').innerHTML = promo ? window.MM.gems(`${mm.site || 'metroplexmajor.com'} ◆ #MetroplexMajor`) : 'texasesports.org';
+    if (!ticker) ticker = window.MM.bar($('#ticker'), tickerLines);
     ticker.set(motion);
   }
   let loadedVersion = '';
