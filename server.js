@@ -22,6 +22,7 @@ const { VmixClient } = require('./lib/vmix');
 const { Updater } = require('./lib/updater');
 const { Replay, SCENE: REPLAY_SCENE, clampSpeed } = require('./lib/replay');
 const { STAGES } = require('./lib/stages');
+const { isTeamGame, teamGameInfo, seriesState, applyMapAction } = require('./lib/teamgames');
 const { LiveFeed } = require('./lib/live');
 const obsfind = require('./lib/obsfind');
 const pctoken = require('./lib/pctoken');
@@ -210,6 +211,10 @@ const GAMES = {
   ssbu: { name: 'Super Smash Bros. Ultimate', short: 'SSBU', suffix: 'Smash Ultimate - SSBU', characters: true, videogameIds: [1386] },
   sf6: { name: 'Street Fighter 6', short: 'SF6', suffix: 'Street Fighter 6 - SF6', characters: false, videogameIds: [43868] },
   tekken8: { name: 'Tekken 8', short: 'T8', suffix: 'Tekken 8 - T8', characters: false, videogameIds: [49783] },
+  // Team games (lib/teamgames.js): a set is a series of maps with modes and hero bans, and the overlay
+  // draws team plates. The game is Overwatch, never "Overwatch 2".
+  ow: { name: 'Overwatch', short: 'OW', suffix: 'Overwatch', characters: false, team: true, videogameIds: [] },
+  rivals: { name: 'Marvel Rivals', short: 'MR', suffix: 'Marvel Rivals', characters: false, team: true, videogameIds: [] },
   other: { name: 'Other game', short: '', suffix: '', characters: false, videogameIds: [] },
 };
 function gameProfile(id) {
@@ -342,7 +347,7 @@ if (cfg.event.suffix) {
 }
 // With crew battles on, a new set starts each crew at its full stock count (the score counts down).
 const startScore = () => (crewsOn() ? crewStocks() : 0);
-const emptyCurrent = () => ({ setId: '', setLetter: '', round: '', p1: '', p2: '', chars1: [], chars2: [], auto1: [], auto2: [], costume1: -1, costume2: -1, score1: startScore(), score2: startScore(), wins1: 0, wins2: 0, bestOf: 1, source: 'manual', game: cfg.game || 'ssbu', eventName: '', stages: [] });
+const emptyCurrent = () => ({ setId: '', setLetter: '', round: '', p1: '', p2: '', chars1: [], chars2: [], auto1: [], auto2: [], costume1: -1, costume2: -1, score1: startScore(), score2: startScore(), wins1: 0, wins2: 0, bestOf: 1, source: 'manual', game: cfg.game || 'ssbu', eventName: '', stages: [], maps: [] });
 const clampScore = (n) => Math.max(0, Math.min(99, Math.round(Number(n) || 0)));
 // Game wins inside a set (the Bo3/Bo5 pips), separate from the score badge which crews use for stocks.
 const clampWins = (n) => Math.max(0, Math.min(3, Math.round(Number(n) || 0)));
@@ -445,7 +450,7 @@ function buildLabel(current) {
     chars1: crewsOn() ? '' : (current.chars1 || []).join(', '),
     chars2: crewsOn() ? '' : (current.chars2 || []).join(', '),
     score: `${current.score1 || 0}-${current.score2 || 0}`,
-    stages: (current.stages || []).map((g) => g.stage).filter(Boolean).join(', '),
+    stages: isTeamGame(current.game) ? (current.maps || []).map((m) => m.map).filter(Boolean).join(', ') : (current.stages || []).map((g) => g.stage).filter(Boolean).join(', '),
     suffix: game.suffix || '',
     date: localDate(),
     time: localTime(),
@@ -871,7 +876,7 @@ async function stopRecording({ externalPath = null } = {}) {
       costume1: state.current.costume1 ?? -1, costume2: state.current.costume2 ?? -1,
       score1: state.current.score1 || 0, score2: state.current.score2 || 0,
       wins1: state.current.wins1 || 0, wins2: state.current.wins2 || 0, bestOf: state.current.bestOf || 1,
-      stages: (state.current.stages || []).map((g) => g.stage).filter(Boolean),
+      stages: isTeamGame(state.current.game) ? (state.current.maps || []).map((m) => m.map).filter(Boolean) : (state.current.stages || []).map((g) => g.stage).filter(Boolean),
       title: label.title, filenameBase: label.filenameBase,
       sourcePath: externalPath || '', path: '', filename: '',
       durationSec: Math.max(0, Math.round((Date.now() - (state.rec.startedAt || Date.now())) / 1000)),
@@ -1147,6 +1152,7 @@ function selectSet(s) {
     p1: pickName(s, 1), p2: pickName(s, 2),
     chars1: same ? state.current.chars1 : [], chars2: same ? state.current.chars2 : [],
     stages: same ? state.current.stages || [] : [],
+    maps: same ? state.current.maps || [] : [],
     auto1: same ? state.current.auto1 || [] : [], auto2: same ? state.current.auto2 || [] : [],
     score1: same ? state.current.score1 || 0 : 0, score2: same ? state.current.score2 || 0 : 0,
     wins1: same ? state.current.wins1 || 0 : 0, wins2: same ? state.current.wins2 || 0 : 0,
@@ -1486,7 +1492,7 @@ function publicConfig() {
 }
 function gameSummary(id) {
   const g = gameProfile(id);
-  return { id, name: g.name, short: g.short, suffix: g.suffix, characters: !!g.characters };
+  return { id, name: g.name, short: g.short, suffix: g.suffix, characters: !!g.characters, team: !!g.team };
 }
 function updateConfig(body) {
   const incoming = body && typeof body === 'object' ? body : {};
@@ -1705,6 +1711,9 @@ function coreSnapshot() {
     stinger: stingerInfo(),
     screenScenes: SCREENS.map((s) => s.scene),
     stageList: STAGES,
+    // Team games: modes, map suggestions and header sizes, and the series on the current set.
+    teamGames: teamGameInfo(),
+    series: isTeamGame(state.current.game) ? seriesState(state.current) : null,
     version: APP_VERSION,
     update: updater.status(),
     overlay: { ...overlayCache, checkedAt: undefined },
@@ -2553,6 +2562,32 @@ async function handleDetectApi(route, req, res, url) {
       persistState();
       broadcast();
       sendJson(res, 200, { ok: true, stages: list, learned });
+      return true;
+    }
+    // Team games: a map's mode, name and bans, a map result, or taking the last result back.
+    // Team games: move the scoreboard's header (per game and mode) or the team plates up or down a few
+    // pixels from the dashboard, when a game's HUD sits differently. Kept in config.json, overlay.team.
+    case 'POST /api/overlay/nudge': {
+      const b = await readBody(req);
+      const team = cfg.overlay.team || (cfg.overlay.team = { nudge: {} });
+      const nudge = team.nudge || (team.nudge = {});
+      const key = b.part === 'plates' ? `${b.game || 'ow'}:plates` : `${b.game || 'ow'}:${String(b.mode || '').slice(0, 30)}`;
+      const next = b.reset ? 0 : Math.max(-80, Math.min(80, (Number(nudge[key]) || 0) + (Number(b.delta) || 0)));
+      if (next) nudge[key] = next; else delete nudge[key];
+      saveConfig();
+      broadcast();
+      sendJson(res, 200, { ok: true, key, value: next });
+      return true;
+    }
+    case 'POST /api/current/map': {
+      const b = await readBody(req);
+      if (!isTeamGame(state.current.game)) { sendJson(res, 400, { error: 'Maps are for team games (Overwatch, Marvel Rivals)' }); return true; }
+      try {
+        const s = applyMapAction(state.current, state.current.game, b);
+        persistState();
+        broadcast();
+        sendJson(res, 200, { ok: true, series: s });
+      } catch (e) { sendJson(res, 400, { error: e.message }); }
       return true;
     }
     case 'POST /api/current/score': {

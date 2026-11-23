@@ -392,6 +392,26 @@ html.smash-only .multi-game { display: none !important; }
 /* OBS or vMix: Settings rows follow the form's (unsaved) choice, the how-to guide the saved one */
 #settings-form:not([data-sw="vmix"]) .sw-vmix, #settings-form[data-sw="vmix"] .sw-obs { display: none; }
 :root:not([data-sw="vmix"]) .vmix-only, :root[data-sw="vmix"] .obs-only { display: none; }
+/* Team games: the map series in the current set */
+.maps-panel { margin-top: 12px; background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: grid; gap: 10px; }
+.maps-played { display: flex; flex-wrap: wrap; gap: 6px; }
+.maps-played:empty { display: none; }
+.map-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+.map-chip b { color: var(--brand); font-family: var(--display); font-size: 11px; letter-spacing: .08em; }
+.map-chip .won { color: var(--ok); }
+.map-live { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.map-live .label, .map-nudge .label { font-family: var(--display); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--brand); }
+.map-live input { flex: 1; min-width: 160px; padding: 8px 10px; font-size: 15px; }
+.map-live select { margin-right: 0; }
+.map-bans { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.map-bans label { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+.map-bans input { padding: 7px 10px; font-size: 14px; }
+.map-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.map-actions .map-win { border-color: var(--brand); }
+.map-nudge { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.map-nudge button { padding: 3px 9px; font-size: 13px; }
+@media (max-width: 560px) { .map-bans { grid-template-columns: 1fr; } }
+
 /* Settings, Stinger transition: the theme's stinger looping on a checkerboard, so its transparency shows */
 .stinger-row { display: flex; gap: 14px; align-items: flex-start; }
 .stinger-body { flex: 1; min-width: 0; }

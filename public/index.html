@@ -192,6 +192,32 @@
       </div>
       <button id="btn-clear" class="small">Clear</button>
     </div>
+    <!-- Team games (Overwatch, Marvel Rivals): the series map by map. -->
+    <div id="maps-panel" class="maps-panel" hidden>
+      <div id="maps-played" class="maps-played"></div>
+      <div class="map-live">
+        <span class="label" id="map-live-label">Map 1</span>
+        <select id="map-mode" class="game-select" title="The map's mode: it sets the size of the scoreboard's header, so the game's objective stays clear"></select>
+        <input id="map-name" list="map-list" placeholder="Map" autocomplete="off">
+        <datalist id="map-list"></datalist>
+      </div>
+      <div class="map-bans">
+        <label><span id="ban1-label">Team 1 ban</span><input id="ban1" list="hero-list" placeholder="Hero (blank for none)" autocomplete="off"></label>
+        <label><span id="ban2-label">Team 2 ban</span><input id="ban2" list="hero-list" placeholder="Hero (blank for none)" autocomplete="off"></label>
+        <datalist id="hero-list"></datalist>
+      </div>
+      <div class="map-actions">
+        <button id="btn-map-win1" type="button" class="small map-win">Team 1 won</button>
+        <button id="btn-map-draw" type="button" class="small" title="A draw counts for neither team">Draw</button>
+        <button id="btn-map-win2" type="button" class="small map-win">Team 2 won</button>
+        <span class="spacer"></span>
+        <button id="btn-map-undo" type="button" class="small" title="Takes back the last map's result">Undo last map</button>
+      </div>
+      <div class="map-nudge muted"><span>Scoreboard header for <b id="nudge-mode">this mode</b>:</span>
+        <button type="button" class="small" data-nudge="-4" title="Up 4 pixels">↑</button><button type="button" class="small" data-nudge="4" title="Down 4 pixels">↓</button>
+        <span id="nudge-val"></span> <button type="button" class="small" data-nudge="reset">Reset</button>
+      </div>
+    </div>
     <div class="stages-row chars" id="stages-row">
       <span class="label">Stages</span>
       <div id="stage-list" class="stage-list"></div>

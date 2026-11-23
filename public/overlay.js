@@ -24,6 +24,10 @@
       plate1: { x: 240, y: 0, w: 470, h: 50 }, plate2: { x: 1210, y: 0, w: 470, h: 50 },
       bridge: { x: 704, y: 0, w: 512, h: 34 }, badge: 46, endSlant: 20, corners: false,
     },
+    // Team games: plates over the top corners and a header over the objective (renderTeam). The bottom
+    // corners carry the followed player's abilities and the kill feed, so they stay clear.
+    ow: { type: 'team', corners: false },
+    rivals: { type: 'team', corners: false },
   };
   // Texas Esports Collegiate scoreboard (bar-type games). Any of these can be overridden from config.json
   // under overlay.col.
@@ -377,6 +381,78 @@
   }
   // Right after "Add overlay to OBS" the server opens a short window in which sample names are shown,
   // so the new layer is visible in OBS before any set is picked.
+  // ---------- team games ----------
+  // A tag for a team without a logo: its initials (Cigarroa = CIG, United Varsity = UV).
+  function teamTag(name) {
+    const words = String(name || '').replace(/[^\p{L}\p{N}&' ]/gu, ' ').split(/\s+/).filter(Boolean);
+    if (!words.length) return '?';
+    if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+    return words.map((w) => w[0]).join('').slice(0, 4).toUpperCase();
+  }
+  // Puts html in an element's span and shrinks it until it fits the element.
+  function fitIn(el, html, maxPx, minPx = 10) {
+    const span = el.querySelector('span');
+    if (span.innerHTML !== html) span.innerHTML = html;
+    let size = maxPx;
+    span.style.fontSize = px(size);
+    const room = el.clientWidth || el.parentElement.clientWidth;
+    while (size > minPx && span.scrollWidth > room) { size -= 1; span.style.fontSize = px(size); }
+  }
+  const escHtml = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  function renderTeam(ov, demo) {
+    const c = S.current;
+    const game = c.game;
+    const info = (S.teamGames || {})[game] || { modes: [] };
+    const sr = S.series || { maps: [], live: 0, done: false, winner: 0 };
+    const firstTo = Math.max(1, Math.ceil((Number(c.bestOf) || 1) / 2));
+    const live = sr.live >= 0 ? (sr.maps[sr.live] || {}) : {};
+    const last = [...sr.maps].reverse().find((m) => m.mode) || {};
+    const mode = live.mode || last.mode || '';
+    const size = (info.modes.find((m) => m.name === mode) || {}).header || 'full';
+    const nudge = ((ov.team || {}).nudge) || {};
+    $('#team').style.setProperty('--tm-plates', px(Number(nudge[`${game}:plates`]) || 0));
+    const head = $('#tm-head');
+    head.className = `tm-head ${size}`;
+    head.style.setProperty('--tm-nudge', px(Number(nudge[`${game}:${mode}`]) || 0));
+    const names = [1, 2].map((n) => (demo ? `Team ${n}` : c[`p${n}`] || `Team ${n}`));
+    for (const n of [1, 2]) {
+      const el = $(`#tm-${n}`);
+      const mark = el.querySelector('.tm-mark');
+      const tag = teamTag(names[n - 1]);
+      if (mark.dataset.tag !== tag) { mark.dataset.tag = tag; mark.innerHTML = `<span>${escHtml(tag)}</span>`; }
+      fitIn(el.querySelector('.tm-name'), escHtml(names[n - 1]), 28, 14);
+      const won = Number(c[`score${n}`]) || 0;
+      el.querySelector('.tm-pips').innerHTML = firstTo > 1 ? Array.from({ length: firstTo }, (_, i) => `<i class="${i < won ? 'on' : ''}"></i>`).join('') : '';
+      const ban = !sr.done && live[`ban${n}`] ? live[`ban${n}`] : '';
+      const banEl = el.querySelector('.tm-ban');
+      banEl.hidden = !ban;
+      banEl.querySelector('span').textContent = ban;
+      el.querySelector('.tm-score').textContent = String(won);
+    }
+    // The map number and name, or the winner once the series is decided; then the event, round and format.
+    const mapNo = sr.live >= 0 ? sr.live + 1 : sr.maps.length;
+    const l1 = sr.done && sr.winner ? `${escHtml(names[sr.winner - 1])} wins`
+      : demo ? 'Overlay ready' : `Map ${mapNo}${live.map ? `<em>${escHtml(live.map)}</em>` : ''}`;
+    const b = S.branding || {};
+    const title = (b.theme === 'conf' && b.conf && b.conf.title) || (b.theme === 'col' && b.col && b.col.title) || S.eventDisplayName || '';
+    const l2 = [title, c.round, firstTo > 1 ? `first to ${firstTo}` : ''].filter(Boolean).map(escHtml).join(', ');
+    const l1el = head.querySelector('.tm-l1');
+    const l2el = head.querySelector('.tm-l2');
+    if (size === 'slim') {
+      // One line: the map takes what it needs, the event and format get the rest.
+      l1el.style.flex = 'none';
+      l2el.style.maxWidth = '';
+      fitIn(l1el, l1, 18, 12);
+      l2el.style.maxWidth = px(Math.max(80, 560 - 36 - 16 - l1el.getBoundingClientRect().width));
+      fitIn(l2el, l2, 11, 8);
+    } else {
+      l1el.style.flex = '';
+      l2el.style.maxWidth = '';
+      fitIn(l1el, l1, 22, 13);
+      fitIn(l2el, l2, 12, 8);
+    }
+  }
+
   let demoTimer = null;
   function demoActive() {
     const until = Number(S && S.overlayDemoUntil) || 0;
@@ -402,13 +478,15 @@
     // Texas Esports Collegiate: its scoreboard for Ultimate, Collegiate Blue on the notched shape.
     const col = !!(S.branding && S.branding.theme === 'col');
     const useCOL = col && G.type !== 'notched';
+    const team = G.type === 'team';
     document.body.classList.toggle('tt-colors', tt);
     document.body.classList.toggle('mm-colors', mm);
     document.body.classList.toggle('col-colors', col);
-    $('#tt').hidden = !useTT;
-    $('#mm').hidden = !useMM;
-    $('#col').hidden = !useCOL;
-    $('#tec').hidden = useTT || useMM || useCOL;
+    $('#team').hidden = !team;
+    $('#tt').hidden = !useTT || team;
+    $('#mm').hidden = !useMM || team;
+    $('#col').hidden = !useCOL || team;
+    $('#tec').hidden = useTT || useMM || useCOL || team;
     // Ultimate doubles shows four HUD panels across the whole bottom, so the corners stay off. Doubles
     // teams arrive as "A & B" (entrantNames on the server); crews are titled by the crew's name. A crew
     // typed by hand with "&" in it (A&M-San Antonio) has no spaces round it, so it is not doubles.
@@ -421,6 +499,7 @@
     const lockup = $('#col-lockup');
     lockup.hidden = !(col && cornersOk);
     if (!lockup.hidden && !lockup.firstChild) lockup.innerHTML = window.COL.lockup();
+    if (team) { renderTeam(ov, demoActive()); return; }
     if (useTT) { renderTT(ov, demoActive()); return; }
     if (useMM) { renderMM(ov, demoActive()); return; }
     if (useCOL) { renderCOL(ov, demoActive()); return; }

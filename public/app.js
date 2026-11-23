@@ -768,12 +768,101 @@
     $('#current-source').textContent = c.source === 'startgg' && c.setId ? `from start.gg set ${c.setLetter || ''}${c.eventName ? ` · ${c.eventName}` : ''}` : 'manual entry';
     $('#btn-unmark').hidden = !(c.setId && (S.recordedSetIds || []).includes(c.setId));
     renderStages(c);
+    renderMaps(c, profile);
     $('#preview-title').textContent = S.preview.title;
     // The real extension is whatever the app records to: show the last saved file's, else each app's default.
     const lastFile = ((S.log || []).find((e) => e.filename) || {}).filename || '';
     const ext = (/\.[a-z0-9]+$/i.exec(lastFile) || [isVmix() ? '.mp4' : '.mkv'])[0];
     $('#preview-file').textContent = `${S.preview.filenameBase}${ext}`;
   }
+  // ---------- team games: the series map by map ----------
+  // Hero names offered for the bans (any name can be typed). Overwatch's roster; Marvel Rivals is typed.
+  const OW_HEROES = ['Ana', 'Ashe', 'Baptiste', 'Bastion', 'Brigitte', 'Cassidy', 'D.Va', 'Doomfist', 'Echo', 'Freja', 'Genji', 'Hanzo', 'Hazard', 'Illari', 'Junker Queen', 'Junkrat', 'Juno', 'Kiriko', 'Lifeweaver', 'Lúcio', 'Mauga', 'Mei', 'Mercy', 'Moira', 'Orisa', 'Pharah', 'Ramattra', 'Reaper', 'Reinhardt', 'Roadhog', 'Sigma', 'Sojourn', 'Soldier: 76', 'Sombra', 'Symmetra', 'Torbjörn', 'Tracer', 'Venture', 'Widowmaker', 'Winston', 'Wrecking Ball', 'Wuyang', 'Zarya', 'Zenyatta'];
+  let mapsKey = '';
+  const typingIn = (id) => document.activeElement === $(`#${id}`);
+  function renderMaps(c, profile) {
+    const team = !!profile.team;
+    $('#maps-panel').hidden = !team;
+    // Team games: the names are teams and the number is maps won (the map results drive it).
+    for (const side of [1, 2]) {
+      $(`#games${side}`).hidden = team || $(`#games${side}`).hidden;
+      if (team) {
+        document.querySelector(`label[for="p${side}"]`).textContent = `Team ${side}`;
+        $(`#score${side}`).closest('.score').querySelector('.label').textContent = 'Maps';
+      }
+    }
+    if (!team) {
+      // Back from a team game: the crew or player labels come back now, not on the next update.
+      if (document.body.dataset.team === '1') {
+        document.body.dataset.team = '';
+        const crews = !!(S.branding && S.branding.crews && S.branding.crews.enabled);
+        for (const side of [1, 2]) {
+          document.querySelector(`label[for="p${side}"]`).textContent = crews ? `Crew ${side}` : `Player ${side}`;
+          $(`#score${side}`).closest('.score').querySelector('.label').textContent = crews ? 'Stocks' : 'Wins';
+        }
+      }
+      return;
+    }
+    document.body.dataset.team = '1';
+    const info = (S.teamGames || {})[c.game] || { modes: [] };
+    const sr = S.series || { maps: [], live: 0, done: false };
+    const live = sr.live >= 0 ? (sr.maps[sr.live] || {}) : {};
+    const names = [c.p1 || 'Team 1', c.p2 || 'Team 2'];
+    const key = JSON.stringify([c.game, sr, names, (S.config.overlay || {}).team]);
+    if (key === mapsKey) return;
+    mapsKey = key;
+    // Maps played so far.
+    $('#maps-played').innerHTML = sr.maps.filter((m) => m.winner).map((m, i) => {
+      const who = m.winner === 'draw' ? 'Draw' : esc(names[m.winner - 1]);
+      return `<span class="map-chip"><b>M${i + 1}</b>${esc(m.map || m.mode || 'Map')}${m.mode && m.map ? ` <span class="muted">${esc(m.mode)}</span>` : ''} <span class="won">${who}</span></span>`;
+    }).join('');
+    $('#map-live-label').textContent = sr.done ? 'Series over' : `Map ${sr.live + 1}`;
+    const modeSel = $('#map-mode');
+    const modeOpts = `<option value="">Mode</option>${info.modes.map((m) => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('')}`;
+    if (modeSel.dataset.game !== c.game) { modeSel.dataset.game = c.game; modeSel.innerHTML = modeOpts; }
+    if (document.activeElement !== modeSel) modeSel.value = live.mode || '';
+    const mode = info.modes.find((m) => m.name === (live.mode || ''));
+    const pool = mode ? mode.maps : info.modes.flatMap((m) => m.maps);
+    $('#map-list').innerHTML = pool.map((m) => `<option value="${esc(m)}"></option>`).join('');
+    $('#hero-list').innerHTML = c.game === 'ow' ? OW_HEROES.map((h) => `<option value="${esc(h)}"></option>`).join('') : '';
+    if (!typingIn('map-name')) $('#map-name').value = live.map || '';
+    for (const n of [1, 2]) {
+      if (!typingIn(`ban${n}`)) $(`#ban${n}`).value = live[`ban${n}`] || '';
+      $(`#ban${n}-label`).textContent = `${names[n - 1]} ban`;
+      $(`#btn-map-win${n}`).textContent = `${names[n - 1]} won`;
+      $(`#btn-map-win${n}`).disabled = sr.done;
+    }
+    for (const id of ['#map-mode', '#map-name', '#ban1', '#ban2', '#btn-map-draw']) $(id).disabled = sr.done;
+    $('#btn-map-undo').disabled = !sr.maps.some((m) => m.winner);
+    // The header nudge for the mode on screen.
+    const shown = live.mode || ([...sr.maps].reverse().find((m) => m.mode) || {}).mode || '';
+    const nudge = (((S.config.overlay || {}).team || {}).nudge || {})[`${c.game}:${shown}`] || 0;
+    $('#nudge-mode').textContent = shown || 'this mode';
+    $('#nudge-val').textContent = nudge ? `${nudge > 0 ? '+' : ''}${nudge} px` : '';
+    for (const b of document.querySelectorAll('[data-nudge]')) b.disabled = !shown;
+  }
+  const mapPost = async (body) => { try { await api('POST', '/api/current/map', body); } catch (e) { toast(e.message, { error: true }); } };
+  const mapTimers = {};
+  for (const [id, field] of [['map-name', 'map'], ['ban1', 'ban1'], ['ban2', 'ban2']]) {
+    $(`#${id}`).addEventListener('input', () => {
+      clearTimeout(mapTimers[id]);
+      mapTimers[id] = setTimeout(() => mapPost({ action: 'edit', [field]: $(`#${id}`).value }), 400);
+    });
+    $(`#${id}`).addEventListener('change', () => { clearTimeout(mapTimers[id]); mapPost({ action: 'edit', [field]: $(`#${id}`).value }); });
+  }
+  $('#map-mode').addEventListener('change', () => mapPost({ action: 'edit', mode: $('#map-mode').value }));
+  $('#btn-map-win1').addEventListener('click', () => mapPost({ action: 'win', side: 1 }));
+  $('#btn-map-win2').addEventListener('click', () => mapPost({ action: 'win', side: 2 }));
+  $('#btn-map-draw').addEventListener('click', () => mapPost({ action: 'win', side: 'draw' }));
+  $('#btn-map-undo').addEventListener('click', () => mapPost({ action: 'undo' }));
+  document.querySelector('.map-nudge').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-nudge]');
+    if (!b) return;
+    const sr = S.series || { maps: [], live: 0 };
+    const live = sr.live >= 0 ? (sr.maps[sr.live] || {}) : {};
+    const mode = live.mode || ([...sr.maps].reverse().find((m) => m.mode) || {}).mode || '';
+    try { await api('POST', '/api/overlay/nudge', { game: S.current.game, mode, ...(b.dataset.nudge === 'reset' ? { reset: true } : { delta: Number(b.dataset.nudge) }) }); } catch (e) { toast(e.message, { error: true }); }
+  });
   // One chip per game: the stage the reader found (dashed) or the operator set. Changing one corrects it
   // and teaches the reader; "(remove)" drops a game that was not one.
   let stageKey = '';
