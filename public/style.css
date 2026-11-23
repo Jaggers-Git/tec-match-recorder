@@ -388,6 +388,7 @@ textarea:focus { outline: none; border-color: var(--accent); }
 #settings-form:not([data-theme="tt"]) .tt-only { display: none; }
 #settings-form:not([data-theme="mm"]) .mm-only { display: none; }
 #settings-form:not([data-theme="col"]) .col-only { display: none; }
+#settings-form:not([data-theme="conf"]) .conf-only { display: none; }
 html.smash-only .multi-game { display: none !important; }
 /* OBS or vMix: Settings rows follow the form's (unsaved) choice, the how-to guide the saved one */
 #settings-form:not([data-sw="vmix"]) .sw-vmix, #settings-form[data-sw="vmix"] .sw-obs { display: none; }
@@ -540,3 +541,43 @@ label.small.file-btn:hover { border-color: var(--brand); }
 :root[data-theme="col"] h2, :root[data-theme="col"] h3, :root[data-theme="col"] legend { color: var(--accent); }
 :root[data-theme="col"] .round-head { color: #9dbff2; }
 :root[data-theme="col"] .pip.on { background: var(--brand); border-color: #fff; }
+
+/* ---------- Texas Esports Conference (TEC's scholastic league) ----------
+   The Conference lockup's Unity gradient (red through gold and green to blue) on near-black, with Tomorrow
+   display type. The gradient runs along the header and through the panel headings; controls stay white so
+   they read at a glance, and the record state stays red. */
+:root[data-theme="conf"] {
+  --bg: #0A0A0A;
+  --panel: #111317;
+  --panel2: #181b21;
+  --border: #272b33;
+  --text: #f3f4f6;
+  --muted: #9aa0a6;
+  --brand: #e9ecf1;
+  --accent: #e9ecf1;
+  --brand-fill: #f3f4f6;
+  --on-brand: #0a0a0a;
+  --brand-soft: #1f232b;
+  --brand-edge: #3a404b;
+  --tag-text: #f3f4f6;
+  --link: #9fc3ff;
+  --focus-ring: rgba(255, 255, 255, .18);
+  --selected-bg: #1c2027;
+  --unity: linear-gradient(90deg, #ff4635, #fa6529, #f0b40d, #ecd402, #ccdc01, #7df000, #45ff00, #007bff);
+  --display: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif;
+}
+:root[data-theme="conf"] body {
+  background:
+    radial-gradient(900px 420px at 92% -8%, rgba(255, 70, 53, .10), transparent 62%),
+    radial-gradient(800px 420px at -6% 108%, rgba(0, 123, 255, .10), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+:root[data-theme="conf"] .topbar { background: var(--unity) top / 100% 4px no-repeat, #0d0f12; border-top: 0; padding-top: 14px; border-bottom: 1px solid var(--border); }
+:root[data-theme="conf"] .brand .brand-mark { width: 34px; height: 34px; }
+:root[data-theme="conf"] .brand .org { color: #c8ccd4; }
+:root[data-theme="conf"] .brand .org svg.gem { display: inline-block; width: .6em; height: .6em; vertical-align: middle; margin: 0 .45em; transform: translateY(-.05em); }
+:root[data-theme="conf"] h2 { background: var(--unity); -webkit-background-clip: text; background-clip: text; color: transparent; }
+:root[data-theme="conf"] h3, :root[data-theme="conf"] legend { color: #e9ecf1; }
+:root[data-theme="conf"] .round-head { color: #c8ccd4; }
+:root[data-theme="conf"] .pip.on { background: var(--unity); border-color: #fff; }

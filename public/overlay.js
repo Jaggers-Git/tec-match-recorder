@@ -305,9 +305,10 @@
     }
     const mk = $('#col-mk');
     mk.style.width = px(g.mark);
-    if (!mk.firstChild) mk.innerHTML = window.COL.mark();
+    const art = b.theme === 'conf' ? 'conf' : 'col';
+    if (mk.dataset.art !== art) { mk.dataset.art = art; mk.innerHTML = art === 'conf' ? window.CONF.mark() : window.COL.mark(); }
     const bestOf = Number(c.bestOf) || 1;
-    const col = b.col || {};
+    const col = (art === 'conf' ? b.conf : b.col) || {};
     const parts = demo
       ? [col.title || 'Fall Split', 'Overlay ready', crews ? 'Crew battle' : '']
       : [col.title || '', centerText(), crews ? 'Crew battle' : '', bestOf > 1 ? `Best of ${bestOf}` : ''];
@@ -476,12 +477,14 @@
     const mm = !!(S.branding && S.branding.theme === 'mm');
     const useMM = mm && G.type !== 'notched';
     // Texas Esports Collegiate: its scoreboard for Ultimate, Collegiate Blue on the notched shape.
-    const col = !!(S.branding && S.branding.theme === 'col');
+    const conf = !!(S.branding && S.branding.theme === 'conf');
+    const col = conf || !!(S.branding && S.branding.theme === 'col');
     const useCOL = col && G.type !== 'notched';
     const team = G.type === 'team';
     document.body.classList.toggle('tt-colors', tt);
     document.body.classList.toggle('mm-colors', mm);
     document.body.classList.toggle('col-colors', col);
+    document.body.classList.toggle('conf-colors', conf);
     $('#team').hidden = !team;
     $('#tt').hidden = !useTT || team;
     $('#mm').hidden = !useMM || team;
@@ -495,10 +498,11 @@
     // In the Collegiate theme the bottom-left corner carries the Metroplex Major ticker (when its promo
     // is on) and the bottom-right the Collegiate lockup instead of the crown.
     const cornersOk = G.corners !== false && !doubles && (S.branding.mm || {}).corners !== false;
-    renderMMCorners(cornersOk && (mm || (col && (S.branding.col || {}).promo !== false)));
+    renderMMCorners(cornersOk && (mm || (col && ((conf ? S.branding.conf : S.branding.col) || {}).promo !== false)));
     const lockup = $('#col-lockup');
     lockup.hidden = !(col && cornersOk);
-    if (!lockup.hidden && !lockup.firstChild) lockup.innerHTML = window.COL.lockup();
+    const lockArt = conf ? 'conf' : 'col';
+    if (!lockup.hidden && lockup.dataset.art !== lockArt) { lockup.dataset.art = lockArt; lockup.innerHTML = conf ? window.CONF.lockup() : window.COL.lockup(); }
     if (team) { renderTeam(ov, demoActive()); return; }
     if (useTT) { renderTT(ov, demoActive()); return; }
     if (useMM) { renderMM(ov, demoActive()); return; }

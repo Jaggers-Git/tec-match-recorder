@@ -304,7 +304,11 @@
               <option value="tt">Tuesday Takedown (TAMUSA Esports)</option>
               <option value="mm">Metroplex Major (Feb 5-7, 2027)</option>
               <option value="col">Texas Esports Collegiate (Fall Split)</option>
+              <option value="conf">Texas Esports Conference (Fall Finals)</option>
             </select>
+          </label>
+          <label class="conf-only">Event title on the screens and the scoreboard
+            <input name="branding.conf.title" maxlength="40" placeholder="Fall Finals" autocomplete="off">
           </label>
           <label class="col-only">Event title on the screens and the scoreboard band
             <input name="branding.col.title" maxlength="40" placeholder="Fall Split" autocomplete="off">
@@ -341,6 +345,13 @@
           </label>
           <label class="check" style="margin-top:6px"><input type="checkbox" name="branding.col.promo"> Promote the Metroplex Major: the ticker in the overlay's bottom-left corner, a strip on Starting Soon, and a card with the register QR on BRB and the end screen (each carries the Nintendo notice and license number)</label>
           <div class="muted">The screens are <span class="mono">/slate?scene=starting</span>, <span class="mono">/slate?scene=brb</span> and <span class="mono">/slate?scene=end</span> (Thanks for Watching). Scenes already in OBS switch to this look on their own; <b>Add the stream scenes</b> (Stream screens, below) adds the End scene.</div>
+        </div>
+        <div class="conf-only">
+          <label>Line above the title on Starting Soon, BRB and the end screen (blank for none)
+            <input name="branding.conf.game" maxlength="60" placeholder="Smash Ultimate, Overwatch, Marvel Rivals" autocomplete="off">
+          </label>
+          <label class="check" style="margin-top:6px"><input type="checkbox" name="branding.conf.promo"> <span>Promote the Metroplex Major: the ticker in the overlay's bottom-left corner, a strip on Starting Soon, and a card with the register QR on BRB and the end screen (each carries the Nintendo notice and license number)</span></label>
+          <div class="muted">The Texas Esports Conference look: the Conference lockup and the Unity gradient on near-black, on the overlay, the screens (<span class="mono">/slate?scene=starting</span>, <span class="mono">brb</span>, <span class="mono">end</span>), the Casters scene, the REPLAY badge and its stinger. Overwatch and Marvel Rivals get team plates; Smash crews keep their scoreboard.</div>
         </div>
         <label class="check" style="margin-top:10px"><input type="checkbox" name="smashOnly" id="smash-only"> Smash Ultimate only: hide Street Fighter 6 and Tekken 8 (game picker, title suffixes, tournament import)</label>
       </fieldset>
@@ -699,6 +710,7 @@
 </div>
 <div id="toast" class="toast" hidden></div>
 <script src="/mm.js"></script>
+<script src="/conf.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

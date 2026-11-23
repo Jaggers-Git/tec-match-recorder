@@ -34,6 +34,11 @@
   :root[data-theme="col"] .tag { transform: none; background: #2B6FD4; color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,.22); letter-spacing: .16em; border-radius: 0 4px 4px 0; }
   :root[data-theme="col"] .tag > span { transform: none; }
 
+  /* Texas Esports Conference: a white tag on near-black with the Unity gradient along its foot */
+  :root[data-theme="conf"] body { font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; }
+  :root[data-theme="conf"] .tag { transform: none; background: #f3f4f6; color: #0a0a0a; box-shadow: 0 0 0 2px rgba(0,0,0,.35); letter-spacing: .16em; border-radius: 0 4px 4px 0; }
+  :root[data-theme="conf"] .tag > span { transform: none; }
+
   /* Countdown: a bar under the tag, as wide as it, that drains while the clip plays and is empty as the
      replay ends. Fed by /api/replay/progress (OBS's own position in the clip). */
   .bar { height: 8px; margin-top: 7px; background: #2a2626; box-shadow: 0 0 0 2px #fff; transform: skewX(-12deg); overflow: hidden; }
@@ -44,6 +49,8 @@
   :root[data-theme="mm"] .bar > i { background: #F0B40D; }
   :root[data-theme="col"] .bar { background: #0d1118; box-shadow: 0 0 0 2px rgba(255,255,255,.22); transform: none; height: 7px; border-radius: 0 3px 3px 0; }
   :root[data-theme="col"] .bar > i { background: #2B6FD4; }
+  :root[data-theme="conf"] .bar { background: #0d0f12; box-shadow: 0 0 0 2px rgba(255,255,255,.22); transform: none; height: 7px; border-radius: 0 3px 3px 0; }
+  :root[data-theme="conf"] .bar > i { background: linear-gradient(90deg, #ff4635, #fa6529, #f0b40d, #ecd402, #ccdc01, #7df000, #45ff00, #007bff); }
 </style>
 <script src="/theme.js"></script>
 </head>

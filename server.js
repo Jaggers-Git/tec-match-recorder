@@ -238,7 +238,22 @@ const THEMES = {
   tt: { name: 'Tuesday Takedown', org: 'Tuesday Takedown · TAMUSA Esports' },
   mm: { name: 'Metroplex Major', org: 'Metroplex Major ◆ Feb 5-7, 2027' },
   col: { name: 'Texas Esports Collegiate', org: 'Texas Esports Collegiate' },
+  conf: { name: 'Texas Esports Conference', org: 'Texas Esports Conference' },
 };
+// Texas Esports Conference (TEC's scholastic league): the Conference lockup and the Unity gradient on near-black,
+// for a high school event such as the Fall Finals at St. Edward's (Dec 5, 2026). The screens and the Casters
+// scene share the Collegiate layout (collegiate.html) in the Conference art and colours. `title` is the event
+// on the screens, `game` the line above it, and `promo` carries the Metroplex Major along as in Collegiate.
+function confSettings() {
+  const c = (cfg.branding && cfg.branding.conf) || {};
+  return {
+    title: String(c.title || '').trim() || 'Fall Finals',
+    game: String(c.game ?? 'Smash Ultimate, Overwatch, Marvel Rivals').trim(),
+    promo: c.promo !== false,
+  };
+}
+// Collegiate and Conference share their screen layouts; each brings its own art and colours.
+const collegiateStyle = () => ['col', 'conf'].includes(themeId());
 // Texas Esports Collegiate (TEC's college track, Collegiate Blue): the overlay, screens and dashboard for
 // a collegiate event such as the Fall Split. `title` is the event name on the screens, `game` the line
 // above it, and `promo` carries the Metroplex Major along: the gameplay corner ticker, a strip on
@@ -305,13 +320,14 @@ function brandingInfo() {
   const id = themeId();
   return {
     theme: id, name: THEMES[id].name,
-    org: id === 'mm' && mmSettings().mode === 'event' ? 'Metroplex Major ◆ UNT Dallas' : id === 'col' ? `Texas Esports Collegiate ◆ ${colSettings().title}` : THEMES[id].org,
+    org: id === 'mm' && mmSettings().mode === 'event' ? 'Metroplex Major ◆ UNT Dallas' : id === 'col' ? `Texas Esports Collegiate ◆ ${colSettings().title}` : id === 'conf' ? `Texas Esports Conference ◆ ${confSettings().title}` : THEMES[id].org,
     label: String((cfg.branding && cfg.branding.label) || ''),
     logo: logoUrl(id),
     logos: Object.fromEntries(Object.keys(THEMES).map((t) => [t, logoUrl(t)])),
     smashOnly: !!cfg.smashOnly,
     mm: mmSettings(),
     col: colSettings(),
+    conf: confSettings(),
     crews: { enabled: crewsOn(), stocks: crewStocks(), list: crewList() },
     // Motion on the full-screen stream screens (shimmer, glow, crawling ticker); off keeps them still.
     motion: !(cfg.branding && cfg.branding.motion === false),
@@ -435,6 +451,7 @@ function eventDisplayName() {
   const tournament = String(bracket.tournamentName || '').trim();
   if (tournament && !looksLikeUrl(tournament)) return tournament;
   // A collegiate event run off Challonge has no start.gg name to fall back on.
+  if (themeId() === 'conf') return `Texas Esports Conference ${confSettings().title}`;
   return themeId() === 'col' ? `Texas Esports Collegiate ${colSettings().title}` : '';
 }
 function buildLabel(current) {
@@ -1557,6 +1574,14 @@ function updateConfig(body) {
       corners: mmIn.corners !== false,
     },
     motion: !(next.branding && next.branding.motion === false),
+    conf: (() => {
+      const c = { ...((cfg.branding && cfg.branding.conf) || {}), ...((next.branding && next.branding.conf) || {}) };
+      return {
+        title: String(c.title || '').trim().slice(0, 40) || 'Fall Finals',
+        game: String(c.game ?? '').trim().slice(0, 60),
+        promo: c.promo !== false,
+      };
+    })(),
     col: (() => {
       const c = { ...((cfg.branding && cfg.branding.col) || {}), ...((next.branding && next.branding.col) || {}) };
       return {
@@ -1843,7 +1868,7 @@ function serveStatic(res, pathname, url) {
       res.end(data);
     });
   }
-  const rel = pathname === '/' ? 'index.html' : pathname === '/train' ? 'train.html' : pathname === '/overlay' ? 'overlay.html' : pathname === '/slate' ? (themeId() === 'col' ? 'collegiate.html' : 'slate.html') : pathname === '/casters' ? 'casters.html' : pathname === '/replay' ? 'replay.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
+  const rel = pathname === '/' ? 'index.html' : pathname === '/train' ? 'train.html' : pathname === '/overlay' ? 'overlay.html' : pathname === '/slate' ? (collegiateStyle() ? 'collegiate.html' : 'slate.html') : pathname === '/casters' ? 'casters.html' : pathname === '/replay' ? 'replay.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
   const file = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!file.startsWith(PUBLIC_DIR)) return sendJson(res, 403, { error: 'forbidden' });
   fs.readFile(file, (err, data) => {

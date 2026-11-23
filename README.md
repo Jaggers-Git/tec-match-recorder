@@ -300,7 +300,7 @@ comma-separated (`Joker, Peach`); start.gg round names are normalized (`Winners 
 
 ## Several games and several brackets
 
-The recorder knows three games: Super Smash Bros. Ultimate, Street Fighter 6 and Tekken 8 (plus a generic
+The recorder knows five games: Super Smash Bros. Ultimate, Street Fighter 6, Tekken 8, Overwatch and Marvel Rivals (plus a generic
 "other"). Each start.gg event carries its game, so picking a set from a Tekken bracket switches the title suffix
 to "Tekken 8 - T8", hides the character chips and pauses the detector; picking an Ultimate set switches them back.
 For manual entry, the game dropdown above the player names does the same. The CSV gains a Game column.
@@ -316,6 +316,26 @@ Round 1". The bracket cards show which event each set belongs to.
 
 A station that only ever records Ultimate can tick **Smash Ultimate only** (Settings, Look and games). The game
 picker, the SF6/Tekken title suffixes and their brackets disappear; tournament import skips them too.
+
+### Team games: Overwatch and Marvel Rivals
+
+Pick **Overwatch** or **Marvel Rivals** in the game dropdown and the names become **Team 1** and **Team 2**, the
+number under each counts **maps** won, and a **Maps** section opens under the round:
+
+- The live map: its **mode** (a list per game), the **map** (suggestions follow the mode; any name can be typed) and
+  each team's **hero ban**. Picking an Overwatch map fills in its mode.
+- **<Team> won** (or **Draw**, which counts for neither) records the map, moves the score and opens the next map.
+  **Undo last map** takes the last result back. Best of 3 or 5 sets "first to 2" or "first to 3".
+- Maps played show as chips; BRB and the End screen list them with mode and winner, and the next map.
+
+The overlay draws a plate over each top corner (tag tile, name, map pips, the team's ban, maps won) and a header
+flush with the top edge: the map number and name, then the event, round and "first to". Overwatch's spectator HUD
+puts each mode's objective at a different height (measured at 1080p on the 11/20/26 Fall Split stream): the
+payload, robot and capture panels of Escort, Hybrid and Push start about y 40, and the objective of Control and
+Flashpoint about y 62. So the header is one line (to y 34) for Escort, Hybrid, Push and Clash, and two lines (to
+y 54) for Control and Flashpoint. Marvel Rivals uses the one-line header until its HUD is measured. If a HUD sits
+differently, the **↑ ↓** buttons in the Maps section move that mode's header a few pixels (saved per game and mode
+in `data/config.json`, `overlay.team.nudge`; `<game>:plates` there moves the plates).
 
 ## Stream overlay (player names over the gameplay)
 
@@ -493,7 +513,8 @@ mode reports that rather than cutting live.
 
 **Stinger transition.** Each theme has its own 1.2 second stinger: the three track colours sweeping across with
 the TEC mark (TEC), maroon shutters closing on a gold belt plate (Tuesday Takedown), the gold diamond and crown
-(Metroplex Major), and blue panels with the TEC mark (Texas Esports Collegiate). The files are in
+(Metroplex Major), blue panels with the TEC mark (Texas Esports Collegiate), and a Unity-gradient panel and black
+with the rainbow TEC mark (Texas Esports Conference). The files are in
 `public/stingers/` as transparent WebM. Every one covers the whole screen from about 0.3 to 0.95 seconds, and the
 cut comes at 0.6.
 
@@ -581,6 +602,18 @@ crews, run on Challonge rather than start.gg) and any collegiate event after it:
   for on its promotional material; the Collegiate parts carry no notice. The Casters scene takes the same colours and
   keeps the Major's band along the bottom while the promo is on.
 - With no start.gg event and no event name typed, titles start "Texas Esports Collegiate Fall Split".
+
+The fourth is **Texas Esports Conference**, TEC's scholastic league, built for the Fall Finals at St. Edward's
+(Sat Dec 5, 2026: Smash Ultimate crews, an Overwatch showmatch and a Marvel Rivals showmatch):
+
+- The Conference lockup (the four-piece TEC mark in the Unity gradient, the TEXAS ESPORTS CONFERENCE wordmark in
+  white) on near-black, with the gradient's own stops (#ff4635 through #007bff) on every rule, the panel headings
+  in the dashboard and lit pips. Score cells and tags are white, secondary text light grey, type Tomorrow.
+- Settings sets the event title (default *Fall Finals*) and the line above it on the screens (default *Smash
+  Ultimate, Overwatch, Marvel Rivals*), and the same Metroplex Major promo switch as Collegiate.
+- Smash crews use the Collegiate scoreboard with the Conference mark in the middle; Overwatch and Marvel Rivals get
+  the team plates. Starting Soon, BRB, End and Casters share the Collegiate layouts in the Conference art; the
+  REPLAY badge and the stinger have their own Conference look.
 
 ### Crew battles
 

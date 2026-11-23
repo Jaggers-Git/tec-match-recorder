@@ -20,11 +20,18 @@
   html { background: #0A0A0A; }
   body { background: #0A0A0A; color: #fff; font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; position: relative; -webkit-font-smoothing: antialiased; }
   [hidden] { display: none !important; }
-  .glow { position: absolute; inset: 0; background: radial-gradient(60% 70% at 100% 0%, rgba(43,111,212,.30) 0%, rgba(43,111,212,0) 70%); transform-origin: 100% 0; --breathe-lo: .6; --breathe-s0: 1; --breathe-s1: 1.12; animation: breathe 9s ease-in-out infinite; }
-  .topbar { position: absolute; left: 0; right: 0; top: 0; height: 10px; background: #2B6FD4; --sheen-w: 14%; --sheen-a: .8; --sheen-every: 6s; }
+  :root { --c-fill: #2B6FD4; --c-text: #5B95EA; --c-gleam: #a8c8f6; --c-tile: #2B6FD4; --c-tile-ink: #fff;
+    --c-glow: radial-gradient(60% 70% at 100% 0%, rgba(43,111,212,.30) 0%, rgba(43,111,212,0) 70%); }
+  /* Texas Esports Conference: the Unity gradient carries every rule and fill, white and light grey the type. */
+  :root[data-theme="conf"] { --c-fill: linear-gradient(90deg, #ff4635, #fa6529, #f0b40d, #ecd402, #ccdc01, #7df000, #45ff00, #007bff); --c-text: #c8ccd4; --c-gleam: #ffd2a8;
+    --c-tile: #f3f4f6; --c-tile-ink: #0a0a0a;
+    --c-glow: radial-gradient(55% 65% at 100% 0%, rgba(255,70,53,.20) 0%, rgba(255,70,53,0) 70%), radial-gradient(50% 60% at 0% 100%, rgba(0,123,255,.18) 0%, rgba(0,123,255,0) 70%); }
+  :root[data-theme="conf"] .tile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 8px; background: linear-gradient(180deg, #ff4635, #f0b40d, #7df000, #007bff); }
+  .glow { position: absolute; inset: 0; background: var(--c-glow); transform-origin: 100% 0; --breathe-lo: .6; --breathe-s0: 1; --breathe-s1: 1.12; animation: breathe 9s ease-in-out infinite; }
+  .topbar { position: absolute; left: 0; right: 0; top: 0; height: 10px; background: var(--c-fill); --sheen-w: 14%; --sheen-a: .8; --sheen-every: 6s; }
   .wm { position: absolute; right: -170px; bottom: -190px; width: 900px; opacity: .06; animation: drift 28s ease-in-out infinite alternate; }
   /* motion (motion.css): the headline catches a light now and then */
-  h1.gleam { background: linear-gradient(100deg, #fff 0%, #fff 42%, #a8c8f6 50%, #fff 58%, #fff 100%) no-repeat; background-size: 300% 100%; background-position: 100% 0; -webkit-background-clip: text; background-clip: text; color: transparent; animation: gleam 8s ease-in-out 3s infinite; }
+  h1.gleam { background: linear-gradient(100deg, #fff 0%, #fff 42%, var(--c-gleam) 50%, #fff 58%, #fff 100%) no-repeat; background-size: 300% 100%; background-position: 100% 0; -webkit-background-clip: text; background-clip: text; color: transparent; animation: gleam 8s ease-in-out 3s infinite; }
   @keyframes gleam { 0% { background-position: 100% 0; } 30%, 100% { background-position: 0% 0; } }
   html.still h1.gleam { color: #fff; background: none; }
   .wm svg { width: 100%; height: auto; display: block; }
@@ -33,21 +40,30 @@
   body.promo-card .main { width: 1040px; }
   .lockup svg { height: 92px; width: auto; display: block; }
   .stack { margin-top: auto; margin-bottom: auto; display: flex; flex-direction: column; align-items: flex-start; }
-  .kicker { font-weight: 600; font-size: 30px; letter-spacing: .26em; text-transform: uppercase; color: #5B95EA; line-height: 1.4; }
+  .kicker { font-weight: 600; font-size: 30px; letter-spacing: .26em; text-transform: uppercase; color: var(--c-text); line-height: 1.4; }
   body.promo-card .kicker { font-size: 23px; letter-spacing: .2em; }
-  .kicker .sep { display: inline-block; width: 10px; height: 10px; background: #2B6FD4; transform: rotate(45deg) translateY(-4px); margin: 0 .7em 0 .55em; }
+  .kicker .sep { display: inline-block; width: 10px; height: 10px; background: var(--c-fill); transform: rotate(45deg) translateY(-4px); margin: 0 .7em 0 .55em; }
   h1 { margin: 18px 0 0; font-weight: 800; font-size: 148px; line-height: .92; letter-spacing: .01em; text-transform: uppercase; }
   body.promo-card h1 { font-size: 128px; }
   .message { margin-top: 40px; font-weight: 600; font-size: 36px; line-height: 1.25; max-width: 100%; padding: 18px 28px; border: 2px solid rgba(255,255,255,.16); background: rgba(16,22,34,.82); border-radius: 6px; box-sizing: border-box; }
 
   /* Up next / on now: the date-card shape from the Fall Split graphics, blue tile on the left. */
   .card { margin-top: 44px; display: flex; border: 2px solid rgba(255,255,255,.16); background: rgba(16,22,34,.82); border-radius: 6px; overflow: hidden; max-width: 100%; }
-  .tile { position: relative; --sheen-every: 7s; --sheen-delay: 1.5s; --sheen-a: .45; flex: none; width: 190px; background: #2B6FD4; display: flex; align-items: center; justify-content: center; text-transform: uppercase; font-weight: 700; font-size: 26px; letter-spacing: .2em; padding-left: .2em; text-align: center; line-height: 1.15; }
+  .tile { position: relative; --sheen-every: 7s; --sheen-delay: 1.5s; --sheen-a: .45; flex: none; width: 190px; background: var(--c-tile); color: var(--c-tile-ink); display: flex; align-items: center; justify-content: center; text-transform: uppercase; font-weight: 700; font-size: 26px; letter-spacing: .2em; padding-left: .2em; text-align: center; line-height: 1.15; }
   .card .body { padding: 22px 34px 24px; min-width: 0; }
   .vsline { display: flex; align-items: baseline; gap: .45em; font-weight: 800; font-size: 46px; line-height: 1.05; white-space: nowrap; overflow: hidden; }
   .vsline > span { flex: none; }
-  .vsline .vs { color: #5B95EA; font-size: .62em; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
-  .round { margin-top: 10px; font-weight: 600; font-size: 24px; letter-spacing: .2em; text-transform: uppercase; color: #5B95EA; }
+  .vsline .vs { color: var(--c-text); font-size: .62em; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+  .round { margin-top: 10px; font-weight: 600; font-size: 24px; letter-spacing: .2em; text-transform: uppercase; color: var(--c-text); }
+  /* Team games: the series score beside the names, and the maps played so far under the card. */
+  .vsline .sc { color: var(--c-text); font-size: .8em; }
+  .maps { margin-top: 18px; display: grid; gap: 8px; min-width: 760px; max-width: 100%; }
+  .maps .m { display: grid; grid-template-columns: 90px 1fr 190px auto; gap: 18px; align-items: baseline; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,.12); font-size: 26px; }
+  .maps .no { font-weight: 600; font-size: 18px; letter-spacing: .2em; text-transform: uppercase; color: var(--c-text); }
+  .maps .nm { font-weight: 700; }
+  .maps .md { font-weight: 600; font-size: 18px; letter-spacing: .18em; text-transform: uppercase; color: #9aa0a6; }
+  .maps .wn { font-weight: 800; text-transform: uppercase; text-align: right; }
+  .maps .m.next .nm, .maps .m.next .wn { color: #9aa0a6; }
 
   .site { position: absolute; left: 110px; bottom: 64px; font-weight: 800; font-size: 30px; letter-spacing: .04em; }
 
@@ -102,6 +118,7 @@
           <div id="now-round" class="round"></div>
         </div>
       </div>
+      <div id="maps" class="maps" hidden></div>
     </div>
   </div>
   <div id="site" class="site">texasesports.org</div>
@@ -140,6 +157,7 @@
   </div>
 <script src="/mm.js"></script>
 <script src="/col.js"></script>
+<script src="/conf.js"></script>
 <script>
 (() => {
   'use strict';
@@ -147,9 +165,12 @@
   const params = new URLSearchParams(location.search);
   const scene = params.get('scene') || '';
   const SCENE_TITLES = { starting: 'Starting Soon', brb: 'Be Right Back', end: 'Thanks for Watching' };
-  $('#lockup').innerHTML = window.COL.lockup();
-  $('#wm').innerHTML = window.COL.mark('#2B6FD4');
-  window.MM.shine($('#lockup svg'), 'path', { delay: 0.5, every: 8 });
+  // Collegiate and Conference share this page; the theme the page loaded in decides the art.
+  const loadedTheme = document.documentElement.dataset.theme === 'conf' ? 'conf' : 'col';
+  const ART = loadedTheme === 'conf' ? window.CONF : window.COL;
+  $('#lockup').innerHTML = ART.lockup();
+  $('#wm').innerHTML = loadedTheme === 'conf' ? window.CONF.mark() : window.COL.mark('#2B6FD4');
+  window.MM.shine($('#lockup svg'), 'path, polygon', { delay: 0.5, every: 8 });
   window.MM.shine($('#mm-crown'), 'polygon[fill="url(#gf)"]', { delay: 3, every: 7 });
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let S = null;
@@ -157,18 +178,20 @@
     if (!S) return;
     const b = S.branding || {};
     // The station left the Collegiate theme: /slate now serves that theme's screen, so load it.
-    if (b.theme && b.theme !== 'col') { location.reload(); return; }
+    // Another theme (or Collegiate swapped for Conference): /slate serves that look, so load it.
+    if (b.theme && b.theme !== loadedTheme) { location.reload(); return; }
     // Settings, Stream screens: Motion off keeps the screen still.
     document.documentElement.classList.toggle('still', b.motion === false);
-    const col = b.col || {};
+    const col = (loadedTheme === 'conf' ? b.conf : b.col) || {};
     const mm = b.mm || {};
     const promo = col.promo !== false;
     const c = S.current || {};
     const live = !!(c.p1 && c.p2) && scene !== 'end';
     // Headline: the scene's, else ?title=, else the event title alone.
     const headline = params.get('title') || SCENE_TITLES[scene] || '';
-    $('#title').textContent = headline || col.title || 'Fall Split';
-    const kicker = headline ? [col.title || 'Fall Split', col.game].filter(Boolean) : [col.game].filter(Boolean);
+    const eventTitle = col.title || (loadedTheme === 'conf' ? 'Fall Finals' : 'Fall Split');
+    $('#title').textContent = headline || eventTitle;
+    const kicker = headline ? [eventTitle, col.game].filter(Boolean) : [col.game].filter(Boolean);
     $('#kicker').innerHTML = kicker.map(esc).join('<span class="sep"></span>');
     // The line typed in the dashboard (Stream screens).
     const msg = (S.screens && S.screens.message) || '';
@@ -183,6 +206,15 @@
       $('#now-p2').textContent = c.p2;
       const crews = b.crews && b.crews.enabled;
       $('#now-round').textContent = [c.round, crews ? 'Crew battle' : ''].filter(Boolean).join('  /  ');
+    }
+    // Team games (Overwatch, Marvel Rivals): the maps so far and the next one, on BRB and the end screen.
+    const sr = S.series;
+    const played = sr ? sr.maps.filter((m) => m.winner || m.map || m.mode) : [];
+    const showMaps = !!(sr && played.length && (scene === 'brb' || scene === 'end'));
+    $('#maps').hidden = !showMaps;
+    if (showMaps) {
+      const names = [c.p1 || 'Team 1', c.p2 || 'Team 2'];
+      $('#maps').innerHTML = played.slice(0, 7).map((m, i) => `<div class="m${m.winner ? '' : ' next'}"><span class="no">Map ${i + 1}</span><span class="nm">${esc(m.map || 'To be picked')}</span><span class="md">${esc(m.mode || '')}</span><span class="wn">${m.winner === 'draw' ? 'Draw' : m.winner ? esc(names[m.winner - 1]) : 'Next'}</span></div>`).join('');
     }
     // Metroplex Major: a card on BRB and the end screen, a strip on Starting Soon (and on a bare /slate).
     const card = promo && (scene === 'brb' || scene === 'end');

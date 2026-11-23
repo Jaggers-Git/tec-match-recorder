@@ -609,11 +609,13 @@
     if (key === brandKey) return;
     brandKey = key;
     const tec = b.theme === 'tec';
-    // Texas Esports Collegiate: TEC's own mark in Collegiate Blue, so it needs no logo either.
+    // Texas Esports Collegiate: TEC's own mark in Collegiate Blue, so it needs no logo either; the Conference
+    // shows its mark in the Unity gradient.
     const col = b.theme === 'col';
+    const conf = b.theme === 'conf';
     document.documentElement.dataset.theme = b.theme;
     document.documentElement.classList.toggle('smash-only', !!b.smashOnly);
-    $('#brand-mark').innerHTML = tec ? TEC_MARK : col ? TEC_MARK.replace(/#FF3D2E/gi, '#2B6FD4') : mm ? MM_CROWN : b.logo ? `<img src="${esc(b.logo)}" alt="">` : TT_EMBLEM;
+    $('#brand-mark').innerHTML = tec ? TEC_MARK : conf ? window.CONF.mark() : col ? TEC_MARK.replace(/#FF3D2E/gi, '#2B6FD4') : mm ? MM_CROWN : b.logo ? `<img src="${esc(b.logo)}" alt="">` : TT_EMBLEM;
     $('#brand-org').innerHTML = window.MM.gems(org);
     document.title = tec ? 'TEC Match Recorder' : `${b.name} · Match Recorder`;
     document.querySelector('link[rel="icon"]').href = mm ? MM_ICON : col ? TEC_ICON.replace(/%23FF3D2E/gi, '%232B6FD4') : !tec && b.logo ? b.logo : TEC_ICON;
@@ -1061,7 +1063,7 @@
     if (!st) return '';
     if (st.state === 'vmix') return '';
     if (!S.sw.connected) return 'Connect OBS first.';
-    if (st.state === 'ready') return `"${st.active}" plays the ${st.theme === 'tt' ? 'Tuesday Takedown' : st.theme === 'mm' ? 'Metroplex Major' : st.theme === 'col' ? 'Texas Esports Collegiate' : 'TEC'} stinger.`;
+    if (st.state === 'ready') return `"${st.active}" plays the ${st.theme === 'tt' ? 'Tuesday Takedown' : st.theme === 'mm' ? 'Metroplex Major' : st.theme === 'col' ? 'Texas Esports Collegiate' : st.theme === 'conf' ? 'Texas Esports Conference' : 'TEC'} stinger.`;
     if (st.state === 'missing') return 'OBS has no Stinger transition yet: add one first (the step below).';
     if (st.state === 'error') return st.error;
     return st.enabled ? 'Checking…' : 'Not set up.';
@@ -1230,6 +1232,10 @@
     set('branding.col.title', colCfg.title || 'Fall Split');
     set('branding.col.game', colCfg.game ?? '');
     set('branding.col.promo', colCfg.promo !== false);
+    const confCfg = (S.branding && S.branding.conf) || {};
+    set('branding.conf.title', confCfg.title || 'Fall Finals');
+    set('branding.conf.game', confCfg.game ?? '');
+    set('branding.conf.promo', confCfg.promo !== false);
     set('branding.motion', !(c.branding && c.branding.motion === false));
     const crewCfg = c.crews || {};
     set('crews.enabled', !!crewCfg.enabled);

@@ -118,6 +118,23 @@
   .col-pips .pip.on { background: #2B6FD4; box-shadow: 0 0 10px rgba(43,111,212,.8); }
   #col-lockup { position: absolute; right: 34px; bottom: 30px; filter: drop-shadow(0 3px 8px rgba(0,0,0,.7)); }
   #col-lockup svg { height: 48px; width: auto; display: block; }
+  /* Texas Esports Conference on the Collegiate board: white score cells, the Unity gradient along the top
+     and on lit pips, light grey band text, the Conference mark in the middle. */
+  .conf-colors .piece .edge { background: #f3f4f6; }
+  .conf-colors .piece .face, .conf-colors .piece.bridge .face, .conf-colors .seg.center { background: #0d0f12; }
+  .conf-colors .seg.badge { background: #f3f4f6; color: #0a0a0a; }
+  .conf-colors .pips .pip { background: #0d0f12; border-color: #f3f4f6; }
+  .conf-colors .pips .pip.on { background: linear-gradient(90deg, #ff4635, #f0b40d, #7df000, #007bff); }
+  .conf-colors #col-board::before { background: linear-gradient(90deg, #ff4635, #fa6529, #f0b40d, #ecd402, #ccdc01, #7df000, #45ff00, #007bff); }
+  .conf-colors #col .nm, .conf-colors #col .mk { background: #0d0f12; }
+  .conf-colors #col .pt { background: #f3f4f6; color: #0a0a0a; }
+  .conf-colors #col .mk svg { height: 66%; }
+  .conf-colors #col-band { color: #c8ccd4; background: rgba(13,15,18,.94); }
+  .conf-colors #col-band svg.gem { color: #f3f4f6; }
+  .conf-colors .col-pips .pip { background: #0d0f12; border-color: #f3f4f6; }
+  .conf-colors .col-pips .pip.on { background: linear-gradient(90deg, #ff4635, #f0b40d, #7df000, #007bff); box-shadow: 0 0 10px rgba(255,255,255,.4); }
+  .conf-colors #col-lockup svg { height: 54px; }
+  .conf-colors #pcam { border-color: #f3f4f6; box-shadow: 0 0 0 2px rgba(255,255,255,.18), 0 6px 18px rgba(0,0,0,.5); }
   /* The Metroplex Major ticker keeps its own gold when it runs in the Collegiate corner. */
   .col-colors #mm-lockup { display: none; }
 
@@ -255,6 +272,7 @@
 </div>
 <script src="/mm.js"></script>
 <script src="/col.js"></script>
+<script src="/conf.js"></script>
 <script src="/overlay.js"></script>
 </body>
 </html>
