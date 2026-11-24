@@ -389,6 +389,8 @@ textarea:focus { outline: none; border-color: var(--accent); }
 #settings-form:not([data-theme="mm"]) .mm-only { display: none; }
 #settings-form:not([data-theme="col"]) .col-only { display: none; }
 #settings-form:not([data-theme="conf"]) .conf-only { display: none; }
+#settings-form:not([data-theme="tt"]):not([data-theme="col"]):not([data-theme="conf"]) .logo-only { display: none; }
+#settings-form:not([data-theme="col"]):not([data-theme="conf"]) .host-only { display: none; }
 html.smash-only .multi-game { display: none !important; }
 /* OBS or vMix: Settings rows follow the form's (unsaved) choice, the how-to guide the saved one */
 #settings-form:not([data-sw="vmix"]) .sw-vmix, #settings-form[data-sw="vmix"] .sw-obs { display: none; }

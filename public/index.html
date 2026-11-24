@@ -321,15 +321,17 @@
           </label>
           <label class="tt-only">Label next to the scoreboard (blank for none) <input name="branding.label" maxlength="40" placeholder="(no label)"></label>
         </div>
-        <div class="tt-only">
+        <div class="logo-only">
+          <div class="host-only" style="margin-top:8px"><b>Host logo</b> <span class="muted">(the school or venue hosting the event)</span></div>
           <div class="row" style="align-items:center;margin-top:4px;flex-wrap:wrap;gap:8px">
             <img id="logo-preview" class="logo-preview" alt="Current logo" hidden>
-            <button type="button" id="btn-logo-startgg" class="small">Use the start.gg tournament logo</button>
+            <button type="button" id="btn-logo-startgg" class="small tt-only">Use the start.gg tournament logo</button>
             <label class="small file-btn">Choose image…<input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp" hidden></label>
             <button type="button" id="btn-logo-remove" class="small">Remove logo</button>
           </div>
           <div id="logo-status" class="muted" style="margin-top:6px"></div>
-          <div class="muted">The logo sits in the middle of the scoreboard and in the header. It is kept on this PC only (data\branding), not in the app's files. A PNG with a transparent background looks best.</div>
+          <div class="muted tt-only">The logo sits in the middle of the scoreboard and in the header. It is kept on this PC only (data\branding), not in the app's files. A PNG with a transparent background looks best.</div>
+          <div class="muted host-only">It sits beside the lockup on Starting Soon, BRB, the end screen and Casters, at the lockup's height after a thin rule; the gameplay overlay stays as it is. Use the version made for dark backgrounds (white or light), as a PNG with a transparent background. Kept on this PC only (data\branding), never in the app's files.</div>
         </div>
         <div class="mm-only">
           <label class="check" style="margin-top:6px"><input type="checkbox" name="branding.mm.corners"> Ticker and crown in the bottom corners of the overlay (always off for Street Fighter 6, whose meters sit there)</label>

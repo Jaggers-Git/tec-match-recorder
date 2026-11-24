@@ -618,7 +618,7 @@
     $('#brand-mark').innerHTML = tec ? TEC_MARK : conf ? window.CONF.mark() : col ? TEC_MARK.replace(/#FF3D2E/gi, '#2B6FD4') : mm ? MM_CROWN : b.logo ? `<img src="${esc(b.logo)}" alt="">` : TT_EMBLEM;
     $('#brand-org').innerHTML = window.MM.gems(org);
     document.title = tec ? 'TEC Match Recorder' : `${b.name} · Match Recorder`;
-    document.querySelector('link[rel="icon"]').href = mm ? MM_ICON : col ? TEC_ICON.replace(/%23FF3D2E/gi, '%232B6FD4') : !tec && b.logo ? b.logo : TEC_ICON;
+    document.querySelector('link[rel="icon"]').href = mm ? MM_ICON : col ? TEC_ICON.replace(/%23FF3D2E/gi, '%232B6FD4') : b.theme === 'tt' && b.logo ? b.logo : TEC_ICON;
   }
   // OBS or vMix: .obs-only / .vmix-only blocks (the how-to guide) follow the saved choice, and every
   // .sw-name span outside Settings says which app it is.
@@ -1364,7 +1364,10 @@
     img.hidden = !url;
     if (url && img.getAttribute('src') !== url) img.src = url;
     const sg = S.startgg || {};
+    // Collegiate and Conference: the host school's or venue's logo, beside the lockup on the screens.
+    const host = formTheme() === 'col' || formTheme() === 'conf';
     $('#logo-status').textContent = url ? 'Logo saved on this PC.'
+      : host ? `No host logo: the screens show the ${formTheme() === 'conf' ? 'Conference' : 'Collegiate'} lockup alone.`
       : `No logo yet, so a plain TT badge stands in. ${sg.configured ? 'Use the start.gg tournament logo, or choose an image.' : 'Choose an image, or add the start.gg event and token above, save, and use the start.gg logo.'}`;
   }
   // A blank ticker box uses the defaults for the picked mode; show them as the placeholder.

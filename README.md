@@ -623,6 +623,12 @@ The fourth is **Texas Esports Conference**, TEC's scholastic league, built for t
 - Smash crews use the Collegiate scoreboard with the Conference mark in the middle; Overwatch and Marvel Rivals get
   the team plates. Starting Soon, BRB, End and Casters share the Collegiate layouts in the Conference art; the
   REPLAY badge and the stinger have their own Conference look.
+- **Host logo** (Conference and Collegiate): Settings, Look and games, **Choose image…** under *Host logo* puts the
+  hosting school's or venue's logo beside the lockup on Starting Soon, BRB, the end screen and Casters, after a thin
+  rule and at the lockup's height (92 px on the screens, 54 px on Casters, up to 440 and 230 px wide). The gameplay
+  overlay stays as it is, so the game keeps its corners. Use the logo's version for dark backgrounds as a PNG with a
+  transparent background. It is kept on that PC only (`data/branding/conf-logo.png` or `col-logo.png`), never in the
+  app's files; **Remove logo** takes it off.
 
 ### Crew battles
 

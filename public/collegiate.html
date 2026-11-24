@@ -38,7 +38,12 @@
 
   .main { position: absolute; left: 110px; top: 96px; bottom: 96px; width: 1700px; display: flex; flex-direction: column; }
   body.promo-card .main { width: 1040px; }
+  .lockup { display: flex; align-items: center; gap: 36px; }
   .lockup svg { height: 92px; width: auto; display: block; }
+  /* The host school's or venue's logo (Settings, Look and games), beside the lockup at its height after a thin rule. */
+  .host { display: flex; align-items: center; gap: 36px; }
+  .host::before { content: ''; flex: none; width: 2px; height: 92px; background: rgba(255,255,255,.28); }
+  .host img { display: block; height: 92px; width: auto; max-width: 440px; object-fit: contain; }
   .stack { margin-top: auto; margin-bottom: auto; display: flex; flex-direction: column; align-items: flex-start; }
   .kicker { font-weight: 600; font-size: 30px; letter-spacing: .26em; text-transform: uppercase; color: var(--c-text); line-height: 1.4; }
   body.promo-card .kicker { font-size: 23px; letter-spacing: .2em; }
@@ -115,7 +120,7 @@
   <div class="topbar sheen"></div>
   <div id="wm" class="wm"></div>
   <div class="main">
-    <div id="lockup" class="lockup"></div>
+    <div id="lockup" class="lockup"><div id="lockup-art"></div><div id="host" class="host" hidden><img id="host-img" alt=""></div></div>
     <div class="stack">
       <div id="kicker" class="kicker"></div>
       <h1 id="title" class="gleam">Fall Split</h1>
@@ -178,9 +183,9 @@
   // Collegiate and Conference share this page; the theme the page loaded in decides the art.
   const loadedTheme = document.documentElement.dataset.theme === 'conf' ? 'conf' : 'col';
   const ART = loadedTheme === 'conf' ? window.CONF : window.COL;
-  $('#lockup').innerHTML = ART.lockup();
+  $('#lockup-art').innerHTML = ART.lockup();
   $('#wm').innerHTML = loadedTheme === 'conf' ? window.CONF.mark() : window.COL.mark('#2B6FD4');
-  window.MM.shine($('#lockup svg'), 'path, polygon', { delay: 0.5, every: 8 });
+  window.MM.shine($('#lockup-art svg'), 'path, polygon', { delay: 0.5, every: 8 });
   window.MM.shine($('#mm-crown'), 'polygon[fill="url(#gf)"]', { delay: 3, every: 7 });
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let S = null;
@@ -216,6 +221,10 @@
     const ph = $('#photo');
     ph.hidden = !photo;
     if (photo && ph.dataset.src !== photo) { ph.dataset.src = photo; ph.style.backgroundImage = `url("${photo}")`; }
+    // Settings, Look and games: the host's logo beside the lockup.
+    const host = (b.logos || {})[loadedTheme] || '';
+    $('#host').hidden = !host;
+    if (host && $('#host-img').getAttribute('src') !== host) $('#host-img').src = host;
     if (!ticker) ticker = window.MM.bar($('#ticker'), tickerLines);
     ticker.set(b.motion !== false);
     const col = (loadedTheme === 'conf' ? b.conf : b.col) || {};

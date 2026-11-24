@@ -42,6 +42,11 @@
   #lockup-art svg { height: 60px; width: auto; display: block; }
   #lockup b { display: block; font-size: 24px; letter-spacing: .1em; line-height: 1; }
   #lockup small { display: block; margin-top: 6px; color: #F0B40D; font-size: 15px; letter-spacing: .14em; line-height: 1; }
+  /* Collegiate and Conference: the host school's or venue's logo beside the lockup, after a thin rule. */
+  :root[data-theme="col"] #lockup-text, :root[data-theme="conf"] #lockup-text { display: none; }
+  #lockup .host { display: flex; align-items: center; gap: 16px; }
+  #lockup .host::before { content: ''; flex: none; width: 2px; height: 54px; background: rgba(255,255,255,.28); }
+  #lockup .host img { display: block; height: 54px; width: auto; max-width: 230px; object-fit: contain; }
   #notice { position: absolute; left: 60px; width: 1280px; text-transform: none; color: #8e97a8; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 15px; line-height: 1.45; }
   .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 84px; background: #F0B40D; color: #11151A; display: flex; align-items: center; justify-content: space-between; gap: 40px; padding: 0 52px; font-size: 25px; letter-spacing: .07em; }
   #ticker { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; transition: opacity .6s ease; }
@@ -130,7 +135,7 @@
   <div id="card2" class="card" hidden><b></b><small></small></div>
   <div id="lockup"><div id="lockup-art">
     <svg viewBox="-6 -38 190 128" aria-hidden="true"><g fill="#F0B40D"><polygon points="0,9 9,0 22,0 50,28 78,0 89,-13 100,0 128,28 156,0 169,0 178,9 178,69 169,78 156,78 156,31 128,59 100,31 100,78 78,78 78,31 50,59 22,31 22,78 9,78 0,69"/><polygon points="15.5,-15 21.5,-9 15.5,-3 9.5,-9"/><polygon points="89,-32.5 96.5,-25 89,-17.5 81.5,-25"/><polygon points="162.5,-15 168.5,-9 162.5,-3 156.5,-9"/></g></svg>
-    </div><div><b id="lockup-name">Metroplex Major</b><small id="lockup-sub"></small></div>
+    </div><div id="lockup-text"><b id="lockup-name">Metroplex Major</b><small id="lockup-sub"></small></div><div id="lockup-host" class="host" hidden><img alt=""></div>
   </div>
   <div id="notice"></div>
   <div class="bar sheen"><span id="ticker"></span><span id="site"></span></div>
@@ -263,6 +268,11 @@
     lock.style.top = px(L.game.y + L.game.h - 64);
     $('#lockup-sub').innerHTML = col ? '' : window.MM.gems(mm.mode === 'event' ? 'UNT Dallas' : 'Feb 5-7, 2027 ◆ UNT Dallas');
     $('#lockup-sub').hidden = !!col;
+    // Settings, Look and games: the host's logo beside the Collegiate or Conference lockup.
+    const host = col ? ((S.branding && S.branding.logos) || {})[theme] || '' : '';
+    $('#lockup-host').hidden = !host;
+    const hostImg = $('#lockup-host img');
+    if (host && hostImg.getAttribute('src') !== host) hostImg.src = host;
     $('#notice').style.top = px(L.game.y + L.game.h + 22);
     $('#notice').innerHTML = window.MM.gems(`${col ? 'Metroplex Major: ' : ''}Nintendo is not a sponsor of or affiliated with this tournament. Terms for participating in and viewing Licensed Tournaments using Nintendo Games: https://en-americas-support.nintendo.com/app/answers/detail/a_id/63454 ◆ Tournament license ${mm.license || ''}`);
     $('#site').innerHTML = promo ? window.MM.gems(`${mm.site || 'metroplexmajor.com'} ◆ #MetroplexMajor`) : 'texasesports.org';
