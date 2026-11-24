@@ -211,10 +211,14 @@ const GAMES = {
   ssbu: { name: 'Super Smash Bros. Ultimate', short: 'SSBU', suffix: 'Smash Ultimate - SSBU', characters: true, videogameIds: [1386] },
   sf6: { name: 'Street Fighter 6', short: 'SF6', suffix: 'Street Fighter 6 - SF6', characters: false, videogameIds: [43868] },
   tekken8: { name: 'Tekken 8', short: 'T8', suffix: 'Tekken 8 - T8', characters: false, videogameIds: [49783] },
+  // The Metroplex Major's other side titles (start.gg games 107706 and 53945, read off the Major's events
+  // 11/24/26). videogameName also catches the game by name, should start.gg ever list it under another id.
+  tokon: { name: 'Marvel Tokon', short: 'Tokon', suffix: 'Marvel Tokon - Tokon', characters: false, videogameIds: [107706], videogameName: /tokon/i },
+  roa2: { name: 'Rivals of Aether II', short: 'RoA2', suffix: 'Rivals of Aether II - RoA2', characters: false, videogameIds: [53945], videogameName: /rivals of aether ii|\brivals 2\b/i },
   // Team games (lib/teamgames.js): a set is a series of maps with modes and hero bans, and the overlay
   // draws team plates. The game is Overwatch, never "Overwatch 2".
   ow: { name: 'Overwatch', short: 'OW', suffix: 'Overwatch', characters: false, team: true, videogameIds: [] },
-  rivals: { name: 'Marvel Rivals', short: 'MR', suffix: 'Marvel Rivals', characters: false, team: true, videogameIds: [] },
+  mrivals: { name: 'Marvel Rivals', short: 'MR', suffix: 'Marvel Rivals', characters: false, team: true, videogameIds: [] },
   other: { name: 'Other game', short: '', suffix: '', characters: false, videogameIds: [] },
 };
 function gameProfile(id) {
@@ -222,9 +226,13 @@ function gameProfile(id) {
   const over = (cfg.games && cfg.games[key]) || {};
   return { id: key, ...GAMES[key], ...Object.fromEntries(Object.entries(over).filter(([, v]) => v !== '' && v != null)) };
 }
-function gameForVideogame(videogameId) {
+function gameForVideogame(videogameId, videogameName = '') {
   const vid = Number(videogameId);
-  return Object.keys(GAMES).find((id) => GAMES[id].videogameIds.includes(vid)) || 'other';
+  // Names are matched without accents: start.gg lists Tokon as "MARVEL Tōkon: Fighting Souls".
+  const name = String(videogameName || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return Object.keys(GAMES).find((id) => GAMES[id].videogameIds.includes(vid))
+    || Object.keys(GAMES).find((id) => GAMES[id].videogameName && GAMES[id].videogameName.test(name))
+    || 'other';
 }
 // The games this station offers: all of them, or Ultimate alone in Smash-only mode.
 const stationGames = () => (cfg.smashOnly ? ['ssbu'] : Object.keys(GAMES));
@@ -1274,7 +1282,8 @@ async function fetchStartggLogo(id = themeId()) {
   return { tournament: t.name, url: pick.url, width: pick.width, height: pick.height };
 }
 // Add every event of a tournament the station knows how to record: Ultimate singles (no doubles,
-// crews or squad strike), Street Fighter 6 and Tekken 8. Reports what was added and what was skipped.
+// crews or squad strike), Street Fighter 6, Tekken 8, Marvel Tokon and Rivals of Aether II. Reports what was added and
+// what was skipped.
 async function importTournament(url) {
   const slug = parseTournamentSlug(url);
   if (!slug) throw new Error('That is not a start.gg tournament URL');
@@ -1288,7 +1297,7 @@ async function importTournament(url) {
   const urls = (cfg.startgg.eventUrls || []).filter((u) => parseEventSlug(u) || parseTournamentSlug(u) !== slug);
   const droppedBare = urls.length !== (cfg.startgg.eventUrls || []).length;
   for (const ev of t.events || []) {
-    const game = gameForVideogame(ev.videogame && ev.videogame.id);
+    const game = gameForVideogame(ev.videogame && ev.videogame.id, ev.videogame && ev.videogame.name);
     const teams = !!(ev.teamRosterSize && (ev.teamRosterSize.maxPlayers || 0) > 1);
     const nonSingles = teams || /doubles|dubs|\b[23]v[23]\b|crew|squad|\bteams?\b/i.test(ev.name || '');
     const label = `${ev.name} (${(ev.videogame && ev.videogame.name) || 'unknown game'}${ev.numEntrants ? `, ${ev.numEntrants} entrants` : ''})`;
@@ -1394,7 +1403,7 @@ async function fetchEvent(slug, phaseOrder) {
       const videogameId = ev.videogame ? Number(ev.videogame.id) : 0;
       meta = {
         slug, eventName: ev.name || '', tournamentName: (ev.tournament && ev.tournament.name) || '',
-        videogameId, videogameName: (ev.videogame && ev.videogame.name) || '', game: gameForVideogame(videogameId),
+        videogameId, videogameName: (ev.videogame && ev.videogame.name) || '', game: gameForVideogame(videogameId, ev.videogame && ev.videogame.name),
       };
     }
     totalPages = (ev.sets && ev.sets.pageInfo && ev.sets.pageInfo.totalPages) || 1;

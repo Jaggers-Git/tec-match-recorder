@@ -300,14 +300,16 @@ comma-separated (`Joker, Peach`); start.gg round names are normalized (`Winners 
 
 ## Several games and several brackets
 
-The recorder knows five games: Super Smash Bros. Ultimate, Street Fighter 6, Tekken 8, Overwatch and Marvel Rivals (plus a generic
-"other"). Each start.gg event carries its game, so picking a set from a Tekken bracket switches the title suffix
+The recorder knows seven games: Super Smash Bros. Ultimate, Street Fighter 6, Tekken 8, Marvel Tokon, Rivals of Aether
+II, Overwatch and Marvel Rivals (plus a generic "other"). That covers every title at the Metroplex Major (Ultimate, plus
+Tekken 8, SF6, Marvel Tokon and Rivals of Aether II on the side). Each start.gg event carries its game, so picking a set from a Tekken bracket switches the title suffix
 to "Tekken 8 - T8", hides the character chips and pauses the detector; picking an Ultimate set switches them back.
 For manual entry, the game dropdown above the player names does the same. The CSV gains a Game column.
 
 Settings takes several event URLs (one per line), or paste a tournament URL into **Add a whole tournament** and
-the recorder adds every Ultimate singles, Street Fighter 6 and Tekken 8 bracket it finds, skipping doubles, crews,
-squad strike and games it does not know. With more than one bracket loaded, the bracket list gets event tabs; in
+the recorder adds every Ultimate singles, Street Fighter 6, Tekken 8, Marvel Tokon and Rivals of Aether II bracket it
+finds, skipping doubles, crews, squad strike and games it does not know. A game is recognised by its start.gg game id,
+or by its name if start.gg lists it under another id. With more than one bracket loaded, the bracket list gets event tabs; in
 pools it also gets pool chips, groups sets by pool, and names files with the pool ("A3-A").
 
 Two brackets of the same game on one night (Tuesday Takedown's Ultimate Singles plus its Redemption bracket) would
@@ -577,7 +579,8 @@ is over (TEC after Feb 7, 2027); a station that has saved a theme keeps it.
 - Dashboard in Major Gold on Midnight with Tomorrow display type, the crown in the header and, in promo mode, a
   countdown under it ("108 days out").
 - Stream overlay from the MM stream kit: midnight name plates, gold score cells, the crown in the middle, the round
-  and set length on a gold band underneath, and a gold gem per game won under each name. Tekken 8 and SF6 keep
+  and set length on a gold band underneath, and a gold gem per game won under each name. Tekken 8, SF6, Marvel Tokon
+  and Rivals of Aether II keep
   their notched shape in MM colors.
 - Bottom corners: a ticker that fades through one line every 7 seconds (bottom-left) and the crown lockup
   (bottom-right). Off for Street Fighter 6, whose meters sit there, and switchable for the rest.

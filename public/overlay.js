@@ -24,10 +24,29 @@
       plate1: { x: 240, y: 0, w: 470, h: 50 }, plate2: { x: 1210, y: 0, w: 470, h: 50 },
       bridge: { x: 704, y: 0, w: 512, h: 34 }, badge: 46, endSlant: 20, corners: false,
     },
+    // Marvel Tokon (measured at 1080p on a Midwest Mixfest 2026 top 8): character portraits in both top corners,
+    // the health bars from about y 65 to 110 (x 195 to 1770), the timer centred from y 48 with the round dots
+    // beside it at y 55, and the meters along the bottom from y 1015. The plates stay between the portraits
+    // and above the health bars, the bridge above the timer, and the bottom corners clear. The plates are a little
+    // shorter and the game pips tucked in (y 47 to 64), so the pips finish above the health bars too.
+    tokon: {
+      type: 'notched',
+      plate1: { x: 260, y: 0, w: 435, h: 44 }, plate2: { x: 1225, y: 0, w: 435, h: 44 },
+      bridge: { x: 689, y: 0, w: 542, h: 34 }, badge: 44, endSlant: 20, corners: false, pipGap: 3,
+    },
+    // Rivals of Aether II (measured at 1080p on a GOML 2026 set): the match timer at top centre from about y 60,
+    // the damage cards and stocks at bottom centre (x 600 to 1320, from y 850). The notched shape keeps the
+    // timer clear (a full-width bar would cover it), and the Metroplex Major ticker wraps in the free corner left
+    // of the damage cards.
+    roa2: {
+      type: 'notched',
+      plate1: { x: 240, y: 0, w: 470, h: 50 }, plate2: { x: 1210, y: 0, w: 470, h: 50 },
+      bridge: { x: 704, y: 0, w: 512, h: 34 }, badge: 46, endSlant: 20, ticker: { w: 520, size: 18 },
+    },
     // Team games: plates over the top corners and a header over the objective (renderTeam). The bottom
     // corners carry the followed player's abilities and the kill feed, so they stay clear.
     ow: { type: 'team', corners: false },
-    rivals: { type: 'team', corners: false },
+    mrivals: { type: 'team', corners: false },
   };
   // Texas Esports Collegiate scoreboard (bar-type games). Any of these can be overridden from config.json
   // under overlay.col.
@@ -123,8 +142,9 @@
     place($('#center'), { x: bridge.x, y: bridge.y + 3, w: bridge.w, h: bridge.h - 6 });
     return {
       textH: in1.h, centerH: bridge.h - 6,
-      pip1: { xRight: plate1.x + plate1.w - 3, y: plate1.y + plate1.h + 8 },
-      pip2: { xLeft: plate2.x + 3, y: plate2.y + plate2.h + 8 },
+      // pipGap (per game) tucks the game pips closer under the plates where a HUD starts high.
+      pip1: { xRight: plate1.x + plate1.w - 3, y: plate1.y + plate1.h + (G.pipGap ?? 8) },
+      pip2: { xLeft: plate2.x + 3, y: plate2.y + plate2.h + (G.pipGap ?? 8) },
     };
   }
   // Bo3 = 2 pips, Bo5 = 3, Bo1 = none. P1's row is right-aligned to its badge, P2's left-aligned.
