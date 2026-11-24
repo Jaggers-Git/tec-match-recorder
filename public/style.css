@@ -560,20 +560,20 @@ label.small.file-btn:hover { border-color: var(--brand); }
   --muted: #9aa0a6;
   --brand: #e9ecf1;
   --accent: #e9ecf1;
-  --brand-fill: #f3f4f6;
-  --on-brand: #0a0a0a;
+  --brand-fill: #F0B40D;
+  --on-brand: #0E0E0E;
   --brand-soft: #1f232b;
   --brand-edge: #3a404b;
   --tag-text: #f3f4f6;
   --link: #9fc3ff;
   --focus-ring: rgba(255, 255, 255, .18);
   --selected-bg: #1c2027;
-  --unity: linear-gradient(90deg, #ff4635, #fa6529, #f0b40d, #ecd402, #ccdc01, #7df000, #45ff00, #007bff);
+  --unity: linear-gradient(90deg, #FF3D2E 0%, #F18C32 16%, #F4D928 32%, #A8D62A 48%, #1FC97B 64%, #2BA8D4 84%, #2B6FD4 100%);
   --display: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif;
 }
 :root[data-theme="conf"] body {
   background:
-    radial-gradient(900px 420px at 92% -8%, rgba(255, 70, 53, .10), transparent 62%),
+    radial-gradient(900px 420px at 92% -8%, rgba(31, 201, 123, .10), transparent 62%),
     radial-gradient(800px 420px at -6% 108%, rgba(0, 123, 255, .10), transparent 60%),
     var(--bg);
   background-attachment: fixed;

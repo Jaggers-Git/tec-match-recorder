@@ -9,6 +9,7 @@
      two caster name cards typed in the dashboard, then the player cam's window when the player cam is on. -->
 <style>
   @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Bold.ttf') format('truetype'); font-weight: 700; }
+  @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-ExtraBold.ttf') format('truetype'); font-weight: 800; }
   html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; }
   body { position: relative; color: #fff; font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; text-transform: uppercase; }
   [hidden] { display: none !important; }
@@ -75,32 +76,37 @@
   :root[data-theme="col"] .bar svg.gem { color: #F0B40D; }
   :root[data-theme="col"] #site { color: #F0B40D; }
 
-  /* Texas Esports Conference: the Collegiate frame in white with the Unity gradient, the Conference mark and lockup. */
-  :root[data-theme="conf"] .frame { border-color: #f3f4f6; border-radius: 2px; }
-  :root[data-theme="conf"] .frame::after { box-shadow: 0 0 26px 2px rgba(255,255,255,.45); }
-  :root[data-theme="conf"] .tag { background: #f3f4f6; color: #0a0a0a; transform: none; border-radius: 4px; font-weight: 700; }
+  /* Texas Esports Conference, from TEC's Conference graphics: the windows framed in the Unity gradient, gold
+     kickers and score cells, italic names like the lockup's wordmark, the dot grid behind, the Unity bar along
+     the bottom. */
+  :root[data-theme="conf"] .frame { border: 4px solid transparent; border-image: linear-gradient(90deg, #FF3D2E 0%, #F18C32 16%, #F4D928 32%, #A8D62A 48%, #1FC97B 64%, #2BA8D4 84%, #2B6FD4 100%) 1; border-radius: 0; }
+  :root[data-theme="conf"] .frame::after { box-shadow: 0 0 28px 2px rgba(240,180,13,.38); }
+  :root[data-theme="conf"] .tag { background: transparent; color: #F0B40D; transform: none; border-radius: 0; font-weight: 800; font-size: 20px; letter-spacing: .22em; padding: 6px 0; }
   :root[data-theme="conf"] .tag > span { transform: none; }
-  :root[data-theme="conf"] #board { gap: 2px; padding: 2px; background: rgba(255,255,255,.18); border-radius: 6px; overflow: hidden; }
+  :root[data-theme="conf"] #board { gap: 2px; padding: 2px; background: rgba(255,255,255,.16); border-radius: 6px; overflow: hidden; }
   :root[data-theme="conf"] #board .seg, :root[data-theme="conf"] #board .seg > span, :root[data-theme="conf"] #round > span { transform: none; }
-  :root[data-theme="conf"] #board .nm, :root[data-theme="conf"] #board .cr { background: #0d0f12; margin: 0; }
-  :root[data-theme="conf"] #board .pt { background: #f3f4f6; color: #0a0a0a; }
+  :root[data-theme="conf"] #board .nm, :root[data-theme="conf"] #board .cr { background: #0E0E0E; margin: 0; }
+  :root[data-theme="conf"] #board .nm { font-style: italic; font-weight: 800; }
+  :root[data-theme="conf"] #board .pt { background: #F0B40D; color: #0E0E0E; font-weight: 800; }
   :root[data-theme="conf"] #board .cr svg { transform: none; height: 64%; }
-  :root[data-theme="conf"] #round { transform: translateX(-50%); background: rgba(13,15,18,.94); color: #c8ccd4; border: 2px solid rgba(255,255,255,.16); border-radius: 4px; font-weight: 600; letter-spacing: .2em; }
-  :root[data-theme="conf"] #round svg.gem { color: #f3f4f6; }
-  :root[data-theme="conf"] .card { background: #111317; border: 2px solid rgba(255,255,255,.16); border-top: 4px solid transparent; border-image: linear-gradient(90deg, #ff4635, #f0b40d, #7df000, #007bff) 4 0 0 0 / 4px 0 0 0; border-radius: 0; }
-  :root[data-theme="conf"] .card small { color: #c8ccd4; }
+  :root[data-theme="conf"] #round { transform: translateX(-50%); background: rgba(14,14,14,.94); color: #F0B40D; border: 1px solid rgba(255,255,255,.14); border-radius: 4px; font-weight: 700; letter-spacing: .2em; }
+  :root[data-theme="conf"] #round svg.gem { color: #9AA0A6; }
+  :root[data-theme="conf"] .card { background: rgba(20,20,20,.94); border: 1px solid rgba(255,255,255,.16); border-radius: 4px; }
+  :root[data-theme="conf"] .card b { font-style: italic; font-weight: 800; }
+  :root[data-theme="conf"] .card small { color: #F0B40D; }
   :root[data-theme="conf"] #lockup-art svg { height: 54px; }
   :root[data-theme="conf"] #lockup b { display: none; }
   :root[data-theme="conf"] #lockup small { display: none; }
-  :root[data-theme="conf"] .bar { background: #11151A; color: #fff; border-top: 3px solid #F0B40D; box-sizing: border-box; font-weight: 700; }
+  :root[data-theme="conf"] .bar { background: #11151A; color: #fff; border-top: 3px solid #F0B40D; box-sizing: border-box; font-weight: 700; padding-bottom: 12px; }
+  :root[data-theme="conf"] .bar::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 12px; background: linear-gradient(90deg, #FF3D2E 0%, #F18C32 16%, #F4D928 32%, #A8D62A 48%, #1FC97B 64%, #2BA8D4 84%, #2B6FD4 100%); }
   :root[data-theme="conf"] .bar svg.gem { color: #F0B40D; }
   :root[data-theme="conf"] #site { color: #F0B40D; }
   :root[data-theme="conf"] .bar { --sheen-a: .12; }
   /* The band with the promo off: the event in the theme's own colours. */
   :root[data-theme="col"] .bar.event { border-top-color: #2B6FD4; background: #0d1118; }
   :root[data-theme="col"] .bar.event svg.gem { color: #2B6FD4; }
-  :root[data-theme="conf"] .bar.event { background: #0d0f12; border-top: 3px solid transparent; border-image: linear-gradient(90deg, #ff4635, #fa6529, #f0b40d, #ecd402, #ccdc01, #7df000, #45ff00, #007bff) 3 0 0 0 / 3px 0 0 0; }
-  :root[data-theme="conf"] .bar.event svg.gem { color: #f3f4f6; }
+  :root[data-theme="conf"] .bar.event { background: #0E0E0E; border-top: 1px solid rgba(255,255,255,.10); }
+  :root[data-theme="conf"] .bar.event svg.gem { color: #F0B40D; }
   .bar.event #site { color: #fff; }
 </style>
 <link rel="stylesheet" href="/motion.css">
@@ -109,12 +115,14 @@
   <!-- Midnight background with the two windows cut out of it -->
   <svg id="bg" viewBox="0 0 1920 1080" aria-hidden="true">
     <defs>
-      <radialGradient id="glow" cx="0.85" cy="0" r="0.8"><stop offset="0" stop-color="#F0B40D" stop-opacity=".10"/><stop offset="1" stop-color="#F0B40D" stop-opacity="0"/></radialGradient><radialGradient id="glow-col" cx="0.85" cy="0" r="0.8"><stop offset="0" stop-color="#2B6FD4" stop-opacity=".22"/><stop offset="1" stop-color="#2B6FD4" stop-opacity="0"/></radialGradient><radialGradient id="glow-conf" cx="0.85" cy="0" r="0.8"><stop offset="0" stop-color="#ff4635" stop-opacity=".16"/><stop offset="1" stop-color="#ff4635" stop-opacity="0"/></radialGradient>
+      <radialGradient id="glow" cx="0.85" cy="0" r="0.8"><stop offset="0" stop-color="#F0B40D" stop-opacity=".10"/><stop offset="1" stop-color="#F0B40D" stop-opacity="0"/></radialGradient><radialGradient id="glow-col" cx="0.85" cy="0" r="0.8"><stop offset="0" stop-color="#2B6FD4" stop-opacity=".22"/><stop offset="1" stop-color="#2B6FD4" stop-opacity="0"/></radialGradient><radialGradient id="glow-conf" cx="0.85" cy="0" r="0.8"><stop offset="0" stop-color="#1FC97B" stop-opacity=".14"/><stop offset="1" stop-color="#ff4635" stop-opacity="0"/></radialGradient>
+      <pattern id="dots-conf" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="12" cy="12" r="1.2" fill="#fff" fill-opacity=".06"/></pattern>
       <mask id="holes"><rect width="1920" height="1080" fill="#fff"/><rect id="hole-game" fill="#000"/><rect id="hole-cam" fill="#000"/><rect id="hole-player" fill="#000" width="0" height="0"/></mask>
     </defs>
     <g mask="url(#holes)">
       <rect id="bg-fill" width="1920" height="1080" fill="#11151A"/>
       <rect id="bg-glow" width="1920" height="1080" fill="url(#glow)"/>
+      <rect id="bg-dots" width="1920" height="1080" fill="none"/>
     </g>
   </svg>
   <div id="frame-game" class="frame"></div>
@@ -189,7 +197,8 @@
       $('#crest').innerHTML = col ? ART.mark() : MM_ART.crest;
       $('#lockup-art').innerHTML = col ? ART.lockup() : MM_ART.lockup;
       window.MM.shine($('#lockup-art svg'), 'polygon, path', { delay: 1, every: 8 });
-      $('#bg-fill').setAttribute('fill', col ? '#0A0A0A' : '#11151A');
+      $('#bg-fill').setAttribute('fill', confTheme ? '#0E0E0E' : col ? '#0A0A0A' : '#11151A');
+      $('#bg-dots').setAttribute('fill', confTheme ? 'url(#dots-conf)' : 'none');
       $('#bg-glow').setAttribute('fill', confTheme ? 'url(#glow-conf)' : col ? 'url(#glow-col)' : 'url(#glow)');
     }
     // Settings, Stream screens: Motion off keeps the frame still and the ticker fading.

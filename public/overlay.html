@@ -118,23 +118,24 @@
   .col-pips .pip.on { background: #2B6FD4; box-shadow: 0 0 10px rgba(43,111,212,.8); }
   #col-lockup { position: absolute; right: 34px; bottom: 30px; filter: drop-shadow(0 3px 8px rgba(0,0,0,.7)); }
   #col-lockup svg { height: 48px; width: auto; display: block; }
-  /* Texas Esports Conference on the Collegiate board: white score cells, the Unity gradient along the top
-     and on lit pips, light grey band text, the Conference mark in the middle. */
-  .conf-colors .piece .edge { background: #f3f4f6; }
-  .conf-colors .piece .face, .conf-colors .piece.bridge .face, .conf-colors .seg.center { background: #0d0f12; }
-  .conf-colors .seg.badge { background: #f3f4f6; color: #0a0a0a; }
-  .conf-colors .pips .pip { background: #0d0f12; border-color: #f3f4f6; }
-  .conf-colors .pips .pip.on { background: linear-gradient(90deg, #ff4635, #f0b40d, #7df000, #007bff); }
-  .conf-colors #col-board::before { background: linear-gradient(90deg, #ff4635, #fa6529, #f0b40d, #ecd402, #ccdc01, #7df000, #45ff00, #007bff); }
-  .conf-colors #col .nm, .conf-colors #col .mk { background: #0d0f12; }
-  .conf-colors #col .pt { background: #f3f4f6; color: #0a0a0a; }
+  /* Texas Esports Conference, from TEC's Conference graphics: near-black plates, gold score cells and pips,
+     the seven-stop Unity gradient along the top, gold band text and italic names like the lockup's wordmark. */
+  .conf-colors .piece .edge { background: #F0B40D; }
+  .conf-colors .piece .face, .conf-colors .piece.bridge .face, .conf-colors .seg.center { background: #0E0E0E; }
+  .conf-colors .seg.badge { background: #F0B40D; color: #0E0E0E; }
+  .conf-colors .pips .pip { background: #0E0E0E; border-color: #F0B40D; }
+  .conf-colors .pips .pip.on { background: #F0B40D; }
+  .conf-colors #col-board::before { background: linear-gradient(90deg, #FF3D2E 0%, #F18C32 16%, #F4D928 32%, #A8D62A 48%, #1FC97B 64%, #2BA8D4 84%, #2B6FD4 100%); }
+  .conf-colors #col .nm, .conf-colors #col .mk { background: #0E0E0E; }
+  .conf-colors #col .nm { font-style: italic; font-weight: 800; }
+  .conf-colors #col .pt { background: #F0B40D; color: #0E0E0E; }
   .conf-colors #col .mk svg { height: 66%; }
-  .conf-colors #col-band { color: #c8ccd4; background: rgba(13,15,18,.94); }
-  .conf-colors #col-band svg.gem { color: #f3f4f6; }
-  .conf-colors .col-pips .pip { background: #0d0f12; border-color: #f3f4f6; }
-  .conf-colors .col-pips .pip.on { background: linear-gradient(90deg, #ff4635, #f0b40d, #7df000, #007bff); box-shadow: 0 0 10px rgba(255,255,255,.4); }
+  .conf-colors #col-band { color: #F0B40D; background: rgba(14,14,14,.94); font-weight: 700; }
+  .conf-colors #col-band svg.gem { color: #9AA0A6; }
+  .conf-colors .col-pips .pip { background: #0E0E0E; border-color: #F0B40D; }
+  .conf-colors .col-pips .pip.on { background: #F0B40D; box-shadow: 0 0 10px rgba(240,180,13,.7); }
   .conf-colors #col-lockup svg { height: 54px; }
-  .conf-colors #pcam { border-color: #f3f4f6; box-shadow: 0 0 0 2px rgba(255,255,255,.18), 0 6px 18px rgba(0,0,0,.5); }
+  .conf-colors #pcam { border-color: #F0B40D; box-shadow: 0 0 0 2px rgba(14,14,14,.9), 0 6px 18px rgba(0,0,0,.5); }
   /* The Metroplex Major ticker keeps its own gold when it runs in the Collegiate corner. */
   .col-colors #mm-lockup { display: none; }
 
@@ -148,8 +149,11 @@
   .tt-colors #team { --tm-plate: rgba(28, 18, 21, .95); --tm-edge: rgba(242, 181, 58, .5); --tm-accent: #8E2B40; --tm-lt: #F2B53A; --tm-rule: #F2B53A; }
   .mm-colors #team { --tm-plate: rgba(17, 21, 26, .95); --tm-edge: rgba(240, 180, 13, .45); --tm-accent: #F0B40D; --tm-accent-ink: #11151A; --tm-lt: #F0B40D; --tm-rule: #F0B40D; }
   .col-colors #team { --tm-plate: rgba(13, 17, 24, .94); --tm-edge: rgba(255, 255, 255, .16); --tm-accent: #2B6FD4; --tm-lt: #5B95EA; --tm-rule: #2B6FD4; }
-  .conf-colors #team { --tm-plate: rgba(10, 10, 12, .94); --tm-edge: rgba(255, 255, 255, .16); --tm-accent: #ffffff; --tm-accent-ink: #0a0a0a; --tm-lt: #c8ccd4;
-    --tm-rule: linear-gradient(90deg, #ff4635, #fa6529, #f0b40d, #ecd402, #ccdc01, #7df000, #45ff00, #007bff); }
+  .conf-colors #team { --tm-plate: rgba(14, 14, 14, .94); --tm-edge: rgba(255, 255, 255, .14); --tm-accent: #F0B40D; --tm-accent-ink: #0E0E0E; --tm-lt: #F0B40D; --tm-tile: #1a1a1a;
+    --tm-rule: linear-gradient(90deg, #FF3D2E 0%, #F18C32 16%, #F4D928 32%, #A8D62A 48%, #1FC97B 64%, #2BA8D4 84%, #2B6FD4 100%); }
+  .conf-colors #team .tm-name { font-style: italic; font-weight: 800; }
+  .conf-colors #team .tm-mark span { font-style: italic; }
+  .conf-colors #team .tm-ban b { color: #9AA0A6; }
   #team .tm-plate { position: absolute; top: 40px; width: 560px; height: 64px; display: flex; align-items: stretch; background: var(--tm-plate);
     border: 1.5px solid var(--tm-edge); border-radius: 4px; overflow: hidden; box-shadow: 0 6px 24px rgba(0, 0, 0, .35); box-sizing: border-box; }
   #team .tm-plate::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--tm-rule); }

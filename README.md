@@ -615,20 +615,35 @@ crews, run on Challonge rather than start.gg) and any collegiate event after it:
 The fourth is **Texas Esports Conference**, TEC's scholastic league, built for the Fall Finals at St. Edward's
 (Sat Dec 5, 2026: Smash Ultimate crews, an Overwatch showmatch and a Marvel Rivals showmatch):
 
-- The Conference lockup (the four-piece TEC mark in the Unity gradient, the TEXAS ESPORTS CONFERENCE wordmark in
-  white) on near-black, with the gradient's own stops (#ff4635 through #007bff) on every rule, the panel headings
-  in the dashboard and lit pips. Score cells and tags are white, secondary text light grey, type Tomorrow.
-- Settings sets the event title (default *Fall Finals*) and the line above it on the screens (default *Smash
-  Ultimate, Overwatch, Marvel Rivals*), and the same Metroplex Major promo switch as Collegiate.
-- Smash crews use the Collegiate scoreboard with the Conference mark in the middle; Overwatch and Marvel Rivals get
-  the team plates. Starting Soon, BRB, End and Casters share the Collegiate layouts in the Conference art; the
-  REPLAY badge and the stinger have their own Conference look.
-- **Host logo** (Conference and Collegiate): Settings, Look and games, **Choose image…** under *Host logo* puts the
-  hosting school's or venue's logo beside the lockup on Starting Soon, BRB, the end screen and Casters, after a thin
-  rule and at the lockup's height (92 px on the screens, 54 px on Casters, up to 440 and 230 px wide). The gameplay
-  overlay stays as it is, so the game keeps its corners. Use the logo's version for dark backgrounds as a PNG with a
-  transparent background. It is kept on that PC only (`data/branding/conf-logo.png` or `col-logo.png`), never in the
-  app's files; **Remove logo** takes it off.
+- The look comes from TEC's published Conference graphics (the Fall Playoffs and Finals key art and schedule
+  card): #0E0E0E with a faint dot grid, the Unity gradient in its seven brand stops (#FF3D2E, #F18C32, #F4D928,
+  #A8D62A, #1FC97B, #2BA8D4, #2B6FD4) along the bottom and on every rule, gold (#F0B40D) kickers, score cells and
+  pips, gray #9AA0A6 for secondary text, Scholastic Green for map numbers and the next map, and Tomorrow, with team
+  and caster names in italic like the lockup's wordmark.
+- **Starting Soon and Thanks for Watching** (`/slate?scene=starting`, `end`) are centred like the key art: the dated
+  Conference lockup (the mark with the season's two year digits, the wordmark, the season line in gold), a gold
+  kicker with the event title and the day's date, a huge headline, the venue line in gold, the typed message, the
+  set up next (or, on the end screen, the maps played), and **Hosted by** with the host logo.
+- **Be Right Back** (`/slate?scene=brb`) is the schedule card: the lockup with the host logo at the top right, the
+  kicker, headline and venue line, the message, the set up next, and the maps so far as rows (the next map lit
+  green). The Metroplex Major card sits on the right while its promo is on; the crawl carries the Major's lines on
+  the other two screens.
+- All three keep moving: the dot grid drifts, the glows breathe, a light sweeps the mark, the headline and the Unity
+  bar, and a crawl runs above the bar.
+- Settings sets the event title (default *Fall Finals*), the season line under the lockup (default *Fall
+  Mini-Season*, blank for none), the venue line under the headline (blank shows the games line there instead), the
+  games line (default *Smash Ultimate, Overwatch, Marvel Rivals*), and the same Metroplex Major promo switch as
+  Collegiate.
+- Overwatch and Marvel Rivals get the team plates in gold and near-black; Smash crews use the Collegiate scoreboard
+  in the same colours with the Conference mark in the middle. Casters frames its windows in the Unity gradient, with
+  gold kickers and score cells and the Unity bar along the bottom. The REPLAY badge is gold, and the stinger sweeps
+  the Unity gradient and near-black with the rainbow mark.
+- **Host logo** (Conference and Collegiate): Settings, Look and games, **Choose image…** under *Host logo*. On the
+  Conference screens it sits in the **Hosted by** block on Starting Soon and Thanks for Watching (116 px tall, up to
+  560 wide) and at the top right of Be Right Back; on Casters, and on every Collegiate screen, it sits beside the
+  lockup after a thin rule at the lockup's height. The gameplay overlay stays as it is, so the game keeps its
+  corners. Use the logo's version for dark backgrounds as a PNG with a transparent background. It is kept on that PC
+  only (`data/branding/conf-logo.png` or `col-logo.png`), never in the app's files; **Remove logo** takes it off.
 
 ### Crew battles
 

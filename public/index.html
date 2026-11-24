@@ -349,11 +349,17 @@
           <div class="muted">The screens are <span class="mono">/slate?scene=starting</span>, <span class="mono">/slate?scene=brb</span> and <span class="mono">/slate?scene=end</span> (Thanks for Watching). Scenes already in OBS switch to this look on their own; <b>Add the stream scenes</b> (Stream screens, below) adds the End scene.</div>
         </div>
         <div class="conf-only">
-          <label>Line above the title on Starting Soon, BRB and the end screen (blank for none)
+          <label>Line under the lockup: the season (blank for none)
+            <input name="branding.conf.season" maxlength="40" placeholder="Fall Mini-Season" autocomplete="off">
+          </label>
+          <label>Venue line under the headline, in gold (blank shows the games line there instead)
+            <input name="branding.conf.venue" maxlength="60" placeholder="St. Edward's University, Austin" autocomplete="off">
+          </label>
+          <label>Games line (under the headline when no venue is typed, and in the crawl)
             <input name="branding.conf.game" maxlength="60" placeholder="Smash Ultimate, Overwatch, Marvel Rivals" autocomplete="off">
           </label>
-          <label class="check" style="margin-top:6px"><input type="checkbox" name="branding.conf.promo"> <span>Promote the Metroplex Major: the ticker in the overlay's bottom-left corner, a strip on Starting Soon, and a card with the register QR on BRB and the end screen (each carries the Nintendo notice and license number)</span></label>
-          <div class="muted">The Texas Esports Conference look: the Conference lockup and the Unity gradient on near-black, on the overlay, the screens (<span class="mono">/slate?scene=starting</span>, <span class="mono">brb</span>, <span class="mono">end</span>), the Casters scene, the REPLAY badge and its stinger. Overwatch and Marvel Rivals get team plates; Smash crews keep their scoreboard.</div>
+          <label class="check" style="margin-top:6px"><input type="checkbox" name="branding.conf.promo"> <span>Promote the Metroplex Major: the ticker in the overlay's bottom-left corner, its lines in the screens' crawl, and a card with the register QR on BRB (each carries the Nintendo notice and license number)</span></label>
+          <div class="muted">The Texas Esports Conference look, from TEC's Conference graphics: near-black with a dot grid, the Unity gradient, the dated Conference lockup with the season line in gold, gold kickers and Tomorrow headlines. Starting Soon and Thanks for Watching are centred like the Fall Finals key art with a Hosted by block for the host logo; BRB is the schedule card, with the maps as rows (<span class="mono">/slate?scene=starting</span>, <span class="mono">brb</span>, <span class="mono">end</span>). The overlay, the Casters scene, the REPLAY badge and the stinger follow. Overwatch and Marvel Rivals get team plates; Smash crews keep their scoreboard.</div>
         </div>
         <label class="check" style="margin-top:10px"><input type="checkbox" name="smashOnly" id="smash-only"> Smash Ultimate only: hide the other games (game picker, title suffixes, tournament import)</label>
       </fieldset>

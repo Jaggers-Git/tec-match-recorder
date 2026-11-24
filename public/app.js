@@ -1235,6 +1235,8 @@
     const confCfg = (S.branding && S.branding.conf) || {};
     set('branding.conf.title', confCfg.title || 'Fall Finals');
     set('branding.conf.game', confCfg.game ?? '');
+    set('branding.conf.season', confCfg.season ?? 'Fall Mini-Season');
+    set('branding.conf.venue', confCfg.venue || '');
     set('branding.conf.promo', confCfg.promo !== false);
     set('branding.motion', !(c.branding && c.branding.motion === false));
     renderPhotoStatus();

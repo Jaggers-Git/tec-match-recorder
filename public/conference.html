@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TEC Match Recorder: Texas Esports Conference screen</title>
+<!--
+  Starting Soon (/slate?scene=starting), Be Right Back (?scene=brb) and Thanks for Watching (?scene=end) in the
+  Texas Esports Conference look, served at /slate while the station's theme is the Conference. Built from TEC's
+  published Conference graphics (the Fall Playoffs and Finals key art and schedule card): near-black with a dot
+  grid, the Unity gradient along the bottom, the dated Conference lockup with its season line in gold, gold
+  spaced-out kickers, a huge Tomorrow headline, schedule-style rows, and a Hosted by block for the host's logo.
+
+  Starting Soon and Thanks for Watching are centred, like the key art. Be Right Back is the schedule card: the
+  content on the left (the host's logo at the top right of it), the maps so far as rows, and the Metroplex Major
+  card on the right while its promo is on. A crawl runs above the Unity bar on all three.
+-->
+<style>
+  @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Regular.ttf') format('truetype'); font-weight: 400; }
+  @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-SemiBold.ttf') format('truetype'); font-weight: 600; }
+  @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-Bold.ttf') format('truetype'); font-weight: 700; }
+  @font-face { font-family: 'Tomorrow'; src: url('/fonts/Tomorrow-ExtraBold.ttf') format('truetype'); font-weight: 800; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; }
+  /* OBS gives every Browser Source "body { background-color: rgba(0,0,0,0) }", so the black lives on html too. */
+  html { background: #0E0E0E; }
+  body { background: #0E0E0E; color: #fff; font-family: 'Tomorrow', Bahnschrift, 'Segoe UI', sans-serif; position: relative; -webkit-font-smoothing: antialiased; }
+  [hidden] { display: none !important; }
+  :root {
+    --gold: #F0B40D; --green: #1FC97B; --mute: #9AA0A6;
+    /* The Unity gradient, all seven stops (TEC brand system: Conference only). */
+    --unity: linear-gradient(90deg, #FF3D2E 0%, #F18C32 16%, #F4D928 32%, #A8D62A 48%, #1FC97B 64%, #2BA8D4 84%, #2B6FD4 100%);
+  }
+
+  /* Dot grid and glows, as on the Conference posters; the grid drifts and the glows breathe. */
+  .dots { position: absolute; inset: -48px; background-image: radial-gradient(rgba(255,255,255,.06) 1.2px, transparent 1.2px); background-size: 24px 24px; animation: dots-drift 24s linear infinite; }
+  @keyframes dots-drift { from { transform: translate(0, 0); } to { transform: translate(24px, 24px); } }
+  .glow { position: absolute; inset: 0; background: radial-gradient(48% 60% at 100% 0%, rgba(31,201,123,.16) 0%, rgba(31,201,123,0) 70%), radial-gradient(42% 55% at 0% 100%, rgba(43,111,212,.14) 0%, rgba(43,111,212,0) 70%); transform-origin: 100% 0; --breathe-lo: .55; --breathe-s0: 1; --breathe-s1: 1.1; animation: breathe 10s ease-in-out infinite; }
+  body.centre .glow { background: radial-gradient(55% 50% at 50% 38%, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 70%), radial-gradient(40% 55% at 100% 0%, rgba(240,180,13,.10) 0%, rgba(240,180,13,0) 70%), radial-gradient(40% 55% at 0% 100%, rgba(43,111,212,.12) 0%, rgba(43,111,212,0) 70%); transform-origin: 50% 40%; }
+  .unity { position: absolute; left: 0; right: 0; bottom: 0; height: 16px; background: var(--unity); --sheen-w: 12%; --sheen-a: .75; --sheen-every: 6s; }
+
+  /* The dated Conference lockup: the mark with the season's two year digits, the TEXAS ESPORTS / CONFERENCE
+     wordmark, and the season line in gold under it (built like the Fall Finals key art). */
+  .lockup { position: relative; display: inline-flex; align-items: center; gap: calc(var(--s) * 54px); }
+  .lockup .mw { position: relative; width: calc(var(--s) * 330px); height: calc(var(--s) * 330px); flex: none; }
+  .lockup .mw svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .lockup .yr { position: absolute; font-style: italic; font-weight: 800; font-size: calc(var(--s) * 74px); letter-spacing: -.02em; line-height: 1; }
+  .lockup .yr.a { left: calc(var(--s) * -24px); top: calc(var(--s) * 6px); }
+  .lockup .yr.b { right: calc(var(--s) * -16px); bottom: calc(var(--s) * 6px); }
+  .lockup .wd { display: flex; flex-direction: column; gap: calc(var(--s) * 2px); }
+  .lockup .l1 { font-style: italic; font-weight: 800; font-size: calc(var(--s) * 96px); line-height: .98; letter-spacing: -.012em; text-transform: uppercase; white-space: nowrap; }
+  .lockup .l3 { font-style: italic; font-weight: 800; font-size: calc(var(--s) * 54px); line-height: 1; margin-top: calc(var(--s) * 14px); letter-spacing: .01em; text-transform: uppercase; white-space: nowrap; color: var(--gold); }
+
+  .kicker { font-weight: 800; font-size: 40px; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); line-height: 1.2; }
+  .kicker svg.gem, .where svg.gem { color: var(--gold); }
+  h1 { margin: 0; font-weight: 800; text-transform: uppercase; letter-spacing: -.01em; line-height: .95; }
+  h1.gleam { background: linear-gradient(100deg, #fff 0%, #fff 42%, #ffe7a3 50%, #fff 58%, #fff 100%) no-repeat; background-size: 300% 100%; background-position: 100% 0; -webkit-background-clip: text; background-clip: text; color: transparent; animation: gleam 9s ease-in-out 3s infinite; }
+  @keyframes gleam { 0% { background-position: 100% 0; } 30%, 100% { background-position: 0% 0; } }
+  html.still h1.gleam { color: #fff; background: none; }
+  .where { font-weight: 700; font-size: 36px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); line-height: 1.2; }
+  .message { font-weight: 600; font-size: 32px; line-height: 1.25; padding: 14px 30px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.04); border-radius: 6px; max-width: 1300px; box-sizing: border-box; }
+
+  /* Up next / on now: a gold tile and the matchup. */
+  .card { display: flex; align-items: stretch; border: 1px solid rgba(255,255,255,.16); background: rgba(20,20,20,.88); border-radius: 6px; overflow: hidden; max-width: 1300px; }
+  .tile { position: relative; flex: none; width: 176px; background: var(--gold); color: #0E0E0E; display: flex; align-items: center; justify-content: center; text-transform: uppercase; font-weight: 800; font-size: 24px; letter-spacing: .2em; padding-left: .2em; text-align: center; line-height: 1.15; --sheen-every: 7s; --sheen-delay: 1.5s; --sheen-a: .5; }
+  .tile .live-dot { background: #0E0E0E; }
+  .card .body { padding: 18px 32px 20px; min-width: 0; text-align: left; }
+  .vsline { display: flex; align-items: baseline; gap: .42em; font-style: italic; font-weight: 800; font-size: 46px; line-height: 1.05; white-space: nowrap; text-transform: uppercase; }
+  .vsline > span { flex: none; }
+  .vsline .vs { color: var(--mute); font-style: normal; font-size: .56em; font-weight: 700; letter-spacing: .14em; }
+  .vsline .sc { color: var(--gold); font-style: normal; }
+  .round { margin-top: 8px; font-weight: 700; font-size: 22px; letter-spacing: .2em; text-transform: uppercase; color: var(--mute); }
+
+  /* The maps so far, as rows on the schedule card: number in green, map, mode, winner; the next map lit green. */
+  .maps { display: grid; gap: 4px; width: 100%; text-align: left; }
+  .maps .m { display: grid; grid-template-columns: 120px 1fr 200px 240px; gap: 18px; align-items: center; height: 52px; padding: 0 22px; background: #151515; font-size: 28px; }
+  .maps .m:nth-child(even) { background: #1a1a1a; }
+  .maps .no { font-weight: 800; font-size: 22px; letter-spacing: .16em; text-transform: uppercase; color: var(--green); }
+  .maps .nm { font-weight: 800; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .maps .md { font-weight: 700; font-size: 20px; letter-spacing: .18em; text-transform: uppercase; color: var(--mute); }
+  .maps .wn { font-weight: 800; text-transform: uppercase; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .maps .m.next { background: rgba(31,201,123,.18); }
+  .maps .m.next .wn { color: var(--green); }
+
+  /* Hosted by: the host's logo (Settings, Look and games), big, as on the key art. */
+  .hosted { display: flex; align-items: center; gap: 30px; }
+  .hosted span { font-weight: 700; font-size: 28px; letter-spacing: .22em; color: var(--mute); text-transform: uppercase; }
+  .hosted img { height: 116px; width: auto; max-width: 560px; object-fit: contain; display: block; }
+
+  /* The crawl, just above the Unity bar. */
+  .tk { position: absolute; left: 0; right: 0; bottom: 16px; height: 50px; display: flex; align-items: center; background: rgba(14,14,14,.92); border-top: 1px solid rgba(255,255,255,.10);
+    color: #fff; font-weight: 700; font-size: 21px; letter-spacing: .1em; text-transform: uppercase; }
+  #ticker { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; transition: opacity .6s ease; }
+  .tk svg.gem { color: var(--gold); }
+  svg.gem { display: inline-block; width: .42em; height: .42em; vertical-align: middle; transform: translateY(-.05em); margin: 0 .5em; color: var(--gold); }
+
+  /* ---------- Centred scenes: Starting Soon and Thanks for Watching ---------- */
+  .centre-main { position: absolute; left: 110px; right: 110px; top: 70px; bottom: 96px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .centre-main .lockup { --s: .44; margin-bottom: 30px; }
+  .centre-main .stack { margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .centre-main .kicker { margin-top: 0; }
+  .centre-main h1 { margin-top: 18px; font-size: 150px; }
+  .centre-main h1.two { font-size: 120px; }
+  .centre-main .where { margin-top: 30px; }
+  .centre-main .message { margin-top: 30px; }
+  .centre-main .card { margin-top: 30px; }
+  .centre-main .maps { margin-top: 30px; width: 1180px; }
+  .centre-main .hosted { margin-top: 8px; }
+
+  /* ---------- Be Right Back: the schedule card ---------- */
+  .left-main { position: absolute; left: 110px; top: 84px; bottom: 96px; width: 1700px; display: flex; flex-direction: column; }
+  body.promo-card .left-main { width: 1040px; }
+  .left-main .head { display: flex; align-items: center; justify-content: space-between; gap: 30px; margin-bottom: 30px; }
+  .left-main .lockup { --s: .4; }
+  .left-main .head img { height: 96px; width: auto; max-width: 420px; object-fit: contain; display: block; }
+  .left-main .stack { margin: auto 0; display: flex; flex-direction: column; align-items: flex-start; }
+  .left-main .kicker { font-size: 34px; }
+  .left-main h1 { margin-top: 14px; font-size: 112px; white-space: nowrap; }
+  .left-main .where { margin-top: 22px; font-size: 30px; }
+  .left-main .message { margin-top: 26px; font-size: 30px; }
+  .left-main .card { margin-top: 26px; }
+  .left-main .maps { margin-top: 26px; }
+  .left-main .maps .m { grid-template-columns: 110px 1fr 170px 210px; font-size: 26px; height: 48px; }
+
+  /* Be Right Back: the Metroplex Major card on the right (its own brand: Major Gold on Midnight). */
+  .notice { text-transform: none; color: #8e97a8; font-family: 'Segoe UI', system-ui, sans-serif; font-weight: 400; font-size: 15px; line-height: 1.45; letter-spacing: 0; }
+  .mm-card { position: absolute; right: 110px; top: 84px; bottom: 96px; width: 600px; display: flex; flex-direction: column; }
+  .mm-box { position: relative; flex: 1; background: #11151A; border: 2px solid #F0B40D; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 30px 40px; box-sizing: border-box; gap: 16px; box-shadow: 0 0 60px rgba(240,180,13,.10); }
+  .mm-box::before { content: ''; position: absolute; inset: -2px; border-radius: 6px; box-shadow: 0 0 70px rgba(240,180,13,.32), inset 0 0 40px rgba(240,180,13,.08); opacity: 0; animation: glow-pulse 7s ease-in-out infinite; pointer-events: none; }
+  .mm-crown { width: 220px; height: auto; }
+  .mm-name { font-weight: 700; font-size: 50px; letter-spacing: .12em; line-height: 1; text-transform: uppercase; }
+  .mm-when { font-weight: 700; font-size: 24px; letter-spacing: .14em; text-transform: uppercase; color: #F0B40D; }
+  .mm-what { font-weight: 400; font-size: 22px; line-height: 1.35; color: #d7dbe2; max-width: 460px; }
+  .mm-count { display: flex; align-items: baseline; gap: 14px; text-transform: uppercase; }
+  .mm-count b { font-weight: 800; font-size: 80px; line-height: .9; color: #F0B40D; }
+  .mm-count span { font-weight: 700; font-size: 24px; letter-spacing: .16em; text-align: left; line-height: 1.15; }
+  .mm-reg { display: flex; align-items: center; gap: 22px; margin-top: 4px; }
+  .mm-qr { width: 160px; height: 160px; background: #fff; padding: 10px; box-sizing: border-box; flex: none; }
+  .mm-qr img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  .mm-reg-cap { text-align: left; font-weight: 700; font-size: 22px; letter-spacing: .14em; text-transform: uppercase; line-height: 1.35; }
+  .mm-reg-cap b { display: block; color: #F0B40D; font-size: 26px; letter-spacing: .06em; text-transform: none; }
+  .mm-card .notice { margin-top: 12px; }
+</style>
+<link rel="stylesheet" href="/motion.css">
+<script src="/theme.js"></script>
+</head>
+<body>
+  <div id="photo" class="screen-photo" hidden></div>
+  <div class="dots"></div>
+  <div class="glow"></div>
+
+  <!-- Starting Soon and Thanks for Watching -->
+  <div id="centre" class="centre-main" hidden>
+    <div class="lockup" data-lockup></div>
+    <div class="stack">
+      <div class="kicker" data-kicker></div>
+      <h1 class="gleam" data-title></h1>
+      <div class="where" data-where></div>
+      <div class="message" data-message></div>
+      <div class="card" data-now><div class="tile sheen"><span><i class="live-dot" data-dot hidden></i><span data-tag>Up next</span></span></div><div class="body"><div class="vsline"><span data-p1></span><span class="vs">vs</span><span data-p2></span></div><div class="round" data-round></div></div></div>
+      <div class="maps" data-maps></div>
+    </div>
+    <div class="hosted" data-hosted><span>Hosted by</span><img alt=""></div>
+  </div>
+
+  <!-- Be Right Back -->
+  <div id="left" class="left-main" hidden>
+    <div class="head"><div class="lockup" data-lockup></div><img data-host-head alt=""></div>
+    <div class="stack">
+      <div class="kicker" data-kicker></div>
+      <h1 class="gleam" data-title></h1>
+      <div class="where" data-where></div>
+      <div class="message" data-message></div>
+      <div class="card" data-now><div class="tile sheen"><span><i class="live-dot" data-dot hidden></i><span data-tag>Up next</span></span></div><div class="body"><div class="vsline"><span data-p1></span><span class="vs">vs</span><span data-p2></span></div><div class="round" data-round></div></div></div>
+      <div class="maps" data-maps></div>
+    </div>
+  </div>
+
+  <div id="mm-card" class="mm-card" hidden>
+    <div class="mm-box">
+      <svg class="mm-crown" id="mm-crown" viewBox="-6 -39 201 132" aria-hidden="true">
+        <defs><linearGradient id="gf" x1="0" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#FFD75E"/><stop offset="0.55" stop-color="#F0B40D"/><stop offset="1" stop-color="#D29A08"/></linearGradient></defs>
+        <polygon fill="#6E4E04" points="11,17 20,8 33,8 61,36 89,8 100,-5 111,8 139,36 167,8 180,8 189,17 189,77 180,86 167,86 167,39 139,67 111,39 111,86 89,86 89,39 61,67 33,39 33,86 20,86 11,77"/>
+        <polygon fill="#D9A50A" points="22,0 50,28 61,36 33,8"/><polygon fill="#D9A50A" points="89,-13 100,0 111,8 100,-5"/><polygon fill="#D9A50A" points="100,0 128,28 139,36 111,8"/><polygon fill="#D9A50A" points="169,0 178,9 189,17 180,8"/>
+        <polygon fill="#B07F06" points="178,9 178,69 189,77 189,17"/><polygon fill="#966905" points="178,69 169,78 180,86 189,77"/><polygon fill="#7E5804" points="169,78 156,78 167,86 180,86"/><polygon fill="#966905" points="156,31 128,59 139,67 167,39"/><polygon fill="#B07F06" points="100,31 100,78 111,86 111,39"/><polygon fill="#7E5804" points="100,78 78,78 89,86 111,86"/><polygon fill="#966905" points="78,31 50,59 61,67 89,39"/><polygon fill="#B07F06" points="22,31 22,78 33,86 33,39"/><polygon fill="#7E5804" points="22,78 9,78 20,86 33,86"/>
+        <polygon fill="url(#gf)" points="0,9 9,0 22,0 50,28 78,0 89,-13 100,0 128,28 156,0 169,0 178,9 178,69 169,78 156,78 156,31 128,59 100,31 100,78 78,78 78,31 50,59 22,31 22,78 9,78 0,69"/>
+        <polygon fill="#6E4E04" points="26.5,-9 32.5,-3 26.5,3 20.5,-3"/><polygon fill="#D9A50A" points="15.5,-17 21.5,-11 32.5,-3 26.5,-9"/><polygon fill="#966905" points="21.5,-11 15.5,-5 26.5,3 32.5,-3"/><polygon fill="url(#gf)" points="15.5,-17 21.5,-11 15.5,-5 9.5,-11"/>
+        <polygon fill="#6E4E04" points="100,-24.5 107.5,-17 100,-9.5 92.5,-17"/><polygon fill="#D9A50A" points="89,-32.5 96.5,-25 107.5,-17 100,-24.5"/><polygon fill="#966905" points="96.5,-25 89,-17.5 100,-9.5 107.5,-17"/><polygon fill="url(#gf)" points="89,-32.5 96.5,-25 89,-17.5 81.5,-25"/>
+        <polygon fill="#6E4E04" points="173.5,-9 179.5,-3 173.5,3 167.5,-3"/><polygon fill="#D9A50A" points="162.5,-17 168.5,-11 179.5,-3 173.5,-9"/><polygon fill="#966905" points="168.5,-11 162.5,-5 173.5,3 179.5,-3"/><polygon fill="url(#gf)" points="162.5,-17 168.5,-11 162.5,-5 156.5,-11"/>
+        </svg>
+      <div class="mm-name">Metroplex Major</div>
+      <div id="mm-when" class="mm-when"></div>
+      <div class="mm-what">A Super Smash Bros. Ultimate weekend with FGC side brackets</div>
+      <div id="mm-count" class="mm-count" hidden><b id="mm-days"></b><span id="mm-days-label"></span></div>
+      <div class="mm-reg">
+        <div class="mm-qr"><img src="/mm-register.svg" alt=""></div>
+        <div class="mm-reg-cap">Register now<b id="mm-register"></b></div>
+      </div>
+    </div>
+    <div id="mm-card-notice" class="notice"></div>
+  </div>
+
+  <div class="tk"><span id="ticker"></span></div>
+  <div class="unity sheen"></div>
+<script src="/mm.js"></script>
+<script src="/conf.js"></script>
+<script>
+(() => {
+  'use strict';
+  const $ = (sel) => document.querySelector(sel);
+  const params = new URLSearchParams(location.search);
+  const scene = params.get('scene') || '';
+  const SCENE_TITLES = { starting: 'Starting Soon', brb: 'Be Right Back', end: 'Thanks for Watching' };
+  // Be Right Back is the schedule card; Starting Soon, the end screen and a bare /slate are centred.
+  const centred = scene !== 'brb';
+  const root = centred ? $('#centre') : $('#left');
+  root.hidden = false;
+  document.body.classList.toggle('centre', centred);
+  const q = (k) => root.querySelector(`[data-${k}]`);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // The season's two year digits flank the mark (2026-27 shows 20 and 26 from August through July).
+  const now = new Date();
+  const seasonYear = String(now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1);
+  q('lockup').innerHTML = `<div class="mw">${window.CONF.mark()}<div class="yr a">${seasonYear.slice(0, 2)}</div><div class="yr b">${seasonYear.slice(2)}</div></div><div class="wd"><div class="l1">Texas Esports</div><div class="l1">Conference</div><div class="l3" data-season></div></div>`;
+  window.MM.shine(q('lockup').querySelector('svg'), 'polygon', { delay: 0.5, every: 8 });
+  const crown = $('#mm-crown');
+  if (crown) window.MM.shine(crown, 'polygon[fill="url(#gf)"]', { delay: 3, every: 7 });
+  const dateLine = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  let S = null;
+  let ticker = null;
+  function settings() {
+    const b = (S && S.branding) || {};
+    const c = b.conf || {};
+    return { b, c, title: c.title || 'Fall Finals', season: c.season ?? 'Fall Mini-Season', venue: c.venue || '', game: c.game || '' };
+  }
+  // The crawl's lines: the event, the set on the station, the typed message, the site, then the Major's own
+  // lines while its promo is on (they carry its Nintendo notice and license).
+  function tickerLines() {
+    if (!S) return [];
+    const { c, title, venue, game } = settings();
+    const lines = [`Texas Esports Conference ◆ ${title}`];
+    if (venue) lines.push(venue);
+    if (game) lines.push(game);
+    const cur = S.current || {};
+    if (cur.p1 && cur.p2) lines.push(`${S.rec && S.rec.active ? 'On now' : 'Up next'} ◆ ${cur.p1} vs ${cur.p2}${cur.round ? ` ◆ ${cur.round}` : ''}`);
+    const msg = (S.screens && S.screens.message) || '';
+    if (msg) lines.push(msg);
+    lines.push('texasesports.org');
+    if (c.promo !== false) lines.push(...window.MM.lines(S));
+    return lines;
+  }
+  function render() {
+    if (!S) return;
+    const { b, c, title, season, venue, game } = settings();
+    // The station left the Conference theme: /slate now serves that theme's screen, so load it.
+    if (b.theme && b.theme !== 'conf') { location.reload(); return; }
+    document.documentElement.classList.toggle('still', b.motion === false);
+    // Settings, Stream screens: the station's own event photo behind Be Right Back.
+    const photo = scene === 'brb' ? b.photo || '' : '';
+    const ph = $('#photo');
+    ph.hidden = !photo;
+    if (photo && ph.dataset.src !== photo) { ph.dataset.src = photo; ph.style.backgroundImage = `url("${photo}")`; }
+    if (!ticker) ticker = window.MM.bar($('#ticker'), tickerLines);
+    ticker.set(b.motion !== false);
+    const promo = c.promo !== false;
+    const cur = S.current || {};
+    const live = !!(cur.p1 && cur.p2) && scene !== 'end';
+
+    q('season').textContent = season;
+    q('season').hidden = !season;
+    q('kicker').innerHTML = window.MM.gems([title, dateLine].join(' ◆ '));
+    const headline = params.get('title') || SCENE_TITLES[scene] || title;
+    q('title').textContent = headline;
+    q('title').classList.toggle('two', centred && headline.length > 14);
+    if (centred && headline.length > 14) q('title').innerHTML = esc(headline).replace(/^(.{1,12}) /, '$1<br>');
+    const where = venue || game;
+    q('where').textContent = where;
+    q('where').hidden = !where;
+    const msg = (S.screens && S.screens.message) || '';
+    q('message').textContent = msg;
+    // The end screen gives the message's room to the maps when a series was played.
+    q('message').hidden = !msg || (scene === 'end' && !!(S.series && S.series.maps.some((m) => m.winner || m.map || m.mode)));
+
+    // Settings, Look and games: the host's logo, in the Hosted by block or at the top right of BRB.
+    const host = (b.logos || {}).conf || '';
+    const hosted = q('hosted');
+    if (hosted) {
+      hosted.hidden = !host;
+      const img = hosted.querySelector('img');
+      if (host && img.getAttribute('src') !== host) img.src = host;
+    }
+    const head = q('host-head');
+    if (head) {
+      head.hidden = !host;
+      if (host && head.getAttribute('src') !== host) head.src = host;
+    }
+
+    // Team games: the maps so far and the next one, on BRB and the end screen.
+    const sr = S.series;
+    const played = sr ? sr.maps.filter((m) => m.winner || m.map || m.mode) : [];
+    const showMaps = !!(sr && played.length && (scene === 'brb' || scene === 'end'));
+    // The set on the station: "On now" while recording, "Up next" once picked. With the maps showing, the
+    // card gives way to them on the end screen.
+    const showCard = live && !(scene === 'end' && showMaps);
+    q('now').hidden = !showCard;
+    if (showCard) {
+      q('tag').textContent = S.rec && S.rec.active ? 'On now' : 'Up next';
+      q('dot').hidden = !(S.rec && S.rec.active);
+      const score = sr && (cur.score1 || cur.score2) ? [` <span class="sc">${cur.score1 || 0}</span>`, `<span class="sc">${cur.score2 || 0}</span> `] : ['', ''];
+      q('p1').innerHTML = esc(cur.p1) + score[0];
+      q('p2').innerHTML = score[1] + esc(cur.p2);
+      const crews = b.crews && b.crews.enabled;
+      q('round').textContent = [cur.round, crews ? 'Crew battle' : ''].filter(Boolean).join('  /  ');
+    }
+    const maps = q('maps');
+    maps.hidden = !showMaps;
+    if (showMaps) {
+      const names = [cur.p1 || 'Team 1', cur.p2 || 'Team 2'];
+      maps.innerHTML = played.slice(0, scene === 'brb' ? 5 : 7).map((m, i) => `<div class="m${m.winner ? '' : ' next'}"><span class="no">Map ${i + 1}</span><span class="nm">${esc(m.map || 'To be picked')}</span><span class="md">${esc(m.mode || '')}</span><span class="wn">${m.winner === 'draw' ? 'Draw' : m.winner ? esc(names[m.winner - 1]) : 'Next'}</span></div>`).join('');
+    }
+
+    // Metroplex Major: its card on BRB while the promo is on (the crawl carries it on the other two).
+    const card = promo && scene === 'brb';
+    document.body.classList.toggle('promo-card', card);
+    $('#mm-card').hidden = !card;
+    if (card) {
+      const mm = b.mm || {};
+      const days = window.MM.daysTo(mm.start);
+      $('#mm-when').innerHTML = window.MM.gems('Feb 5-7, 2027 ◆ UNT Dallas');
+      $('#mm-count').hidden = days < 1;
+      $('#mm-days').textContent = String(days);
+      $('#mm-days-label').innerHTML = `${days === 1 ? 'Day' : 'Days'}<br>to go`;
+      $('#mm-register').textContent = mm.register || 'start.gg/metroplex';
+      $('#mm-card-notice').innerHTML = window.MM.gems(`Metroplex Major: Nintendo is not a sponsor of or affiliated with this tournament. Terms for participating in and viewing Licensed Tournaments using Nintendo Games: https://en-americas-support.nintendo.com/app/answers/detail/a_id/63454. Tournament license ${mm.license || ''}`);
+    }
+
+    // A headline typed with ?title= shrinks to fit its column.
+    const h1 = q('title');
+    h1.style.fontSize = '';
+    let hs = parseFloat(getComputedStyle(h1).fontSize);
+    while (hs > 60 && h1.scrollWidth > h1.parentElement.clientWidth) { hs -= 4; h1.style.fontSize = `${hs}px`; }
+    // Long names shrink until both fit beside "vs".
+    if (showCard) {
+      const line = q('now').querySelector('.vsline');
+      const room = (centred ? 1300 : (card ? 1040 : 1700)) - 176 - 70;
+      let size = 46;
+      line.style.fontSize = `${size}px`;
+      while (size > 24 && line.scrollWidth > room) { size -= 2; line.style.fontSize = `${size}px`; }
+    }
+  }
+  let loadedVersion = '';
+  const es = new EventSource('/api/events');
+  es.addEventListener('state', (ev) => {
+    S = JSON.parse(ev.data);
+    if (S.version && loadedVersion && S.version !== loadedVersion) { location.reload(); return; }
+    loadedVersion = loadedVersion || S.version || '';
+    render();
+  });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+  if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', render);
+})();
+</script>
+</body>
+</html>

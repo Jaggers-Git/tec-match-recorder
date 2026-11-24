@@ -258,6 +258,9 @@ function confSettings() {
     title: String(c.title || '').trim() || 'Fall Finals',
     game: String(c.game ?? 'Smash Ultimate, Overwatch, Marvel Rivals').trim(),
     promo: c.promo !== false,
+    // The line under the lockup (the season, in gold) and the venue line under the headline.
+    season: String(c.season ?? 'Fall Mini-Season').trim(),
+    venue: String(c.venue || '').trim(),
   };
 }
 // Collegiate and Conference share their screen layouts; each brings its own art and colours.
@@ -1620,6 +1623,8 @@ function updateConfig(body) {
         title: String(c.title || '').trim().slice(0, 40) || 'Fall Finals',
         game: String(c.game ?? '').trim().slice(0, 60),
         promo: c.promo !== false,
+        season: String(c.season ?? 'Fall Mini-Season').trim().slice(0, 40),
+        venue: String(c.venue ?? '').trim().slice(0, 60),
       };
     })(),
     col: (() => {
@@ -1917,7 +1922,7 @@ function serveStatic(res, pathname, url) {
       res.end(data);
     });
   }
-  const rel = pathname === '/' ? 'index.html' : pathname === '/train' ? 'train.html' : pathname === '/overlay' ? 'overlay.html' : pathname === '/slate' ? (collegiateStyle() ? 'collegiate.html' : 'slate.html') : pathname === '/casters' ? 'casters.html' : pathname === '/replay' ? 'replay.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
+  const rel = pathname === '/' ? 'index.html' : pathname === '/train' ? 'train.html' : pathname === '/overlay' ? 'overlay.html' : pathname === '/slate' ? (themeId() === 'conf' ? 'conference.html' : collegiateStyle() ? 'collegiate.html' : 'slate.html') : pathname === '/casters' ? 'casters.html' : pathname === '/replay' ? 'replay.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
   const file = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!file.startsWith(PUBLIC_DIR)) return sendJson(res, 403, { error: 'forbidden' });
   fs.readFile(file, (err, data) => {
