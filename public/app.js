@@ -235,6 +235,64 @@
   $('#live-hide').checked = store.get(LIVE_HIDE_KEY) === '1';
   $('#live-hide').addEventListener('change', () => { store.set(LIVE_HIDE_KEY, $('#live-hide').checked ? '1' : '0'); renderLive(); });
   document.addEventListener('visibilitychange', () => renderLive());
+  // Smooth picture (this device only): Program from OBS's Virtual Camera, played like a webcam at full frame
+  // rate and resolution, about a frame behind, with no snapshots asked of OBS. The camera is a device of the OBS
+  // PC and browsers only open cameras on secure pages (http://localhost counts), so it works in a browser on that
+  // PC; anywhere else, or until the camera runs, the snapshots carry on. The camera shows whatever OBS sends it
+  // (Program unless its output type was changed in OBS).
+  const LIVE_SMOOTH_KEY = 'tec.liveSmooth';
+  const smooth = { stream: null, starting: false, note: '' };
+  $('#live-smooth').checked = store.get(LIVE_SMOOTH_KEY) === '1';
+  const camPossible = () => !!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  $('#live-smooth').addEventListener('change', async () => {
+    store.set(LIVE_SMOOTH_KEY, $('#live-smooth').checked ? '1' : '0');
+    smooth.note = '';
+    if ($('#live-smooth').checked && camPossible() && S && S.sw.connected && !S.sw.virtualCam) {
+      try { await api('POST', '/api/virtualcam/start'); } catch (e) { toast(e.message, { error: true }); }
+    }
+    renderLive();
+  });
+  async function findVirtualCam() {
+    const pick = (list) => list.find((d) => d.kind === 'videoinput' && /obs virtual cam/i.test(d.label));
+    let devs = await navigator.mediaDevices.enumerateDevices();
+    if (!pick(devs) && !devs.some((d) => d.kind === 'videoinput' && d.label)) {
+      // Camera names only show once the browser has camera permission: ask once, then look again.
+      const s = await navigator.mediaDevices.getUserMedia({ video: true });
+      s.getTracks().forEach((t) => t.stop());
+      devs = await navigator.mediaDevices.enumerateDevices();
+    }
+    return pick(devs) || null;
+  }
+  async function startSmooth() {
+    if (smooth.stream || smooth.starting) return;
+    smooth.starting = true;
+    try {
+      const cam = await findVirtualCam();
+      if (!cam) { smooth.note = 'OBS Virtual Camera is not on this PC'; return; }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cam.deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } } });
+      if (!wantSmooth) { stream.getTracks().forEach((t) => t.stop()); return; }
+      smooth.stream = stream;
+      smooth.note = '';
+      const v = $('#live-program-video');
+      v.srcObject = stream;
+      v.hidden = false;
+      v.play().catch(() => {});
+      stream.getVideoTracks()[0].addEventListener('ended', () => { stopSmooth(); renderLive(); });
+    } catch (e) {
+      smooth.note = e && e.name === 'NotAllowedError' ? 'camera permission was refused in this browser' : (e && e.message) || 'the camera did not open';
+    } finally {
+      smooth.starting = false;
+      renderLive();
+    }
+  }
+  function stopSmooth() {
+    if (smooth.stream) smooth.stream.getTracks().forEach((t) => t.stop());
+    smooth.stream = null;
+    const v = $('#live-program-video');
+    v.srcObject = null;
+    v.hidden = true;
+  }
+  let wantSmooth = false;
   function setLive(which, on) {
     const L = liveLoop[which];
     if (on === L.on) return;
@@ -275,7 +333,13 @@
     const canShow = o.connected && o.snapshots;
     const hasPreview = vm ? !!o.preview : !!o.studioMode;
     const want = modeNow() === 'broadcast' && !hidden && !document.hidden && canShow;
-    setLive('program', want);
+    // Smooth picture: the Virtual Camera replaces the Program snapshots once it plays.
+    $('#live-smooth').closest('label').hidden = vm;
+    const smoothPicked = !vm && $('#live-smooth').checked;
+    wantSmooth = want && smoothPicked && camPossible() && !!o.virtualCam && !smooth.note;
+    if (wantSmooth) startSmooth(); else stopSmooth();
+    const smoothOn = wantSmooth && !!smooth.stream;
+    setLive('program', want && !smoothOn);
     setLive('preview', want && hasPreview);
     $('#live-preview-wrap').hidden = !hasPreview;
     $('#live-views').classList.toggle('single', !hasPreview);
@@ -288,7 +352,12 @@
     $('#live-status').textContent = err ? `Picture: ${err}`
       : !canShow ? ''
         : !vm && !o.studioMode && toPreview ? 'Studio Mode is off in OBS, so the scene buttons have no Preview to load'
-          : vm ? 'About one frame a second, no sound' : 'About a quarter second behind, no sound';
+          : vm ? 'About one frame a second, no sound'
+            : smoothPicked && !camPossible() ? 'Smooth picture works in a browser on the OBS PC; snapshots here'
+              : smoothPicked && smooth.note ? `Smooth picture: ${smooth.note}; snapshots instead`
+                : smoothPicked && !o.virtualCam ? 'Smooth picture: OBS\'s Virtual Camera is off (untick and tick to start it)'
+                  : smoothOn ? 'Program at full frame rate (OBS Virtual Camera), no sound'
+                    : 'About a quarter second behind, no sound';
   }
 
   // ---------- instant replay ----------

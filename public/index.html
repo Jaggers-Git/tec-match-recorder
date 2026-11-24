@@ -36,6 +36,7 @@
       <h2>Live output</h2>
       <span id="live-status" class="muted"></span>
       <span class="spacer"></span>
+      <label class="check small-check sw-obs-live" title="Program from OBS's Virtual Camera at full frame rate and resolution, on this device only. Works in a browser on the OBS PC; elsewhere the snapshots carry on"><input type="checkbox" id="live-smooth"> Smooth picture</label>
       <label class="check small-check" title="Stops the picture on this device only (saves work for OBS on a busy PC, and data on a phone)"><input type="checkbox" id="live-hide"> Hide picture</label>
     </div>
     <div id="live-views" class="live-views">
@@ -47,6 +48,7 @@
       </figure>
       <figure class="live-view program">
         <img id="live-program" alt="Program output">
+        <video id="live-program-video" muted playsinline autoplay hidden></video>
         <figcaption><b>Program</b> <span id="live-program-name"></span></figcaption>
         <div id="live-program-off" class="off" hidden></div>
       </figure>

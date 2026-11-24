@@ -621,6 +621,7 @@ class ObsClient {
     this.program = '';
     this.preview = '';
     this.studioMode = false;
+    this.virtualCam = false;   // OBS's Virtual Camera output, which the dashboard's Smooth picture plays
     this.canvas = { w: 1920, h: 1080 };
     this.scenes = [];   // every scene in the current collection, so the dashboard only offers buttons for real ones
     this.pending = new Map();
@@ -731,6 +732,10 @@ class ObsClient {
         else this.request('GetCurrentPreviewScene').then((p) => { this.preview = p.currentPreviewSceneName || ''; this.emit('event', { type: 'scene' }); }).catch(() => {});
         this.emit('event', { type: 'scene' });
         break;
+      case 'VirtualcamStateChanged':
+        this.virtualCam = !!data.outputActive;
+        this.emit('event', { type: 'scene' });
+        break;
       case 'ReplayBufferStateChanged':
         this.emit('event', { type: 'replay-state', state: outputState(data.outputState), active: !!data.outputActive });
         break;
@@ -762,6 +767,7 @@ class ObsClient {
     this.preview = '';
     if (this.studioMode) { try { this.preview = (await this.request('GetCurrentPreviewScene')).currentPreviewSceneName || ''; } catch { /* leave it */ } }
     try { const v = await this.request('GetVideoSettings'); this.canvas = { w: v.baseWidth || 1920, h: v.baseHeight || 1080 }; } catch { /* assume 1080p */ }
+    try { this.virtualCam = !!(await this.request('GetVirtualCamStatus')).outputActive; } catch { this.virtualCam = false; }
   }
   request(requestType, requestData = {}, timeoutMs = 15000) {
     return new Promise((resolve, reject) => {
@@ -1824,6 +1830,8 @@ function coreSnapshot() {
       recordDirectory: recordDirectory(), version: sw.version, lastError: sw.lastError, snapshots: sw.canSnapshot(),
       // What is live and what is cued: OBS scenes, or vMix inputs (vMix always has a Preview).
       program: sw.program || '', preview: sw.preview || '', studioMode: !!sw.studioMode,
+      // OBS's Virtual Camera is running (the dashboard's Smooth picture plays it on the OBS PC).
+      virtualCam: !!sw.virtualCam,
       // The OBS scenes (or vMix inputs) that exist, so scene buttons are only offered for those.
       scenes: sw.status === 'connected' ? sw.scenes || [] : [],
     },
@@ -2648,6 +2656,23 @@ async function handleDetectApi(route, req, res, url) {
       const body = await readBody(req);
       try { sendJson(res, 200, sw === vmix ? await installVmixOverlay(body.channel) : await installOverlay(String(body.scene || ''))); }
       catch (e) { sendJson(res, 400, { error: e.message }); }
+      return true;
+    }
+    // Smooth picture: starts OBS's Virtual Camera (it then runs until it is stopped in OBS, since other apps
+    // such as a Discord call may be using it too).
+    case 'POST /api/virtualcam/start': {
+      try {
+        if (switcherId() === 'vmix') throw new Error('Smooth picture uses OBS\'s Virtual Camera; with vMix the picture stays on snapshots');
+        const st = await obs.request('GetVirtualCamStatus');
+        // obs.virtualCam is already set while a start from a moment ago is still coming up in OBS.
+        if (!st.outputActive && !obs.virtualCam) {
+          await obs.request('StartVirtualCam');
+          log('OBS: Virtual Camera started for the Smooth picture');
+        }
+        obs.virtualCam = true;
+        broadcast();
+        sendJson(res, 200, { ok: true });
+      } catch (e) { sendJson(res, 409, { error: `OBS could not start its Virtual Camera: ${e.message}` }); }
       return true;
     }
     // "Add player cam to OBS" (Settings, Player cam): body.source picks the camera input.

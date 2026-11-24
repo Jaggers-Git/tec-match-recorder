@@ -167,6 +167,15 @@ across the top with the current set and the replay panel side by side under them
   quarter second behind, with no sound.
 - **Hide picture** stops it on that device, for a busy PC or a phone on thin Wi-Fi. Each picture uses roughly
   60 KB a second.
+- **Smooth picture** (OBS, this device only) plays Program from OBS's **Virtual Camera** instead: full frame rate and
+  resolution, about one frame behind, and no snapshots asked of OBS for Program. Ticking it starts the Virtual Camera
+  in OBS if it is off (it then runs until it is stopped in OBS, since another app, such as a Discord call carrying the
+  feed to remote casters, may be using it too). The browser asks once for camera permission. The camera is a device
+  of the OBS PC, and browsers only open cameras on a secure page (http://localhost counts), so it works in a browser
+  on the OBS PC; a phone or second laptop keeps the snapshots, and so does a page where the camera does not open.
+  Preview stays on snapshots, since OBS has one Virtual Camera. It shows whatever OBS sends it: Program, unless its
+  output type was changed in OBS (the gear beside Start Virtual Camera). The cost is OBS copying each output frame
+  off the graphics card for the camera, as it does for any webcam feed; the page's memory stays small.
 - vMix has no image feed in its API, so with vMix the picture comes from snapshots: 1 to 2 frames a second, and only
   when vMix runs on the recording PC.
 - With OBS Studio Mode's *Duplicate scene* option on, an edit made in Preview to the scene that is live can show in the
