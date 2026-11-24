@@ -336,6 +336,8 @@ function brandingInfo() {
     logo: logoUrl(id),
     logos: Object.fromEntries(Object.keys(THEMES).map((t) => [t, logoUrl(t)])),
     photo: photoUrl(),
+    // Settings, Team logos: every logo on this PC with its name and aliases.
+    teams: teamLogoList(),
     smashOnly: !!cfg.smashOnly,
     mm: mmSettings(),
     col: colSettings(),
@@ -393,6 +395,82 @@ function removePhoto() {
 }
 function removeLogo(id = themeId()) {
   for (const ext of Object.keys(LOGO_TYPES)) fs.rmSync(path.join(BRANDING_DIR, `${id}-logo.${ext}`), { force: true });
+  broadcast();
+}
+// ---------- team logos ----------
+// Logos for teams and crews (school marks for Overwatch, Marvel Rivals and Smash crews), kept on this PC only in
+// data/branding/teams/, never in the app's files, since each belongs to its school. Each has the name the station
+// gives it, with aliases after commas ("United, United High"). A set's team or crew name picks the logo whose name
+// or alias matches it (case, accents and punctuation ignored); failing that, the one logo whose name starts with
+// the team's name or the other way round ("United" and "United High", "Lubbock High School" and "Lubbock High").
+const TEAMS_DIR = path.join(BRANDING_DIR, 'teams');
+const TEAMS_INDEX = path.join(TEAMS_DIR, 'teams.json');
+const normTeam = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+let teamLogos = (() => {
+  const list = readJson(TEAMS_INDEX, []);
+  return (Array.isArray(list) ? list : []).filter((e) => e && e.file && !/[\\/]/.test(e.file) && fs.existsSync(path.join(TEAMS_DIR, e.file)))
+    .map((e) => ({ name: String(e.name || '').trim().slice(0, 120), file: e.file }));
+})();
+function saveTeamIndex() {
+  fs.mkdirSync(TEAMS_DIR, { recursive: true });
+  fs.writeFileSync(TEAMS_INDEX, JSON.stringify(teamLogos, null, 2));
+}
+function teamLogoUrl(e) {
+  let v = 0;
+  try { v = Math.round(fs.statSync(path.join(TEAMS_DIR, e.file)).mtimeMs); } catch { v = 0; }
+  return `/branding/teams/${encodeURIComponent(e.file)}?v=${v}`;
+}
+const teamAliases = (e) => String(e.name || '').split(',').map(normTeam).filter(Boolean);
+function teamLogoFor(name) {
+  const n = normTeam(name);
+  if (!n) return '';
+  let hit = teamLogos.find((e) => teamAliases(e).includes(n));
+  if (!hit) {
+    const loose = teamLogos.filter((e) => teamAliases(e).some((a) => a.startsWith(`${n} `) || n.startsWith(`${a} `)));
+    if (loose.length === 1) [hit] = loose;
+  }
+  return hit ? teamLogoUrl(hit) : '';
+}
+function teamLogoList() {
+  return teamLogos.map((e) => ({ name: e.name, file: e.file, url: teamLogoUrl(e) }));
+}
+// Adds a logo under a name, or replaces the picture of the logo already called that.
+function saveTeamLogo(buffer, contentType, rawName) {
+  const ext = Object.keys(LOGO_TYPES).find((k) => LOGO_TYPES[k] === String(contentType || '').split(';')[0].trim().toLowerCase());
+  if (!ext) throw new Error('Use a PNG, JPG or WebP image');
+  if (!buffer || buffer.length < 100) throw new Error('That image is empty');
+  const name = String(rawName || '').trim().slice(0, 120);
+  const first = normTeam(name.split(',')[0]);
+  if (!first) throw new Error('Give the logo the team or crew name it belongs to');
+  fs.mkdirSync(TEAMS_DIR, { recursive: true });
+  let entry = teamLogos.find((e) => normTeam(String(e.name).split(',')[0]) === first);
+  if (entry) fs.rmSync(path.join(TEAMS_DIR, entry.file), { force: true });
+  const base = first.replace(/ /g, '-').slice(0, 60);
+  let file = `${base}.${ext}`;
+  for (let i = 2; teamLogos.some((e) => e !== entry && e.file === file); i += 1) file = `${base}-${i}.${ext}`;
+  fs.writeFileSync(path.join(TEAMS_DIR, file), buffer);
+  if (entry) Object.assign(entry, { name, file });
+  else teamLogos.push((entry = { name, file }));
+  teamLogos.sort((a, b) => normTeam(a.name).localeCompare(normTeam(b.name)));
+  saveTeamIndex();
+  log(`Team logo saved for ${name} (${Math.round(buffer.length / 1024)} KB)`);
+  broadcast();
+}
+function renameTeamLogo(file, rawName) {
+  const entry = teamLogos.find((e) => e.file === file);
+  if (!entry) throw new Error('That logo is not on this PC any more');
+  const name = String(rawName || '').trim().slice(0, 120);
+  if (!normTeam(name.split(',')[0])) throw new Error('Give the logo the team or crew name it belongs to');
+  entry.name = name;
+  saveTeamIndex();
+  broadcast();
+}
+function removeTeamLogo(file) {
+  const entry = teamLogos.find((e) => e.file === file);
+  if (!entry) return;
+  fs.rmSync(path.join(TEAMS_DIR, entry.file), { force: true });
+  teamLogos = teamLogos.filter((e) => e !== entry);
+  saveTeamIndex();
   broadcast();
 }
 // Older configs had a single event URL and one global title suffix; fold them into the new shape.
@@ -1784,6 +1862,8 @@ function coreSnapshot() {
     // Team games: modes, map suggestions and header sizes, and the series on the current set.
     teamGames: teamGameInfo(),
     series: isTeamGame(state.current.game) ? seriesState(state.current) : null,
+    // The logos that match the current set's two names ('' where there is none), for every scoreboard.
+    teamLogos: { p1: teamLogoFor(state.current.p1), p2: teamLogoFor(state.current.p2) },
     version: APP_VERSION,
     update: updater.status(),
     overlay: { ...overlayCache, checkedAt: undefined },
@@ -1910,6 +1990,16 @@ function serveStatic(res, pathname, url) {
     return fs.readFile(file, (err, data) => {
       if (err) return sendJson(res, 404, { error: 'not found' });
       res.writeHead(200, { 'Content-Type': LOGO_TYPES[path.extname(file).slice(1)], 'Cache-Control': 'no-cache' });
+      res.end(data);
+    });
+  }
+  if (pathname.startsWith('/branding/teams/')) {
+    const name = decodeURIComponent(pathname.slice('/branding/teams/'.length));
+    const entry = teamLogos.find((e) => e.file === name);
+    if (!entry) return sendJson(res, 404, { error: 'No such team logo' });
+    return fs.readFile(path.join(TEAMS_DIR, entry.file), (err, data) => {
+      if (err) return sendJson(res, 404, { error: 'not found' });
+      res.writeHead(200, { 'Content-Type': LOGO_TYPES[path.extname(entry.file).slice(1)], 'Cache-Control': 'no-cache' });
       res.end(data);
     });
   }
@@ -3021,6 +3111,18 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: true, branding: brandingInfo() });
     case 'DELETE /api/branding/logo':
       removeLogo(themeParam(url));
+      return sendJson(res, 200, { ok: true, branding: brandingInfo() });
+    // Team logos: POST ?name= with the image as the body, PATCH { file, name } renames, DELETE ?file= removes.
+    case 'POST /api/team-logos':
+      try { saveTeamLogo(await readRawBody(req, 15 * 1048576), req.headers['content-type'], url.searchParams.get('name')); } catch (e) { return sendJson(res, 400, { error: e.message }); }
+      return sendJson(res, 200, { ok: true, branding: brandingInfo() });
+    case 'PATCH /api/team-logos': {
+      const b = await readBody(req);
+      try { renameTeamLogo(String(b.file || ''), b.name); } catch (e) { return sendJson(res, 400, { error: e.message }); }
+      return sendJson(res, 200, { ok: true, branding: brandingInfo() });
+    }
+    case 'DELETE /api/team-logos':
+      removeTeamLogo(String(url.searchParams.get('file') || ''));
       return sendJson(res, 200, { ok: true, branding: brandingInfo() });
     default:
       if (await handleReplayApi(route, req, res, url)) return undefined;

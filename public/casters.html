@@ -33,6 +33,10 @@
   #board .pt { width: 66px; background: #F0B40D; color: #11151A; font-size: 32px; }
   #board .cr { width: 92px; background: #1d232c; margin: 0 2px; }
   #board .cr svg { height: 64%; width: auto; transform: skewX(8deg); }
+  /* Logo tiles at the outer ends (Settings, Team logos): a light tile with the logo, or the team's initials. */
+  #board .lg { width: 62px; background: #f3f4f6; color: #0E0E0E; font-size: 22px; }
+  #board .lg img { width: 84%; height: 84%; object-fit: contain; display: block; transform: skewX(8deg); }
+  :root[data-theme="col"] #board .lg img, :root[data-theme="conf"] #board .lg img { transform: none; }
   #round { position: absolute; transform: translateX(-50%) skewX(-8deg); background: #F0B40D; color: #11151A; font-size: 17px; letter-spacing: .12em; padding: 6px 18px; white-space: nowrap; }
   #headline { position: absolute; transform: translateX(-50%); font-size: 46px; letter-spacing: .14em; white-space: nowrap; }
   /* caster name cards under the camera */
@@ -129,11 +133,13 @@
   <div id="frame-cam" class="frame"></div>
   <div id="frame-player" class="frame" hidden></div>
   <div id="board" hidden>
+    <div id="lg1" class="seg lg" hidden><img alt=""><span></span></div>
     <div id="n1" class="seg nm"><span></span></div>
     <div id="s1" class="seg pt"><span></span></div>
     <div id="crest" class="seg cr"><svg viewBox="-6 -38 190 128" aria-hidden="true"><g fill="#F0B40D"><polygon points="0,9 9,0 22,0 50,28 78,0 89,-13 100,0 128,28 156,0 169,0 178,9 178,69 169,78 156,78 156,31 128,59 100,31 100,78 78,78 78,31 50,59 22,31 22,78 9,78 0,69"/><polygon points="15.5,-15 21.5,-9 15.5,-3 9.5,-9"/><polygon points="89,-32.5 96.5,-25 89,-17.5 81.5,-25"/><polygon points="162.5,-15 168.5,-9 162.5,-3 156.5,-9"/></g></svg></div>
     <div id="s2" class="seg pt"><span></span></div>
     <div id="n2" class="seg nm"><span></span></div>
+    <div id="lg2" class="seg lg" hidden><img alt=""><span></span></div>
   </div>
   <div id="round" hidden><span></span></div>
   <div id="headline" hidden>Metroplex Major</div>
@@ -178,6 +184,13 @@
     let size = max;
     el.style.fontSize = px(size);
     while (size > 12 && el.scrollWidth > room) { size -= 1; el.style.fontSize = px(size); }
+  }
+  // A team without a logo shows its initials on its tile (Cigarroa = CIG, United Varsity = UV).
+  function initials(name) {
+    const words = String(name || '').replace(/[^\p{L}\p{N}&' ]/gu, ' ').split(/\s+/).filter(Boolean);
+    if (!words.length) return '?';
+    if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+    return words.map((w) => w[0]).join('').slice(0, 4).toUpperCase();
   }
   // The Metroplex Major artwork this page starts with, put back if the station leaves the Collegiate theme.
   const MM_ART = { crest: $('#crest').innerHTML, lockup: $('#lockup-art').innerHTML };
@@ -232,6 +245,20 @@
       for (const side of [1, 2]) {
         fit($(`#n${side} span`), c[`p${side}`], 26, 300);
         $(`#s${side} span`).textContent = String(c[`score${side}`] || 0);
+      }
+      // Logo tiles (Settings, Team logos): both sides get one when either has a logo, so the board stays centred.
+      const logos = S.teamLogos || {};
+      const anyLogo = !!(logos.p1 || logos.p2);
+      for (const side of [1, 2]) {
+        const lg = $(`#lg${side}`);
+        lg.hidden = !anyLogo;
+        if (!anyLogo) continue;
+        const url = logos[`p${side}`] || '';
+        const im = lg.querySelector('img');
+        im.hidden = !url;
+        if (url && im.getAttribute('src') !== url) im.src = url;
+        lg.querySelector('span').hidden = !!url;
+        lg.querySelector('span').textContent = url ? '' : initials(c[`p${side}`]);
       }
       const bestOf = Number(c.bestOf) || 1;
       const crews = !!(S.branding && S.branding.crews && S.branding.crews.enabled);

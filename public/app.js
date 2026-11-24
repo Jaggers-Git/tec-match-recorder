@@ -746,6 +746,13 @@
       }
       $('#btn-swap').title = crews ? 'Swap Crew 1 and Crew 2 (names, stocks and characters)' : 'Swap Player 1 and Player 2 (names and characters)';
     }
+    // The matched team logos beside the names (Settings, Team logos).
+    for (const side of [1, 2]) {
+      const im = $(`#tl${side}`);
+      const url = (S.teamLogos || {})[`p${side}`] || '';
+      im.hidden = !url;
+      if (url && im.getAttribute('src') !== url) im.src = url;
+    }
     // Game-win pips for Bo3/Bo5 (tap a pip to set the count; tap the last lit pip to undo).
     const bestOf = Number(c.bestOf) || 1;
     const need = bestOf === 5 ? 3 : bestOf === 3 ? 2 : 0;
@@ -1240,6 +1247,7 @@
     set('branding.conf.promo', confCfg.promo !== false);
     set('branding.motion', !(c.branding && c.branding.motion === false));
     renderPhotoStatus();
+    renderTeamLogos();
     const crewCfg = c.crews || {};
     set('crews.enabled', !!crewCfg.enabled);
     set('crews.stocks', crewCfg.stocks || 12);
@@ -1408,6 +1416,54 @@
       S.branding = data.branding;
       renderLogoStatus();
       toast('Logo saved.');
+    } catch (e) { toast(e.message, { error: true }); }
+  });
+  // ---------- team logos (Settings, Team logos) ----------
+  // One row per logo: the picture, its name (aliases after commas, saved when the box loses focus) and Remove.
+  function renderTeamLogos() {
+    const list = (S && S.branding && S.branding.teams) || [];
+    const box = $('#team-logos');
+    const key = list.map((t) => `${t.file}|${t.url}|${t.name}`).join('\n');
+    if (box.dataset.key === key) return;
+    box.dataset.key = key;
+    box.innerHTML = list.length ? list.map((t) => `<div class="tl-row"><img src="${esc(t.url)}" alt=""><input type="text" maxlength="120" value="${esc(t.name)}" data-file="${esc(t.file)}" aria-label="Team name and aliases"><button type="button" class="small" data-remove="${esc(t.file)}">Remove</button></div>`).join('')
+      : '<div class="muted">No team logos on this PC yet.</div>';
+  }
+  // A file name as a team name: "united-high-web.png" becomes "United High".
+  const nameFromFile = (f) => f.replace(/\.[a-z0-9]+$/i, '').replace(/[-_ ](web|logo)$/i, '').replace(/[-_]+/g, ' ').trim()
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+  $('#team-logo-files').addEventListener('change', async () => {
+    const files = [...$('#team-logo-files').files];
+    $('#team-logo-files').value = '';
+    let saved = 0;
+    for (const file of files) {
+      try {
+        const res = await fetch(`/api/team-logos?name=${encodeURIComponent(nameFromFile(file.name))}`, { method: 'POST', headers: { 'Content-Type': file.type }, body: file });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`);
+        S.branding = data.branding;
+        saved += 1;
+      } catch (e) { toast(`${file.name}: ${e.message}`, { error: true }); }
+    }
+    renderTeamLogos();
+    if (saved) toast(`${saved} team logo${saved === 1 ? '' : 's'} saved.`);
+  });
+  $('#team-logos').addEventListener('change', async (ev) => {
+    const input = ev.target.closest('input[data-file]');
+    if (!input) return;
+    try {
+      const r = await api('PATCH', '/api/team-logos', { file: input.dataset.file, name: input.value });
+      S.branding = r.branding;
+      renderTeamLogos();
+    } catch (e) { toast(e.message, { error: true }); }
+  });
+  $('#team-logos').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-remove]');
+    if (!btn) return;
+    try {
+      const r = await api('DELETE', `/api/team-logos?file=${encodeURIComponent(btn.dataset.remove)}`);
+      S.branding = r.branding;
+      renderTeamLogos();
     } catch (e) { toast(e.message, { error: true }); }
   });
   // ---------- Be Right Back photo (Settings, Stream screens) ----------

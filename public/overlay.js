@@ -323,6 +323,24 @@
       span.textContent = String(demo ? (crews ? (side === 1 ? full : full - 3) : (side === 1 ? 2 : 1)) : c[`score${side}`] || 0);
       span.style.fontSize = px(g.scoreSize);
     }
+    // Logo tiles at the outer ends (Settings, Team logos). When either side has a logo both get a tile (the
+    // other shows its initials), so the mark stays in the middle of the screen.
+    const logos = demo ? {} : (S.teamLogos || {});
+    const anyLogo = !!(logos.p1 || logos.p2);
+    for (const side of [1, 2]) {
+      const lg = $(`#col-l${side}`);
+      lg.hidden = !anyLogo;
+      if (!anyLogo) continue;
+      lg.style.width = px(g.h);
+      const url = logos[`p${side}`] || '';
+      const im = lg.querySelector('img');
+      im.hidden = !url;
+      if (url && im.getAttribute('src') !== url) im.src = url;
+      const sp = lg.querySelector('span');
+      sp.hidden = !!url;
+      sp.textContent = url ? '' : teamTag(c[`p${side}`]);
+      sp.style.fontSize = px(Math.round(g.h * 0.36));
+    }
     const mk = $('#col-mk');
     mk.style.width = px(g.mark);
     const art = b.theme === 'conf' ? 'conf' : 'col';
@@ -439,8 +457,14 @@
     for (const n of [1, 2]) {
       const el = $(`#tm-${n}`);
       const mark = el.querySelector('.tm-mark');
-      const tag = teamTag(names[n - 1]);
-      if (mark.dataset.tag !== tag) { mark.dataset.tag = tag; mark.innerHTML = `<span>${escHtml(tag)}</span>`; }
+      // The team's logo (Settings, Team logos) on a light tile, else its initials.
+      const logo = demo ? '' : ((S.teamLogos || {})[`p${n}`] || '');
+      const key = logo || `tag:${teamTag(names[n - 1])}`;
+      if (mark.dataset.key !== key) {
+        mark.dataset.key = key;
+        mark.classList.toggle('logo', !!logo);
+        mark.innerHTML = logo ? `<img src="${escHtml(logo)}" alt="">` : `<span>${escHtml(teamTag(names[n - 1]))}</span>`;
+      }
       fitIn(el.querySelector('.tm-name'), escHtml(names[n - 1]), 28, 14);
       const won = Number(c[`score${n}`]) || 0;
       el.querySelector('.tm-pips').innerHTML = firstTo > 1 ? Array.from({ length: firstTo }, (_, i) => `<i class="${i < won ? 'on' : ''}"></i>`).join('') : '';

@@ -339,6 +339,22 @@ y 54) for Control and Flashpoint. Marvel Rivals uses the one-line header until i
 differently, the **↑ ↓** buttons in the Maps section move that mode's header a few pixels (saved per game and mode
 in `data/config.json`, `overlay.team.nudge`; `<game>:plates` there moves the plates).
 
+### Team logos
+
+Settings, **Team logos**: **Add logos…** takes one or more images (PNG with a transparent background looks best),
+and each file's name becomes the team name ("united-high-web.png" becomes *United High*); change it in the list, with
+aliases after commas ("KIPP Texas, KIPP Pleasant Grove"). A set's team or crew name picks the logo whose name or
+alias matches it, ignoring case, accents and punctuation; failing that, the one logo whose name starts with the
+team's name or the other way round ("United" finds *United High*, "Lubbock High School" finds *Lubbock High*).
+
+- The logo sits on a light tile, so dark marks read on every theme: in the team's plate on the Overwatch and Marvel
+  Rivals overlay (in place of its initials), at the outer ends of the Collegiate and Conference scoreboard and of the
+  Casters scoreboard, beside the names on the screens' up-next card, and beside the name boxes in the dashboard.
+- On the scoreboards, both ends get a tile when either team has a logo (the other shows its initials), so the mark
+  stays in the middle.
+- Logos stay on that PC only (`data/branding/teams/`, with `teams.json` holding the names), never in the app's
+  files, since each belongs to its school. **Remove** takes one off.
+
 ## Stream overlay (player names over the gameplay)
 
 Settings has a **Stream overlay** section. **Add overlay to OBS** puts a Browser Source called "TEC Overlay"

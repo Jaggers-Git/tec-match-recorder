@@ -142,6 +142,7 @@
     <div class="players">
       <div class="player">
         <label for="p1">Player 1</label>
+        <img id="tl1" class="team-logo-pv" alt="" title="Team logo (Settings, Team logos)" hidden>
         <input id="p1" list="recent-list" placeholder="Player 1" autocomplete="off">
         <div class="chars">
           <div id="chars1" class="chip-row"></div>
@@ -164,6 +165,7 @@
       </div>
       <div class="player">
         <label for="p2">Player 2</label>
+        <img id="tl2" class="team-logo-pv" alt="" title="Team logo (Settings, Team logos)" hidden>
         <input id="p2" list="recent-list" placeholder="Player 2" autocomplete="off">
         <div class="chars">
           <div id="chars2" class="chip-row"></div>
@@ -375,6 +377,15 @@
           <textarea name="crews.list" rows="6" placeholder="A&amp;M-San Antonio&#10;Northwest Vista&#10;..."></textarea>
         </label>
         <div class="muted">A new set (and every set after End &amp; Save) starts both crews at the full stock count: tap −1 each time a stock is lost. Titles leave the characters out (a crew uses up to eight); the CSV keeps them. For a best-of-3 grand final, pick Best of 3 and tap a game pip for the crew that starts a win up.</div>
+      </fieldset>
+      <fieldset>
+        <legend>Team logos</legend>
+        <div class="muted">School or club logos for Overwatch and Marvel Rivals teams and Smash crews. A set's team or crew name picks the logo with the same name, and it shows on a light tile on the scoreboard, the Casters scene and the screens' up-next card. Put aliases after commas ("United, United High"); a name that starts the other also matches when only one logo does. Kept on this PC only (data\branding\teams), never in the app's files. A PNG with a transparent background looks best.</div>
+        <div id="team-logos" class="team-logos"></div>
+        <div class="row" style="align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px">
+          <label class="small file-btn">Add logos…<input type="file" id="team-logo-files" accept="image/png,image/jpeg,image/webp" multiple hidden></label>
+          <span id="team-logos-status" class="muted">Each file's name becomes the team name; change it in the list.</span>
+        </div>
       </fieldset>
       <fieldset>
         <legend>Event</legend>

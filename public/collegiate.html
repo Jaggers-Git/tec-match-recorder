@@ -62,6 +62,8 @@
   .round { margin-top: 10px; font-weight: 600; font-size: 24px; letter-spacing: .2em; text-transform: uppercase; color: var(--c-text); }
   /* Team games: the series score beside the names, and the maps played so far under the card. */
   .vsline .sc { color: var(--c-text); font-size: .8em; }
+  /* Team logos (Settings, Team logos) beside the names, on light tiles. */
+  .vsline img.tl { flex: none; align-self: center; height: 1.2em; width: 1.2em; object-fit: contain; background: #f3f4f6; border-radius: 4px; padding: .1em; box-sizing: border-box; }
   .maps { margin-top: 18px; display: grid; gap: 8px; min-width: 760px; max-width: 100%; }
   .maps .m { display: grid; grid-template-columns: 90px 1fr 190px auto; gap: 18px; align-items: baseline; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,.12); font-size: 26px; }
   .maps .no { font-weight: 600; font-size: 18px; letter-spacing: .2em; text-transform: uppercase; color: var(--c-text); }
@@ -128,7 +130,7 @@
       <div id="now" class="card" hidden>
         <div class="tile sheen"><span><i id="now-dot" class="live-dot" hidden></i><span id="now-tag">Up next</span></span></div>
         <div class="body">
-          <div class="vsline"><span id="now-p1"></span><span class="vs">vs</span><span id="now-p2"></span></div>
+          <div class="vsline"><img class="tl" id="now-l1" alt="" hidden><span id="now-p1"></span><span class="vs">vs</span><span id="now-p2"></span><img class="tl" id="now-l2" alt="" hidden></div>
           <div id="now-round" class="round"></div>
         </div>
       </div>
@@ -249,6 +251,12 @@
       $('#now-dot').hidden = !(S.rec && S.rec.active);
       $('#now-p1').textContent = c.p1;
       $('#now-p2').textContent = c.p2;
+      for (const side of [1, 2]) {
+        const url = (S.teamLogos || {})[`p${side}`] || '';
+        const im = $(`#now-l${side}`);
+        im.hidden = !url;
+        if (url && im.getAttribute('src') !== url) im.src = url;
+      }
       const crews = b.crews && b.crews.enabled;
       $('#now-round').textContent = [c.round, crews ? 'Crew battle' : ''].filter(Boolean).join('  /  ');
     }

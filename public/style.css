@@ -240,6 +240,14 @@ button.primary { background: var(--brand-fill); color: var(--on-brand); border: 
   .players .vs { flex-direction: row; justify-content: center; padding-top: 0; }
 }
 .player label, .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+/* The matched team logo beside a name (Settings, Team logos), on a light tile. */
+.player { position: relative; }
+.team-logo-pv { position: absolute; top: -6px; right: 0; width: 28px; height: 28px; object-fit: contain; background: #f3f4f6; border-radius: 5px; padding: 2px; box-sizing: border-box; }
+/* Settings, Team logos: one row per logo. */
+.team-logos { display: grid; gap: 6px; margin-top: 8px; }
+.team-logos .tl-row { display: flex; align-items: center; gap: 8px; }
+.team-logos .tl-row img { flex: none; width: 40px; height: 40px; object-fit: contain; background: #f3f4f6; border-radius: 6px; padding: 3px; box-sizing: border-box; }
+.team-logos .tl-row input { flex: 1; min-width: 0; }
 .vs { align-self: start; padding-top: 22px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .vs span { font-family: var(--display); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
 .swap { width: 46px; height: 46px; border-radius: 50%; background: var(--panel2); border: 1px solid var(--border); color: var(--text); font-size: 22px; line-height: 1; }

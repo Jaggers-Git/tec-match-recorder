@@ -67,6 +67,8 @@
   .vsline > span { flex: none; }
   .vsline .vs { color: var(--mute); font-style: normal; font-size: .56em; font-weight: 700; letter-spacing: .14em; }
   .vsline .sc { color: var(--gold); font-style: normal; }
+  /* Team logos (Settings, Team logos) beside the names, on light tiles. */
+  .vsline img.tl { flex: none; align-self: center; height: 1.2em; width: 1.2em; object-fit: contain; background: #f3f4f6; border-radius: 4px; padding: .1em; box-sizing: border-box; }
   .round { margin-top: 8px; font-weight: 700; font-size: 22px; letter-spacing: .2em; text-transform: uppercase; color: var(--mute); }
 
   /* The maps so far, as rows on the schedule card: number in green, map, mode, winner; the next map lit green. */
@@ -155,7 +157,7 @@
       <h1 class="gleam" data-title></h1>
       <div class="where" data-where></div>
       <div class="message" data-message></div>
-      <div class="card" data-now><div class="tile sheen"><span><i class="live-dot" data-dot hidden></i><span data-tag>Up next</span></span></div><div class="body"><div class="vsline"><span data-p1></span><span class="vs">vs</span><span data-p2></span></div><div class="round" data-round></div></div></div>
+      <div class="card" data-now><div class="tile sheen"><span><i class="live-dot" data-dot hidden></i><span data-tag>Up next</span></span></div><div class="body"><div class="vsline"><img class="tl" data-l1 alt="" hidden><span data-p1></span><span class="vs">vs</span><span data-p2></span><img class="tl" data-l2 alt="" hidden></div><div class="round" data-round></div></div></div>
       <div class="maps" data-maps></div>
     </div>
     <div class="hosted" data-hosted><span>Hosted by</span><img alt=""></div>
@@ -169,7 +171,7 @@
       <h1 class="gleam" data-title></h1>
       <div class="where" data-where></div>
       <div class="message" data-message></div>
-      <div class="card" data-now><div class="tile sheen"><span><i class="live-dot" data-dot hidden></i><span data-tag>Up next</span></span></div><div class="body"><div class="vsline"><span data-p1></span><span class="vs">vs</span><span data-p2></span></div><div class="round" data-round></div></div></div>
+      <div class="card" data-now><div class="tile sheen"><span><i class="live-dot" data-dot hidden></i><span data-tag>Up next</span></span></div><div class="body"><div class="vsline"><img class="tl" data-l1 alt="" hidden><span data-p1></span><span class="vs">vs</span><span data-p2></span><img class="tl" data-l2 alt="" hidden></div><div class="round" data-round></div></div></div>
       <div class="maps" data-maps></div>
     </div>
   </div>
@@ -307,6 +309,12 @@
       const score = sr && (cur.score1 || cur.score2) ? [` <span class="sc">${cur.score1 || 0}</span>`, `<span class="sc">${cur.score2 || 0}</span> `] : ['', ''];
       q('p1').innerHTML = esc(cur.p1) + score[0];
       q('p2').innerHTML = score[1] + esc(cur.p2);
+      for (const side of [1, 2]) {
+        const url = (S.teamLogos || {})[`p${side}`] || '';
+        const im = q(`l${side}`);
+        im.hidden = !url;
+        if (url && im.getAttribute('src') !== url) im.src = url;
+      }
       const crews = b.crews && b.crews.enabled;
       q('round').textContent = [cur.round, crews ? 'Crew battle' : ''].filter(Boolean).join('  /  ');
     }

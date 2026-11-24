@@ -111,6 +111,9 @@
   #col .pt { background: #2B6FD4; color: #fff; font-weight: 800; }
   #col .mk { background: #0d1118; }
   #col .mk svg { height: 58%; width: auto; }
+  /* Logo tiles at the outer ends (Settings, Team logos): a light tile, the logo or the team's initials. */
+  #col .lg { background: #f3f4f6; color: #0E0E0E; font-weight: 800; }
+  #col .lg img { width: 84%; height: 84%; object-fit: contain; display: block; }
   #col-band { position: absolute; left: 50%; transform: translateX(-50%); background: rgba(13,17,24,.94); border: 2px solid rgba(255,255,255,.16); border-radius: 4px; color: #5B95EA; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; padding: 6px 18px 6px calc(18px + .2em); white-space: nowrap; box-shadow: 0 3px 8px rgba(0,0,0,.4); }
   #col-band svg.gem { color: #2B6FD4; margin: 0 .6em; }
   .col-pips { position: absolute; display: none; gap: 10px; }
@@ -161,6 +164,8 @@
   #team .tm-plate.right { right: 44px; flex-direction: row-reverse; }
   #team .tm-mark { flex: none; width: 62px; display: flex; align-items: center; justify-content: center; background: var(--tm-tile, #23262d); overflow: hidden; }
   #team .tm-mark img { width: 84%; height: 84%; object-fit: contain; }
+  /* A team logo (Settings, Team logos) sits on a light tile, so dark marks read on every theme. */
+  #team .tm-mark.logo { background: #f3f4f6; }
   #team .tm-mark span { font-weight: 800; font-size: 20px; letter-spacing: .02em; line-height: 1; }
   #team .tm-who { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 16px; }
   #team .right .tm-who { align-items: flex-end; }
@@ -248,11 +253,13 @@
 </div>
 <div id="col" hidden>
   <div id="col-board">
+    <div id="col-l1" class="seg lg" hidden><img alt=""><span></span></div>
     <div id="col-n1" class="seg nm"><span></span></div>
     <div id="col-s1" class="seg pt"><span></span></div>
     <div id="col-mk" class="seg mk"></div>
     <div id="col-s2" class="seg pt"><span></span></div>
     <div id="col-n2" class="seg nm"><span></span></div>
+    <div id="col-l2" class="seg lg" hidden><img alt=""><span></span></div>
   </div>
   <div id="col-band"><span></span></div>
   <div id="col-w1" class="col-pips"></div>
